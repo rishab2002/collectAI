@@ -1,0 +1,45 @@
+Help Me figure out how to do this. What tools can i make usage of with claude and how can i be the most efficient with tokens? 
+Universal Die-Cast Database Project
+
+Goal: Build a brand-agnostic database and website covering Hot Wheels,
+Matchbox, Corgi, Inno64, Mini GT, Tomica, GreenLight, and more. The
+platform should support easy addition of new brands, castings, releases,
+price history, user collections, and AI-assisted catalog expansion.
+
+Core database hierarchy: Casting(IncludeCastingVersion) -> Brand -> Series -> Release ->
+Variation -> Price History, Photos, Add To Collection
+
+
+
+Key features: - Search across all brands. - User collections and
+wishlists. - Price history charts. - AI image identification. - Barcode
+scanning. - Admin approval workflow - Add to and Remove from User collections - Add to and Remove from wishlists
+
+Data acquisition: - Prefer building an original database. - Import from
+official catalogs where available. - Crawl publicly available pages or
+APIs where permitted. - OCR and image recognition from packaging
+photos. - Compare findings with the SQL database. - Add only missing
+records - For Release = Year it was released/sold in stores, For Variation = A different finish? Different color? Different rims? What made it unique to the other variations,
+For Casting, if able to separate model from make, like lfa from lexus. And if you can, add Mazda to '93 RX-7 (FD3S) if you see it to it's make and model it RX-7...) if its the same with other cars based actually on real cars and not fantasy do the same. 
+AI Agent Pipeline: 1. Image Agent - Reads card/package images. 2. OCR
+Agent - Extracts brand, year, series, casting, collector number. 3.
+Metadata Agent - Normalizes names and attributes. 4. Search Agent -
+Finds corroborating public references. 5. Comparison Agent - Checks if
+the release already exists. 6. Insertion Agent - Creates proposed
+records. 7. Review Agent - Assigns confidence score and requests
+approval for uncertain entries.
+
+Example: Input: - Brand: Hot Wheels - Year: 2011 - Series: Night
+Burnerz - Photo of a ’11 Honda Civic
+
+Workflow: - Identify the release. - Determine all models in the Night
+Burnerz series. - Compare against the database. - Search only for
+missing releases. - Present proposed additions for approval. - Save
+approved records.
+
+Recommended stack: - Laravel (PHP) - MySQL or PostgreSQL - AWS S3 -
+Redis - Meilisearch or Elasticsearch - Docker
+
+Long-term vision: Create a universal die-cast encyclopedia with verified
+data, cross-brand search, collection management, price tracking, and
+AI-assisted catalog growth.
