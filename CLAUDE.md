@@ -183,10 +183,37 @@ scanning.
   indexes, the `COALESCE` expression index, `jsonb` and partial indexes don't
   exist in SQLite. `docker/postgres/init-test-db.sh` creates `diecast_testing`
   on first volume creation; an existing environment needs it made by hand.
-- **`env('SOME_VAR')` returns `''`, not `null`,** for a bare `VAR=` line in
-  `.env`. That produced an admin account whose password was the empty string and
-  which authenticated against it. `config/catalog.php` normalizes with `?: null`
-  and `AdminUserSeeder` uses `blank()`; `AdminUserSeederTest` guards it.
+
+Also note: `env('SOME_VAR')` returns `''`, not `null`, for a bare `VAR=` line in
+`.env`. That produced an admin account whose password was the empty string and
+which authenticated against it. `config/catalog.php` normalizes with `?: null`
+and `AdminUserSeeder` uses `blank()`; `AdminUserSeederTest` guards it.
+
+**Where the admin password lives:** `ADMIN_PASSWORD` in `.env`, which is
+gitignored. Set it there and it survives reseeds; leave it blank and
+`AdminUserSeeder` generates a fresh one per seed and prints it exactly once, so
+any value written down elsewhere is stale the next time anyone runs
+`migrate:fresh --seed`. Don't paste it into this file — CLAUDE.md is tracked and
+pushed, and git history keeps a committed secret whether or not it's later
+deleted. The seeder is idempotent and won't reset an existing admin, so changing
+the password means deleting the `admin@example.test` row and re-running
+`db:seed --class=AdminUserSeeder`.
+
+### Still not built
+
+- No capture or review **screens** yet — `/admin` is a placeholder list of
+  submissions awaiting review. The PWA manifest, service worker, camera capture
+  and approve/reject UI are the next milestone.
+- No AI agent code at all. `/app/AI/schemas/ocr_output.json` doesn't exist yet;
+  `SubmissionFactory::completed()` and `SubmissionSeeder` hand-write the shape
+  the OCR agent is expected to emit, which is a starting point for that schema.
+- R2 credentials in `.env` are still empty placeholders — the disk is
+  configured but nothing has uploaded through it.
+- Nothing creates a `CastingVersion` automatically alongside a `Casting`.
+  `CatalogSeeder::casting()` does it explicitly. This is deliberate: a model
+  `created` hook would collide with `CastingVersionFactory`, which builds a
+  casting and its version separately. Whoever writes the Insertion Agent must
+  create version 1 explicitly.
 
 ---
 
