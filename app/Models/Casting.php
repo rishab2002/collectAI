@@ -11,11 +11,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 
 /**
- * One toy manufacturer's specific tooling of a vehicle. Brand-specific: if both
- * Hot Wheels and Matchbox tool an RX-7, that's two Casting rows pointing at the
- * same VehicleModel.
+ * One physical tool cut by a toy manufacturer. A Casting carries no brand: which
+ * brand sold it is a fact about each Release, reached as
+ * release -> series -> brand. Two brands that each tool their own RX-7 are two
+ * Casting rows pointing at the same VehicleModel; one tool sold under two sister
+ * brands is a single Casting row with releases under each brand's series.
  */
-#[Fillable(['brand_id', 'model_id', 'is_fantasy', 'name', 'notes'])]
+#[Fillable(['model_id', 'is_fantasy', 'name', 'notes'])]
 class Casting extends Model
 {
     use HasApprovalStatus, HasFactory;
@@ -25,11 +27,6 @@ class Casting extends Model
         return [
             'is_fantasy' => 'boolean',
         ];
-    }
-
-    public function brand(): BelongsTo
-    {
-        return $this->belongsTo(Brand::class);
     }
 
     /**
@@ -80,9 +77,13 @@ class Casting extends Model
     /**
      * The model is null for fantasy castings, which the walk skips — a made-up
      * car has no real-world parent to approve.
+     *
+     * Brand is deliberately absent: a casting has none. Approving a release
+     * promotes its series, and the series promotes its brand, so nothing goes
+     * live under an invisible brand.
      */
     public function approvalDependencies(): array
     {
-        return [$this->brand, $this->model];
+        return [$this->model];
     }
 }

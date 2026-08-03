@@ -16,11 +16,14 @@ class Brand extends Model
 {
     use HasApprovalStatus, HasFactory;
 
-    public function castings(): HasMany
-    {
-        return $this->hasMany(Casting::class);
-    }
-
+    /**
+     * There is deliberately no castings() relation. A casting has no brand — it's
+     * one physical tool, and the brand that sold it is a per-release fact. The
+     * question worth asking is "castings this brand has *sold*", which runs
+     * brand -> series -> releases -> casting_versions -> castings; build it as an
+     * explicit query (or off the search index) when a browse screen needs it,
+     * rather than pretending it's a HasMany.
+     */
     public function series(): HasMany
     {
         return $this->hasMany(Series::class);

@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Models\Brand;
 use App\Models\Casting;
 use App\Models\VehicleModel;
 use Database\Factories\Concerns\HasApprovalStates;
@@ -18,7 +17,6 @@ class CastingFactory extends Factory
     public function definition(): array
     {
         return [
-            'brand_id' => Brand::factory(),
             'model_id' => VehicleModel::factory(),
             'is_fantasy' => false,
             // Packaging names carry the model year prefix, which is part of why
