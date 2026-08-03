@@ -1,0 +1,36 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('price_histories', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('variation_id')->constrained('variations')->cascadeOnDelete();
+            $table->decimal('price', 10, 2);
+            $table->char('currency', 3)->default('USD');
+            $table->string('source')->nullable();
+            $table->timestamp('observed_at');
+            $table->timestamps();
+
+            // Price-history charts always query "this variation, ordered by time" —
+            // a composite index serves that directly instead of two separate ones.
+            $table->index(['variation_id', 'observed_at']);
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('price_histories');
+    }
+};
