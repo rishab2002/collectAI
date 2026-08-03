@@ -2,40 +2,52 @@
 
 namespace App\Models;
 
-use App\Models\Concerns\HasApprovalStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\RouteKey;
 use Illuminate\Database\Eloquent\Attributes\Table;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * A brand-scoped, reusable named wave ("Night Burnerz"). It carries no year of
- * its own — the same series name recurs across multiple years, and the year
- * lives on the Release.
+ * A themed release wave belonging to a brand, e.g. "Night Burnerz".
  *
- * #[Table] is explicit because "series" is its own plural; leaving it to the
- * inflector would work today but silently depends on that staying true.
+ * Carries no year: a series can run for several years, and the year is what
+ * defines a Release. Table name is set explicitly because the class name is
+ * already plural.
  */
+#[Fillable(['brand_id', 'name', 'slug', 'description', 'metadata'])]
+#[RouteKey('slug')]
 #[Table('series')]
-#[Fillable(['brand_id', 'name'])]
 class Series extends Model
 {
-    use HasApprovalStatus, HasFactory;
+    protected function casts(): array
+    {
+        return [
+            'metadata' => 'array',
+        ];
+    }
 
+    /** @return BelongsTo<Brand, $this> */
     public function brand(): BelongsTo
     {
         return $this->belongsTo(Brand::class);
     }
 
+    /** @return HasMany<Release, $this> */
     public function releases(): HasMany
     {
         return $this->hasMany(Release::class);
     }
 
-    public function approvalDependencies(): array
+    /**
+     * The full wave for one year — what the Comparison Agent diffs the DB
+     * against when it is told "all Night Burnerz castings for 2011".
+     *
+     * @return HasMany<Release, $this>
+     */
+    public function releasesForYear(int $year): HasMany
     {
-        return [$this->brand];
+        return $this->releases()->where('year', $year);
     }
 }

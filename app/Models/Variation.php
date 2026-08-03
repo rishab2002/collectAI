@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Models\Concerns\HasApprovalStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -12,94 +11,104 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
- * What makes one unit of a release distinct: finish, colour, rims, tampos, and
- * so on. This is the leaf collectors actually own, price, and photograph.
+ * What makes one unit of a release different from another: body colour,
+ * finish, wheel/rim type, tampo, interior, window tint, base colour.
+ *
+ * Each distinguishing combination is its own record — these are columns, not a
+ * free-text note, so the Comparison Agent can diff them. Anything a single
+ * brand cares about and others do not (chase flags, exclusive markings) goes in
+ * metadata so adding a brand never needs a migration.
+ *
+ * This is the level collectors actually own, so price history, photos,
+ * collections and wishlists all hang off here.
  */
 #[Fillable([
     'release_id',
+    'name',
+    'body_color',
     'finish',
-    'color',
-    'rim_type',
+    'wheel_type',
     'tampo',
     'interior_color',
-    'window_tint',
+    'window_color',
     'base_color',
+    'base_material',
+    'country_of_manufacture',
+    'is_chase',
     'notes',
+    'metadata',
+    'status',
+    'confidence_score',
 ])]
 class Variation extends Model
 {
-    use HasApprovalStatus, HasFactory;
+    use HasApprovalStatus;
 
-    /**
-     * The columns the database's uniqueness index covers, in its order.
-     *
-     * Kept here so application-side duplicate checks (the Comparison Agent) test
-     * exactly the same attribute set the DB enforces — if the two ever disagree,
-     * the agent proposes a variation that then fails to insert.
-     *
-     * @var list<string>
-     */
-    public const DISTINGUISHING_ATTRIBUTES = [
-        'finish',
-        'color',
-        'rim_type',
-        'tampo',
-        'interior_color',
-        'window_tint',
-        'base_color',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'is_chase' => 'boolean',
+            'metadata' => 'array',
+        ];
+    }
 
+    /** @return BelongsTo<Release, $this> */
     public function release(): BelongsTo
     {
         return $this->belongsTo(Release::class);
     }
 
-    public function priceHistories(): HasMany
+    /** @return HasMany<PriceHistory, $this> */
+    public function priceHistory(): HasMany
     {
         return $this->hasMany(PriceHistory::class);
     }
 
+    /** @return HasMany<Photo, $this> */
     public function photos(): HasMany
     {
         return $this->hasMany(Photo::class);
     }
 
+    /** @return HasOne<Photo, $this> */
     public function primaryPhoto(): HasOne
     {
         return $this->hasOne(Photo::class)->where('is_primary', true);
     }
 
-    /**
-     * Collectors who own this variation. The pivot carries quantity/condition, so
-     * multiple copies are a quantity bump rather than repeated rows.
-     */
-    public function collectors(): BelongsToMany
+    /** @return HasMany<CollectionItem, $this> */
+    public function collectionItems(): HasMany
     {
-        return $this->belongsToMany(User::class, 'user_collection_items')
+        return $this->hasMany(CollectionItem::class);
+    }
+
+    /** @return HasMany<WishlistItem, $this> */
+    public function wishlistItems(): HasMany
+    {
+        return $this->hasMany(WishlistItem::class);
+    }
+
+    /**
+     * Users who own this variation.
+     *
+     * @return BelongsToMany<User, $this>
+     */
+    public function owners(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'collection_items')
             ->withPivot(['quantity', 'condition', 'acquired_at'])
             ->withTimestamps();
     }
 
-    public function wishlistedBy(): BelongsToMany
-    {
-        return $this->belongsToMany(User::class, 'user_wishlist_items')
-            ->withTimestamps();
-    }
-
-    public function approvalDependencies(): array
-    {
-        return [$this->release];
-    }
-
     /**
-     * The same COALESCE(col, '') identity the DB's unique index builds, so a
-     * proposed variation can be compared against existing ones in PHP without
-     * NULL-vs-NULL producing a false "these differ".
+     * Users who want this variation.
+     *
+     * @return BelongsToMany<User, $this>
      */
-    public function attributeSignature(): string
+    public function wishers(): BelongsToMany
     {
-        return collect(self::DISTINGUISHING_ATTRIBUTES)
-            ->map(fn (string $attribute): string => (string) $this->{$attribute})
-            ->implode('|');
+        return $this->belongsToMany(User::class, 'wishlist_items')
+            ->withPivot(['priority', 'max_price'])
+            ->withTimestamps();
     }
 }
