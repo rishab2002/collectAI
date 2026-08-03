@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ItemCondition;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -31,6 +32,7 @@ class UserCollectionItem extends Model
     {
         return [
             'quantity' => 'integer',
+            'condition' => ItemCondition::class,
             'acquired_at' => 'date',
         ];
     }

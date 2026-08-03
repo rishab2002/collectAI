@@ -4,118 +4,85 @@ namespace App\Models;
 
 use App\Models\Concerns\HasApprovalStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\RouteKey;
-use Illuminate\Database\Eloquent\Attributes\Scope;
-use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 
 /**
- * A toy manufacturer's specific tooling of a vehicle, e.g. Hot Wheels'
- * "'93 Mazda RX-7". The tooling is what is reused; the paint and packaging
- * around it are Releases and Variations.
- *
- * Make/Model split: if the casting is based on a real production car it links
- * to both a Make and a VehicleModel even when the packaging prints only one
- * name. Fantasy/original castings keep both null and set is_fantasy — the flag
- * exists so "no real counterpart" is distinguishable from "not identified yet",
- * which a null make_id alone cannot express.
- *
- * `company` (Mattel) rather than a brand: the same tooling can be sold under
- * sister brands, so the owning brand is a property of each Release.
+ * One toy manufacturer's specific tooling of a vehicle. Brand-specific: if both
+ * Hot Wheels and Matchbox tool an RX-7, that's two Casting rows pointing at the
+ * same VehicleModel.
  */
-#[Fillable([
-    'make_id',
-    'vehicle_model_id',
-    'name',
-    'slug',
-    'company',
-    'designer',
-    'scale',
-    'debut_year',
-    'is_fantasy',
-    'metadata',
-    'status',
-    'confidence_score',
-])]
-#[RouteKey('slug')]
+#[Fillable(['brand_id', 'model_id', 'is_fantasy', 'name', 'notes'])]
 class Casting extends Model
 {
-    use HasApprovalStatus;
+    use HasApprovalStatus, HasFactory;
 
     protected function casts(): array
     {
         return [
-            'debut_year' => 'integer',
             'is_fantasy' => 'boolean',
-            'metadata' => 'array',
         ];
     }
 
-    /**
-     * Named vehicleMake() rather than make(): an instance method called make()
-     * shadows Eloquent's static Model::make() helper, turning Casting::make([])
-     * into a fatal "non-static method" error.
-     *
-     * @return BelongsTo<Make, $this>
-     */
-    public function vehicleMake(): BelongsTo
+    public function brand(): BelongsTo
     {
-        return $this->belongsTo(Make::class, 'make_id');
-    }
-
-    /** @return BelongsTo<VehicleModel, $this> */
-    public function vehicleModel(): BelongsTo
-    {
-        return $this->belongsTo(VehicleModel::class);
+        return $this->belongsTo(Brand::class);
     }
 
     /**
-     * Retools of this tooling.
-     *
-     * @return HasMany<CastingVersion, $this>
+     * Null both for fantasy castings and for real castings whose model hasn't
+     * been identified yet — check is_fantasy to tell those apart.
      */
+    public function model(): BelongsTo
+    {
+        return $this->belongsTo(VehicleModel::class, 'model_id');
+    }
+
+    /**
+     * Reached through the model rather than stored on this row, so a casting's
+     * make can never drift out of sync with its model. Null for fantasy castings,
+     * same as model().
+     */
+    public function make(): HasOneThrough
+    {
+        return $this->hasOneThrough(
+            Make::class,
+            VehicleModel::class,
+            'id',        // models.id, matched against castings.model_id
+            'id',        // makes.id, matched against models.make_id
+            'model_id',
+            'make_id',
+        );
+    }
+
     public function versions(): HasMany
     {
         return $this->hasMany(CastingVersion::class);
     }
 
-    /** @return HasMany<Release, $this> */
-    public function releases(): HasMany
+    public function isFantasy(): bool
     {
-        return $this->hasMany(Release::class);
+        return $this->is_fantasy;
     }
 
     /**
-     * Every brand this tooling has been sold under, read off the releases.
-     *
-     * @return BelongsToMany<Brand, $this>
+     * A real casting whose VehicleModel hasn't been resolved yet. This is the
+     * Comparison Agent's queue: the car exists, the catalog just can't name it.
      */
-    public function brands(): BelongsToMany
+    public function isUnidentified(): bool
     {
-        return $this->belongsToMany(Brand::class, 'releases')->distinct();
+        return ! $this->is_fantasy && $this->model_id === null;
     }
 
-    /** @return HasManyThrough<Variation, Release, $this> */
-    public function variations(): HasManyThrough
+    /**
+     * The model is null for fantasy castings, which the walk skips — a made-up
+     * car has no real-world parent to approve.
+     */
+    public function approvalDependencies(): array
     {
-        return $this->hasManyThrough(Variation::class, Release::class);
-    }
-
-    /** Castings with a real-world counterpart, i.e. eligible for Make/Model. */
-    #[Scope]
-    protected function realWorld(Builder $query): Builder
-    {
-        return $query->where('is_fantasy', false);
-    }
-
-    /** Real-world castings still missing their Make/Model split. */
-    #[Scope]
-    protected function unattributed(Builder $query): Builder
-    {
-        return $query->where('is_fantasy', false)->whereNull('vehicle_model_id');
+        return [$this->brand, $this->model];
     }
 }

@@ -1,3 +1,80 @@
+## Status as of 2026-08-02 — Duplicate schema reconciled
+
+`main` had shipped broken and nobody had noticed, because nothing rebuilds the
+schema in normal use. Read this block before adding migrations.
+
+**What happened.** PRs #2 and #3 each built the catalog schema independently,
+on branches that never saw each other, and both were merged. `main` ended up
+with two complete sets of create-table migrations for the same nine tables
+(`2026_08_02_0000*` from #3 and `2026_08_02_1000*` from #2), so a fresh
+`php artisan migrate` died on the second `makes`:
+
+```
+2026_08_02_100001_create_makes_table ... FAIL
+SQLSTATE[42P07]: relation "makes" already exists
+```
+
+The dev database kept working only because it had been migrated before the
+collision existed; all 13 of PR #3's migrations sat at `Pending` and had never
+run anywhere. The merge also kept PR #3's model classes while keeping PR #4's
+factories, seeders and tests, which target the *other* schema — so the models
+and the suite that exercised them disagreed about column names.
+
+**Resolution: the `1000*` set (PR #2) survives, the `0000*` set is deleted.**
+It's the set CLAUDE.md documents as settled, the one the `200*` migrations
+build on, the one the live database has, and the one the factories and tests
+assert. Model classes were restored to their PR #4 versions, the duplicate
+`CollectionItem`/`WishlistItem` pair dropped in favour of
+`UserCollectionItem`/`UserWishlistItem`, and the `ApprovalStatus` enum dropped
+— its `approved` case would have failed the `pending`/`live`/`rejected` CHECK.
+
+**Two ideas were salvaged from the deleted set** and rebuilt as additive
+migrations (`200005`, `200006`):
+
+- **`castings.is_fantasy`.** Previously "fantasy casting" and "real car we
+  haven't identified yet" were both spelled `model_id IS NULL`, and
+  `Casting::isFantasy()` returned exactly that. That breaks as soon as the
+  pipeline writes castings: OCR routinely yields a casting whose `VehicleModel`
+  the Comparison Agent can't match, and `approvalDependencies()` skips a null
+  model — so an unidentified real car would have gone live with no Make/Model
+  attribution instead of blocking on it. The flag is now the positive
+  assertion; `false` + null `model_id` is the "not identified yet" state,
+  exposed as `isUnidentified()` and as a factory state. A CHECK stops a fantasy
+  casting from also claiming a real model.
+- **`ItemCondition` is now wired.** It arrived with the deleted schema and was
+  never attached to anything while `user_collection_items.condition` stayed
+  free text. Now cast on the model, with a matching CHECK so writes that skip
+  Eloquent are covered too.
+
+**Still open — the one real design question underneath all this.** The two
+schemas disagreed about where Brand belongs, and that disagreement is still
+unresolved; the surviving set won on integration, not on merit.
+
+- **What's in the DB now (PR #2):** `castings.brand_id`, required. One casting
+  row belongs to one brand, and shared tooling is modelled as separate casting
+  rows per brand.
+- **What PR #3 argued:** brand belongs on `releases`, so one casting row is one
+  physical tool and each release records which brand sold it that year.
+- **The Core Data Model below actually describes PR #3's version** — its tree
+  puts Brand *under* Casting and says outright that "a casting can be reused
+  across sister brands owned by the same company". That's domain-accurate;
+  tooling reuse across sister brands is common (Johnny Lightning / Auto World,
+  Mini GT / Kaido House). Under the current schema those become two casting
+  rows with no way to record that they're one tool, which is exactly the kind
+  of near-duplicate the Comparison Agent exists to catch.
+
+This was deliberately **not** changed here, per the "keep schema decisions and
+implementation work in separate sessions" convention below — folding a schema
+redesign into a merge repair would have made both unreviewable. Settle it on
+its own, and if brand moves to `releases`, do it as a migration with a backfill
+rather than by editing `100004`.
+
+Verified: `migrate`, `rollback` and `re-migrate` all clean from scratch;
+`migrate:fresh --seed` clean; `php artisan test` green at 39 tests, 78
+assertions.
+
+---
+
 ## Status as of 2026-08-02 — Models, admin auth, and the submission gate landed
 
 Builds on the schema session below (whose decisions all still stand). This
@@ -131,9 +208,11 @@ rollback, and re-migrate all run clean.
 Key decisions made while writing them (don't relitigate these — they're
 settled, only reopen if a real requirement contradicts one):
 
-- **Fantasy castings**: `castings.model_id` is nullable (null = no real
-  vehicle). There is deliberately no `make_id` column on `castings` — make is
-  reached via `model.make_id` so it can't drift out of sync with model_id.
+- **Fantasy castings**: `castings.model_id` is nullable. There is deliberately
+  no `make_id` column on `castings` — make is reached via `model.make_id` so it
+  can't drift out of sync with model_id. (Superseded in part: null `model_id`
+  no longer means "no real vehicle" on its own — see the `is_fantasy` flag in
+  the reconciliation block at the top.)
 - **Casting Version (retools)**: a child table, `casting_versions`
   (`casting_id`, `version_number`, `retool_year`, `notes`, unique on
   `casting_id + version_number`). `releases.casting_version_id` points at the
@@ -317,26 +396,27 @@ Input: Brand=Hot Wheels, Year=2011, Series="Night Burnerz", photo of a
 - Vision/OCR calls belong in a dedicated service class (e.g.
   `app/Services/AI/OcrAgent.php`), not inline in controllers — keeps the
   Claude API usage auditable and easy to swap/version.
+- **Before writing a migration, look at what's already in
+  `database/migrations` on your branch — not just what the DB happens to have.**
+  Two branches each built the whole schema once already (see the top block).
+  A migration that only ever runs forward on an already-migrated dev database
+  hides a collision that a fresh `migrate` would catch immediately.
+- **`migrate:fresh --seed` and `php artisan test` are the gate for any schema
+  change**, because neither one passes on a database that was migrated
+  incrementally. Running only `php artisan migrate` proves nothing about
+  whether the schema can be built from zero.
 
 ## Next Steps
 
-*Added 2026-08-02.*
+*Added 2026-08-02. Migrations, models, factories and seeders all landed since;
+what's left of the original list is the search layer.*
 
-Eloquent models (`app/Models`) and migrations (`database/migrations`) for the
-full hierarchy above are in place. Outstanding:
+- **Meilisearch indexing** — `laravel/scout` is not in `composer.json` yet,
+  so nothing is indexed and cross-brand search doesn't work end to end. Note
+  that `pg_trgm` and Meilisearch are not substitutes for each other: trigram
+  similarity is the Comparison Agent's DB-side duplicate check, Meilisearch
+  is user-facing typo-tolerant search.
 
-1. **Model factories and seeders** — none exist yet, so there is no way to
-   populate a local catalog or to write tests that need catalog data. The
-   models were written without `HasFactory` rather than pointing the trait at
-   factory classes that don't exist; add it to each model as its factory
-   lands. Seed at least one complete vertical slice (Make → Model → Casting →
-   Brand → Series → Release → Variation → Price History) so the AI pipeline
-   has something real to diff against.
-2. **Meilisearch indexing** — `laravel/scout` is not in `composer.json` yet,
-   so nothing is indexed and cross-brand search doesn't work end to end. Note
-   that `pg_trgm` and Meilisearch are not substitutes for each other: trigram
-   similarity is the Comparison Agent's DB-side duplicate check, Meilisearch
-   is user-facing typo-tolerant search.
 ## Guide for the next session
 
 Schema, models, factories, seeders, admin auth and the approval mechanics are
@@ -344,9 +424,18 @@ all settled and tested (see the status blocks at the top). Per the "separate
 sessions" convention above, don't revisit the Casting/Model split, the
 migrations, or the approval-status decisions — build on them.
 
-Recommended next step: **the capture and review screens** — the PWA the whole
-submission perspective exists for. The backing models and the approve/reject
-methods are already there and tested; this is UI plus two controllers.
+Two candidates, depending on appetite:
+
+**If you want to settle schema first**: the brand-on-casting vs brand-on-release
+question in the top block. It's the last unresolved disagreement between the two
+merged schemas, it gets more expensive the more catalog data exists, and the
+Comparison Agent's behaviour depends on the answer. Its own session, per the
+convention above.
+
+**Otherwise, the recommended next step is the capture and review screens** — the
+PWA the whole submission perspective exists for. The backing models and the
+approve/reject methods are already there and tested; this is UI plus two
+controllers.
 
 - **Capture screen** (`/admin/capture`): a form posting one or more photos plus
   the optional brand/year/series hints. Use

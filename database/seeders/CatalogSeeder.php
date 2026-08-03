@@ -113,6 +113,9 @@ class CatalogSeeder extends Seeder
         $casting = Casting::create([
             'brand_id' => $brand->id,
             'model_id' => $model?->id,
+            // Every seeded casting is either attributed or deliberately fantasy;
+            // none are meant to land in the "real car, not identified yet" state.
+            'is_fantasy' => $model === null,
             'name' => $name,
         ]);
         $casting->markLive();
