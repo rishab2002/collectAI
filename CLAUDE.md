@@ -1,3 +1,56 @@
+## Status as of 2026-08-02 — Schema migrations landed
+
+The Laravel 13 + Docker scaffold is set up and running
+(`docker compose up -d` — services: `app`, `db` (Postgres 16), `redis`,
+`meilisearch`). `.env` is copied from `.env.example`; both already match the
+compose service names (`DB_HOST=db`, `REDIS_HOST=redis`,
+`MEILISEARCH_HOST=http://meilisearch:7700`).
+
+The Core Data Model above is now concrete migrations in
+`database/migrations/2026_08_02_1000*`, covering `makes`, `models`, `brands`,
+`castings`, `casting_versions`, `series`, `releases`, `variations`,
+`price_histories`, `photos`, `user_collection_items`, and
+`user_wishlist_items`. Verified against the live Docker Postgres: migrate,
+rollback, and re-migrate all run clean.
+
+Key decisions made while writing them (don't relitigate these — they're
+settled, only reopen if a real requirement contradicts one):
+
+- **Fantasy castings**: `castings.model_id` is nullable (null = no real
+  vehicle). There is deliberately no `make_id` column on `castings` — make is
+  reached via `model.make_id` so it can't drift out of sync with model_id.
+- **Casting Version (retools)**: a child table, `casting_versions`
+  (`casting_id`, `version_number`, `retool_year`, `notes`, unique on
+  `casting_id + version_number`). `releases.casting_version_id` points at the
+  specific tooling revision, not the abstract `casting_id` — a retool is
+  physically distinct tooling with its own releases, while brand/model stay
+  owned once on the parent `castings` row.
+- **Variation uniqueness**: not a plain `UNIQUE` constraint — in Postgres
+  `NULL != NULL`, and every distinguishing attribute (finish, color, rim
+  type, tampo, interior color, window tint, base color) is optional, so NULL
+  collisions would be the common case. Enforced instead via a Postgres
+  expression unique index that wraps each column in `COALESCE(col, '')`
+  (see `2026_08_02_100008_create_variations_table.php`). Confirmed live: an
+  exact duplicate on the same release is rejected; a genuinely different
+  variation on the same release is accepted.
+- **Hard-unique vs. fuzzy-only**: `makes.name` and `brands.name` are
+  small, admin-controlled vocabularies — hard `UNIQUE`, since a duplicate
+  there is always a data-entry error. `models.name`, `castings.name`, and
+  `series.name` are populated by the AI pipeline and deliberately have **no**
+  hard unique constraint — near-duplicates are expected and should surface
+  for Comparison/Review Agent handling, not be silently blocked or merged by
+  the DB.
+- **Trigram (`pg_trgm`) indexes**: GIN trigram indexes on `models.name`,
+  `castings.name`, `series.name`, `brands.name`, and
+  `releases.collector_number` (OCR-extracted, prone to misreads). Not on
+  `makes.name`/`brands.name`'s uniqueness path — those rely on exact hard
+  uniqueness instead, not fuzzy search.
+
+Scope of that session was schema only — no Eloquent models, no controllers,
+no routes, no AI agent code yet.
+
+---
+
 # Universal Die-Cast Database — Project Context
 
 This file is auto-loaded by Claude Code at the start of every session in this
@@ -134,3 +187,41 @@ Input: Brand=Hot Wheels, Year=2011, Series="Night Burnerz", photo of a
 - Vision/OCR calls belong in a dedicated service class (e.g.
   `app/Services/AI/OcrAgent.php`), not inline in controllers — keeps the
   Claude API usage auditable and easy to swap/version.
+
+## Guide for the next session
+
+Schema is settled and migrated (see the status block at the top of this
+file). Per the "keep schema and implementation in separate sessions"
+convention above, the next session should **not** revisit the Casting/Model
+split or the migrations — build on them.
+
+Recommended next step: **Eloquent models + relationships**, since everything
+downstream (agents, controllers, admin approval UI) depends on them.
+
+- One model per table in `app/Models/`, with the relationships already
+  implied by the FKs: `Make hasMany Model`, `Model hasMany Casting`,
+  `Casting belongsTo Brand`, `Casting hasMany CastingVersion`,
+  `CastingVersion hasMany Release`, `Release belongsTo Series`,
+  `Release hasMany Variation`, `Variation hasMany PriceHistory|Photo`, and
+  the `User` belongsToMany `Variation` pairs for collection/wishlist.
+- Note the `Model` name collision: the `models` table maps to a vehicle
+  model, which clashes with Eloquent's own `Model` base class. Name the
+  class something like `VehicleModel` with an explicit
+  `protected $table = 'models'` rather than renaming the table.
+- Add factories/seeders alongside them — the AI pipeline work after this
+  will need realistic fixture data to test the Comparison Agent's duplicate
+  detection against.
+
+After models, the natural order is: admin approval workflow (the `pending` →
+live promotion the Review Agent depends on), then the AI agent pipeline
+starting with the OCR output schema at `/app/AI/schemas/ocr_output.json`.
+
+Two things not yet built that the schema assumes:
+
+- A `status` (pending/live) column does **not** exist yet on any table. The
+  Insertion/Review Agents need it, so whoever builds the approval workflow
+  should add it as a new migration — decide then whether it belongs on every
+  catalog table or just the ones agents write to.
+- The photos table defaults `disk` to `'r2'`, but no R2 disk is configured in
+  `config/filesystems.php` and the R2 credentials in `.env` are still the
+  empty AWS placeholders. Wire that up before anything actually uploads.
