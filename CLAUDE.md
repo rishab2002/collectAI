@@ -172,6 +172,16 @@ Also note: `env('SOME_VAR')` returns `''`, not `null`, for a bare `VAR=` line in
 which authenticated against it. `config/catalog.php` normalizes with `?: null`
 and `AdminUserSeeder` uses `blank()`; `AdminUserSeederTest` guards it.
 
+**Where the admin password lives:** `ADMIN_PASSWORD` in `.env`, which is
+gitignored. Set it there and it survives reseeds; leave it blank and
+`AdminUserSeeder` generates a fresh one per seed and prints it exactly once, so
+any value written down elsewhere is stale the next time anyone runs
+`migrate:fresh --seed`. Don't paste it into this file — CLAUDE.md is tracked and
+pushed, and git history keeps a committed secret whether or not it's later
+deleted. The seeder is idempotent and won't reset an existing admin, so changing
+the password means deleting the `admin@example.test` row and re-running
+`db:seed --class=AdminUserSeeder`.
+
 ### Still not built
 
 - No capture or review **screens** yet — `/admin` is a placeholder list of
