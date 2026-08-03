@@ -15,10 +15,17 @@ use Illuminate\Database\Eloquent\Relations\HasOneThrough;
  * Hot Wheels and Matchbox tool an RX-7, that's two Casting rows pointing at the
  * same VehicleModel.
  */
-#[Fillable(['brand_id', 'model_id', 'name', 'notes'])]
+#[Fillable(['brand_id', 'model_id', 'is_fantasy', 'name', 'notes'])]
 class Casting extends Model
 {
     use HasApprovalStatus, HasFactory;
+
+    protected function casts(): array
+    {
+        return [
+            'is_fantasy' => 'boolean',
+        ];
+    }
 
     public function brand(): BelongsTo
     {
@@ -26,7 +33,8 @@ class Casting extends Model
     }
 
     /**
-     * Null for fantasy castings with no real-world basis.
+     * Null both for fantasy castings and for real castings whose model hasn't
+     * been identified yet — check is_fantasy to tell those apart.
      */
     public function model(): BelongsTo
     {
@@ -57,7 +65,16 @@ class Casting extends Model
 
     public function isFantasy(): bool
     {
-        return $this->model_id === null;
+        return $this->is_fantasy;
+    }
+
+    /**
+     * A real casting whose VehicleModel hasn't been resolved yet. This is the
+     * Comparison Agent's queue: the car exists, the catalog just can't name it.
+     */
+    public function isUnidentified(): bool
+    {
+        return ! $this->is_fantasy && $this->model_id === null;
     }
 
     /**

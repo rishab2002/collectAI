@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\ItemCondition;
 use App\Models\User;
 use App\Models\UserCollectionItem;
 use App\Models\Variation;
@@ -18,7 +19,7 @@ class UserCollectionItemFactory extends Factory
             'user_id' => User::factory(),
             'variation_id' => Variation::factory(),
             'quantity' => fake()->numberBetween(1, 3),
-            'condition' => fake()->randomElement(['Mint on card', 'Opened', 'Loose', 'Damaged card']),
+            'condition' => fake()->randomElement(ItemCondition::cases()),
             'acquired_at' => fake()->dateTimeBetween('-5 years'),
         ];
     }

@@ -7,10 +7,12 @@ use App\Models\Make;
 use App\Models\Release;
 use App\Models\Submission;
 use App\Models\SubmissionProposal;
+use App\Models\UserCollectionItem;
 use App\Models\Variation;
 use App\Models\VehicleModel;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
@@ -105,6 +107,56 @@ class CatalogSchemaTest extends TestCase
         $this->expectException(QueryException::class);
 
         Make::factory()->create(['name' => 'Mazda']);
+    }
+
+    public function test_a_fantasy_casting_cannot_also_claim_a_real_model(): void
+    {
+        $this->expectException(QueryException::class);
+
+        Casting::factory()->create([
+            'is_fantasy' => true,
+            'model_id' => VehicleModel::factory(),
+        ]);
+    }
+
+    public function test_fantasy_and_unidentified_castings_are_distinguishable(): void
+    {
+        $fantasy = Casting::factory()->fantasy()->create();
+        $unidentified = Casting::factory()->unidentified()->create();
+
+        // Both have a null model_id, which is exactly why the flag has to exist:
+        // the pipeline produces the second kind constantly and it must not be
+        // mistaken for a car that was never real.
+        $this->assertNull($fantasy->model_id);
+        $this->assertNull($unidentified->model_id);
+
+        $this->assertTrue($fantasy->isFantasy());
+        $this->assertFalse($fantasy->isUnidentified());
+
+        $this->assertFalse($unidentified->isFantasy());
+        $this->assertTrue($unidentified->isUnidentified());
+    }
+
+    public function test_collection_item_condition_is_a_closed_vocabulary(): void
+    {
+        $item = UserCollectionItem::factory()->create();
+
+        // Inserted raw on purpose: the ItemCondition cast already rejects junk in
+        // PHP, so going through the model would prove nothing about the column.
+        // The CHECK is what covers writes that skip Eloquent — imports, seeders
+        // and psql.
+        $this->expectException(QueryException::class);
+
+        DB::table('user_collection_items')
+            ->where('id', $item->id)
+            ->update(['condition' => 'nearly mint-ish']);
+    }
+
+    public function test_a_condition_outside_the_vocabulary_is_refused_by_the_cast(): void
+    {
+        $this->expectException(\ValueError::class);
+
+        UserCollectionItem::factory()->create(['condition' => 'nearly mint-ish']);
     }
 
     public function test_submission_ocr_output_round_trips_as_structured_json(): void

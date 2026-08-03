@@ -20,6 +20,7 @@ class CastingFactory extends Factory
         return [
             'brand_id' => Brand::factory(),
             'model_id' => VehicleModel::factory(),
+            'is_fantasy' => false,
             // Packaging names carry the model year prefix, which is part of why
             // OCR output needs normalising before it can be matched.
             'name' => "'".fake()->numberBetween(80, 99).' '.fake()->randomElement([
@@ -39,9 +40,23 @@ class CastingFactory extends Factory
     {
         return $this->state([
             'model_id' => null,
+            'is_fantasy' => true,
             'name' => fake()->randomElement([
                 'Twin Mill', 'Bone Shaker', 'Rodger Dodger', 'Deora II', 'Sharkruiser',
             ]),
+        ]);
+    }
+
+    /**
+     * A real car the catalog hasn't matched to a VehicleModel yet — what the
+     * pipeline produces when OCR reads a casting name it can't resolve. Shares
+     * the null model_id with fantasy() and is otherwise its opposite.
+     */
+    public function unidentified(): static
+    {
+        return $this->state([
+            'model_id' => null,
+            'is_fantasy' => false,
         ]);
     }
 }

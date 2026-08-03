@@ -3,8 +3,13 @@
 namespace App\Enums;
 
 /**
- * Condition of a physical unit. Shared by price history (what condition the
- * sale was in) and user collection entries (what condition the owner has).
+ * Condition of a physical unit, as recorded on a collector's own entry for a
+ * variation.
+ *
+ * Not yet on price_histories, which has no condition column — worth adding when
+ * price tracking starts in earnest, since a loose car and a carded one are
+ * effectively different markets and averaging them together would be
+ * misleading.
  */
 enum ItemCondition: string
 {
