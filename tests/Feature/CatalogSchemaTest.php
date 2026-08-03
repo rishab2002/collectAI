@@ -2,9 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\Brand;
 use App\Models\Casting;
+use App\Models\CastingVersion;
 use App\Models\Make;
 use App\Models\Release;
+use App\Models\Series;
 use App\Models\Submission;
 use App\Models\SubmissionProposal;
 use App\Models\UserCollectionItem;
@@ -13,6 +16,7 @@ use App\Models\VehicleModel;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 /**
@@ -135,6 +139,52 @@ class CatalogSchemaTest extends TestCase
 
         $this->assertFalse($unidentified->isFantasy());
         $this->assertTrue($unidentified->isUnidentified());
+    }
+
+    public function test_one_tooling_can_be_released_under_more_than_one_brand(): void
+    {
+        // Shared tooling across sister brands (Johnny Lightning / Auto World,
+        // Mini GT / Kaido House) is one physical tool sold under two names. It's
+        // a single Casting row, with a release under each brand's series — which
+        // is only expressible because a casting carries no brand of its own.
+        // Do not "fix" this into a constraint requiring the two to agree.
+        $version = CastingVersion::factory()->create();
+
+        $first = Release::factory()->create([
+            'casting_version_id' => $version,
+            'series_id' => Series::factory()->create(['brand_id' => Brand::factory()]),
+            'year' => 2011,
+        ]);
+
+        $second = Release::factory()->create([
+            'casting_version_id' => $version,
+            'series_id' => Series::factory()->create(['brand_id' => Brand::factory()]),
+            'year' => 2011,
+        ]);
+
+        $this->assertNotSame(
+            $first->series->brand_id,
+            $second->series->brand_id,
+            'The two releases should sit under different brands.',
+        );
+
+        $this->assertSame($first->castingVersion->casting_id, $second->castingVersion->casting_id);
+    }
+
+    public function test_the_brand_that_sold_a_release_is_reached_through_its_series(): void
+    {
+        $brand = Brand::factory()->create(['name' => 'Auto World']);
+        $release = Release::factory()->create([
+            'series_id' => Series::factory()->create(['brand_id' => $brand]),
+        ]);
+
+        $this->assertSame('Auto World', $release->series->brand->name);
+
+        // There is no second, competing answer on the casting itself.
+        $this->assertFalse(
+            Schema::hasColumn('castings', 'brand_id'),
+            'castings.brand_id was removed deliberately — see CLAUDE.md, Settled decisions.',
+        );
     }
 
     public function test_collection_item_condition_is_a_closed_vocabulary(): void

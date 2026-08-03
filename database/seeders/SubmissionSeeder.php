@@ -75,7 +75,6 @@ class SubmissionSeeder extends Seeder
         ]);
 
         $casting = Casting::create([
-            'brand_id' => $hotWheels->id,
             'model_id' => $prelude->id,
             'name' => "'92 Honda Prelude",
         ]);

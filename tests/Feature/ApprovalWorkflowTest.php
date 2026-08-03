@@ -57,7 +57,9 @@ class ApprovalWorkflowTest extends TestCase
         $this->assertTrue($variation->release->castingVersion->fresh()->isLive());
         $this->assertTrue($variation->release->castingVersion->casting->fresh()->isLive());
         $this->assertTrue($variation->release->series->fresh()->isLive());
-        $this->assertTrue($variation->release->castingVersion->casting->brand->fresh()->isLive());
+        // Brand is reached through the series, not the casting — the casting has
+        // no brand of its own.
+        $this->assertTrue($variation->release->series->brand->fresh()->isLive());
         $this->assertTrue($variation->release->castingVersion->casting->model->fresh()->isLive());
         $this->assertTrue($variation->release->castingVersion->casting->model->make->fresh()->isLive());
     }
@@ -95,9 +97,7 @@ class ApprovalWorkflowTest extends TestCase
 
     public function test_the_promotion_walk_handles_a_fantasy_casting_with_no_model(): void
     {
-        $casting = Casting::factory()->fantasy()->pending()->create([
-            'brand_id' => Brand::factory()->pending(),
-        ]);
+        $casting = Casting::factory()->fantasy()->pending()->create();
 
         $proposal = SubmissionProposal::factory()->forProposable($casting)->create();
         $proposal->approve();
@@ -105,21 +105,20 @@ class ApprovalWorkflowTest extends TestCase
         // A null model is a legitimate absence, not an unapproved parent — the
         // walk skips it rather than erroring.
         $this->assertTrue($casting->fresh()->isLive());
-        $this->assertTrue($casting->brand->fresh()->isLive());
         $this->assertNull($casting->fresh()->model_id);
     }
 
     public function test_already_live_ancestors_are_left_alone(): void
     {
-        $brand = Brand::factory()->create();
-        $casting = Casting::factory()->pending()->create(['brand_id' => $brand]);
+        $model = VehicleModel::factory()->create();
+        $casting = Casting::factory()->pending()->create(['model_id' => $model]);
 
-        $originalUpdatedAt = $brand->updated_at;
+        $originalUpdatedAt = $model->updated_at;
 
         SubmissionProposal::factory()->forProposable($casting)->create()->approve();
 
         $this->assertTrue($casting->fresh()->isLive());
-        $this->assertEquals($originalUpdatedAt, $brand->fresh()->updated_at);
+        $this->assertEquals($originalUpdatedAt, $model->fresh()->updated_at);
     }
 
     public function test_a_proposal_below_the_threshold_requires_manual_review(): void
@@ -150,7 +149,6 @@ class ApprovalWorkflowTest extends TestCase
         $brand = Brand::factory()->pending()->create();
 
         $casting = Casting::factory()->pending()->create([
-            'brand_id' => $brand,
             'model_id' => $model,
         ]);
 

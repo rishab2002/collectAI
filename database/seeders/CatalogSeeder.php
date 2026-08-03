@@ -60,18 +60,20 @@ class CatalogSeeder extends Seeder
             }
         }
 
-        // A real Make/Model cast by two different brands — the case that proves
-        // Casting is brand-specific while Model is shared.
-        $this->casting($brands['Hot Wheels'], $models['Mazda RX-7'], "'95 Mazda RX-7");
-        $this->casting($brands['Matchbox'], $models['Mazda RX-7'], 'Mazda RX-7 FD');
+        // Hot Wheels and Matchbox each cut their own RX-7 tooling — two separate
+        // physical tools of one real Model, so two Casting rows. (A single tool
+        // sold under two sister brands would instead be one row, with releases
+        // under each brand's series.)
+        $this->casting($models['Mazda RX-7'], "'95 Mazda RX-7");
+        $this->casting($models['Mazda RX-7'], 'Mazda RX-7 FD');
 
-        $civic = $this->casting($brands['Hot Wheels'], $models['Honda Civic'], "'11 Honda Civic");
-        $this->casting($brands['Hot Wheels'], $models['Nissan Skyline GT-R'], 'Nissan Skyline GT-R (R34)');
-        $this->casting($brands['Mini GT'], $models['Toyota Supra'], 'Toyota GR Supra');
+        $civic = $this->casting($models['Honda Civic'], "'11 Honda Civic");
+        $this->casting($models['Nissan Skyline GT-R'], 'Nissan Skyline GT-R (R34)');
+        $this->casting($models['Toyota Supra'], 'Toyota GR Supra');
 
         // A fantasy casting: no real-world basis, so no Make/Model at all rather
         // than invented ones.
-        $this->casting($brands['Hot Wheels'], null, 'Twin Mill');
+        $this->casting(null, 'Twin Mill');
 
         $nightBurnerz = Series::create([
             'brand_id' => $brands['Hot Wheels']->id,
@@ -97,7 +99,7 @@ class CatalogSeeder extends Seeder
             $variation->markLive();
         }
 
-        $this->nearDuplicates($brands['Hot Wheels'], $models['Mazda RX-7']);
+        $this->nearDuplicates($models['Mazda RX-7']);
     }
 
     /**
@@ -108,10 +110,9 @@ class CatalogSeeder extends Seeder
      * application deliberately, since a DB-level hook would collide with
      * factories that build a casting and its version separately.
      */
-    private function casting(Brand $brand, ?VehicleModel $model, string $name): Casting
+    private function casting(?VehicleModel $model, string $name): Casting
     {
         $casting = Casting::create([
-            'brand_id' => $brand->id,
             'model_id' => $model?->id,
             // Every seeded casting is either attributed or deliberately fantasy;
             // none are meant to land in the "real car, not identified yet" state.
@@ -135,12 +136,11 @@ class CatalogSeeder extends Seeder
      * same casting misread by OCR, while the FC is a different generation
      * entirely and must not be collapsed into the FD.
      */
-    private function nearDuplicates(Brand $brand, VehicleModel $rx7): void
+    private function nearDuplicates(VehicleModel $rx7): void
     {
         // Same casting, OCR-mangled name — left pending, which is where a
         // proposal the agent wasn't sure about should sit.
         Casting::create([
-            'brand_id' => $brand->id,
             'model_id' => $rx7->id,
             'name' => '95 Mazda RX7',
             'notes' => 'Seeded near-duplicate: OCR variant of the FD casting.',
@@ -155,7 +155,6 @@ class CatalogSeeder extends Seeder
         $fc->markLive();
 
         $fcCasting = Casting::create([
-            'brand_id' => $brand->id,
             'model_id' => $fc->id,
             'name' => "'89 Mazda Savanna RX-7 FC3S",
         ]);
