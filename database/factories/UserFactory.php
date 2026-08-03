@@ -42,4 +42,15 @@ class UserFactory extends Factory
             'email_verified_at' => null,
         ]);
     }
+
+    /**
+     * A catalog admin — the only kind of user who can capture submissions and
+     * rule on proposals.
+     */
+    public function admin(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_admin' => true,
+        ]);
+    }
 }

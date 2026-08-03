@@ -18,6 +18,19 @@ COPY composer.json composer.lock ./
 RUN composer install --no-scripts --no-interaction --no-progress
 
 COPY . .
+
+# .dockerignore keeps the host's storage artifacts out of the image, so the
+# runtime directories Laravel expects (compiled views, cache, sessions, logs)
+# have to be recreated here. Paths are listed individually because RUN uses
+# BusyBox ash, which has no brace expansion.
+RUN mkdir -p \
+        storage/framework/views \
+        storage/framework/cache/data \
+        storage/framework/sessions \
+        storage/logs \
+        bootstrap/cache \
+    && chmod -R ug+w storage bootstrap/cache
+
 RUN composer dump-autoload --optimize
 
 EXPOSE 8000

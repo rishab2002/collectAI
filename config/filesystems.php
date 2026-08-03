@@ -60,6 +60,37 @@ return [
             'report' => false,
         ],
 
+        /*
+        | Cloudflare R2. Uses the s3 driver because R2 is S3-API-compatible, but
+        | it is kept as its own disk rather than pointed at the `s3` block above
+        | so the two sets of credentials can't be confused for each other.
+        |
+        | Three R2-specific details:
+        |   - region is always "auto"; R2 has no user-selectable regions.
+        |   - path-style addressing is required — R2 does not support the
+        |     virtual-hosted bucket.endpoint style.
+        |   - `url` is separate from `endpoint` because the S3 API endpoint is
+        |     not publicly readable. Public reads go through either the bucket's
+        |     r2.dev subdomain or a custom domain, and that is what Photo::url()
+        |     needs to emit.
+        |
+        | `throw` is true, unlike the disks above: a silent false return on a
+        | failed upload would let the capture app record a submission photo whose
+        | bytes never arrived.
+        */
+        'r2' => [
+            'driver' => 's3',
+            'key' => env('R2_ACCESS_KEY_ID'),
+            'secret' => env('R2_SECRET_ACCESS_KEY'),
+            'region' => 'auto',
+            'bucket' => env('R2_BUCKET'),
+            'endpoint' => env('R2_ENDPOINT'),
+            'url' => env('R2_URL'),
+            'use_path_style_endpoint' => true,
+            'throw' => true,
+            'report' => false,
+        ],
+
     ],
 
     /*

@@ -6,7 +6,20 @@ services:
     volumes:
       - .:/var/www/html
       - /var/www/html/vendor
-    env_file: .env
+    # Deliberately no `env_file: .env`. The project directory is bind-mounted
+    # above, so Laravel reads .env off the filesystem itself and the directive is
+    # redundant — but not harmless. It injects every development value into the
+    # container's process environment, where PHP exposes them via $_SERVER, and
+    # Laravel's Dotenv reads $_SERVER ahead of everything else. That had two
+    # consequences worth remembering:
+    #
+    #   - phpunit.xml's <env> entries were silently ignored even with
+    #     force="true" (PHPUnit sets $_ENV and putenv, but not $_SERVER), so the
+    #     test suite ran RefreshDatabase against the development database.
+    #   - Editing .env did nothing until the container was recreated, because the
+    #     process environment was captured at container start.
+    #
+    # Reading .env from disk fixes both.
     depends_on:
       - db
       - redis
@@ -22,6 +35,8 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      # Runs once, on first creation of the pgdata volume.
+      - ./docker/postgres/init-test-db.sh:/docker-entrypoint-initdb.d/init-test-db.sh:ro
 
   redis:
     image: redis:7-alpine

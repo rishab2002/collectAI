@@ -1,3 +1,118 @@
+## Status as of 2026-08-02 — Models, admin auth, and the submission gate landed
+
+Builds on the schema session below (whose decisions all still stand). This
+session added the application layer the capture/review app needs. `php artisan
+test` is green: 35 tests, 69 assertions.
+
+**Goal driving this work**: an admin-only capture app the catalog owner uses
+from an iPhone — photograph a package, let the pipeline propose records,
+approve or reject them. Delivery decision: **a PWA served by this Laravel app**,
+not native. The dev machine is Windows, so building/signing a native iOS app
+would need a Mac or paid cloud CI. Plan is to optionally wrap it with Capacitor
+later, pointed at the deployed origin — which is why auth is **session-based**
+rather than tokens. A Capacitor build that loads from the live URL keeps
+cookies working; only a build that bundles assets under its own scheme would
+need tokens, and that's the point to add them.
+
+### What's new
+
+- **Eloquent models** for all 12 catalog tables plus `Submission`,
+  `SubmissionPhoto`, `SubmissionProposal`. `VehicleModel` maps to `models` via
+  `#[Table('models')]`. Models use Laravel 13's attribute style
+  (`#[Fillable]`, `#[Scope]`) to match the existing `User` model.
+- **Factories for every model** plus `AdminUserSeeder`, `CatalogSeeder`,
+  `SubmissionSeeder`. `CatalogSeeder` deliberately plants near-duplicates
+  (`'95 Mazda RX-7` vs `95 Mazda RX7`, plus an FC3S RX-7 that must *not* be
+  merged into the FD) so the Comparison Agent has realistic ambiguity to be
+  developed against.
+- **Admin session auth**: login only, no registration, no password reset.
+  `EnsureUserIsAdmin` (alias `admin`) returns **404, not 403**, so a non-admin
+  can't discover the admin area exists. Login is throttled on email+IP together.
+- **R2 disk** wired in `config/filesystems.php` (`league/flysystem-aws-s3-v3`
+  installed). `throw => true` unlike the other disks — a silent upload failure
+  would record a photo whose bytes never arrived.
+
+### New decisions (settled — same rules as the schema block below)
+
+- **`status` (pending/live/rejected)** on the 8 tables the Insertion Agent can
+  write to: `makes`, `brands`, `models`, `castings`, `casting_versions`,
+  `series`, `releases`, `variations`. Not on `price_histories`/`photos`
+  (observations on an approved variation, not proposed entities) or the
+  `user_*` tables. String + CHECK constraint, not a native enum.
+- **The column defaults to `pending`, factories default to `live`.** That
+  asymmetry is deliberate: the DB default is fail-safe, so an agent that
+  forgets to set a status produces an invisible record rather than publishing
+  unreviewed output; fixtures almost always want an established catalog, so
+  tests opt into `->pending()` explicitly.
+- **`status` is not fillable on any model.** Records are built from LLM-derived
+  JSON, and mass-assigning a payload containing a `status` key is precisely how
+  unreviewed output would publish itself. Promotion goes through `markLive()`.
+- **Approval promotes the whole ancestor chain** (`promoteWithDependencies()`,
+  driven by each model's `approvalDependencies()`). One photo can propose a
+  make, model, casting, version, series, release and variation at once;
+  approving only the leaf would leave it live under invisible parents.
+  Rejection deliberately does **not** cascade — rejecting a variation says
+  nothing about whether its casting was wrong.
+- **Submissions are their own tables, not `photos` rows.** `photos.variation_id`
+  is non-nullable, but capture happens *before* the catalog knows the car.
+  `submission_photos` holds the raw capture; it graduates into `photos` on
+  approval via `SubmissionPhoto::promoteTo()`, referencing the same stored
+  object rather than re-uploading.
+- **`submissions.state` vs catalog `status`** are different questions and are
+  named differently on purpose: `state` is pipeline lifecycle
+  (draft/queued/processing/completed/failed), `status` is catalog visibility. A
+  submission can be `completed` while all its proposals are still `pending`.
+- **`submission_proposals` is polymorphic**, carrying `confidence`, `decision`,
+  `decided_by`, `decided_at`. Pipeline audit metadata stays out of the domain
+  tables, and "everything awaiting review" is one indexed read instead of an
+  eight-way UNION. Unique on `(proposable_type, proposable_id)` — a record is
+  proposed once; re-photographing a car is the Comparison Agent's problem.
+- **Rejected is a terminal state, not a delete**, so a resubmitted photo can be
+  recognised as something an admin already turned down.
+- **`config/catalog.php`** holds the admin identity and
+  `review.auto_approve_threshold`, which starts at **1.0** — nothing
+  auto-approves until there's real pipeline output to justify lowering it.
+
+### Two environment traps that cost real time — don't reintroduce them
+
+- **`docker-compose.yml` must NOT have `env_file: .env` on the `app` service.**
+  The project is bind-mounted, so Laravel reads `.env` off disk itself. Adding
+  `env_file` injects every dev value into the container's process environment,
+  where PHP exposes it via `$_SERVER` — and Laravel's Dotenv reads `$_SERVER`
+  ahead of everything else. Consequences when it was present: `phpunit.xml` was
+  silently ignored **even with `force="true"`** (PHPUnit sets `$_ENV` and
+  `putenv`, never `$_SERVER`), so the suite ran `RefreshDatabase` against the
+  **development** database and truncated it; and editing `.env` did nothing
+  until the container was recreated. `tests/Unit/EnvironmentTest.php` now
+  asserts the suite is pointed at `diecast_testing`.
+- **The test suite runs on Postgres, not SQLite.** `pg_trgm`, GIN trigram
+  indexes, the `COALESCE` expression index, `jsonb` and partial indexes don't
+  exist in SQLite. `docker/postgres/init-test-db.sh` creates `diecast_testing`
+  on first volume creation; an existing environment needs it made by hand.
+
+Also note: `env('SOME_VAR')` returns `''`, not `null`, for a bare `VAR=` line in
+`.env`. That produced an admin account whose password was the empty string and
+which authenticated against it. `config/catalog.php` normalizes with `?: null`
+and `AdminUserSeeder` uses `blank()`; `AdminUserSeederTest` guards it.
+
+### Still not built
+
+- No capture or review **screens** yet — `/admin` is a placeholder list of
+  submissions awaiting review. The PWA manifest, service worker, camera capture
+  and approve/reject UI are the next milestone.
+- No AI agent code at all. `/app/AI/schemas/ocr_output.json` doesn't exist yet;
+  `SubmissionFactory::completed()` and `SubmissionSeeder` hand-write the shape
+  the OCR agent is expected to emit, which is a starting point for that schema.
+- R2 credentials in `.env` are still empty placeholders — the disk is
+  configured but nothing has uploaded through it.
+- Nothing creates a `CastingVersion` automatically alongside a `Casting`.
+  `CatalogSeeder::casting()` does it explicitly. This is deliberate: a model
+  `created` hook would collide with `CastingVersionFactory`, which builds a
+  casting and its version separately. Whoever writes the Insertion Agent must
+  create version 1 explicitly.
+
+---
+
 ## Status as of 2026-08-02 — Schema migrations landed
 
 The Laravel 13 + Docker scaffold is set up and running
@@ -224,38 +339,40 @@ full hierarchy above are in place. Outstanding:
    is user-facing typo-tolerant search.
 ## Guide for the next session
 
-Schema is settled and migrated (see the status block at the top of this
-file). Per the "keep schema and implementation in separate sessions"
-convention above, the next session should **not** revisit the Casting/Model
-split or the migrations — build on them.
+Schema, models, factories, seeders, admin auth and the approval mechanics are
+all settled and tested (see the status blocks at the top). Per the "separate
+sessions" convention above, don't revisit the Casting/Model split, the
+migrations, or the approval-status decisions — build on them.
 
-Recommended next step: **Eloquent models + relationships**, since everything
-downstream (agents, controllers, admin approval UI) depends on them.
+Recommended next step: **the capture and review screens** — the PWA the whole
+submission perspective exists for. The backing models and the approve/reject
+methods are already there and tested; this is UI plus two controllers.
 
-- One model per table in `app/Models/`, with the relationships already
-  implied by the FKs: `Make hasMany Model`, `Model hasMany Casting`,
-  `Casting belongsTo Brand`, `Casting hasMany CastingVersion`,
-  `CastingVersion hasMany Release`, `Release belongsTo Series`,
-  `Release hasMany Variation`, `Variation hasMany PriceHistory|Photo`, and
-  the `User` belongsToMany `Variation` pairs for collection/wishlist.
-- Note the `Model` name collision: the `models` table maps to a vehicle
-  model, which clashes with Eloquent's own `Model` base class. Name the
-  class something like `VehicleModel` with an explicit
-  `protected $table = 'models'` rather than renaming the table.
-- Add factories/seeders alongside them — the AI pipeline work after this
-  will need realistic fixture data to test the Comparison Agent's duplicate
-  detection against.
+- **Capture screen** (`/admin/capture`): a form posting one or more photos plus
+  the optional brand/year/series hints. Use
+  `<input type="file" accept="image/*" capture="environment">` — on iOS that
+  opens the camera directly, and it degrades to a file picker on desktop.
+  Upload to the `r2` disk, create a `Submission` with its `SubmissionPhoto`
+  rows, set `state` to `queued`.
+  - Uploads must be **foreground**; iOS suspends background web uploads. Show
+    real progress and make a failed upload retryable rather than silent.
+- **Review screen** (`/admin/submissions/{submission}`): the submission's
+  photos alongside its `proposals` (eager-load `proposable`), with approve and
+  reject actions calling `SubmissionProposal::approve()` / `reject()`. Show
+  `confidence` and flag anything `requiresManualReview()`. Approving a leaf
+  already promotes its ancestors, so the UI does not need to walk the tree —
+  but it should show the reviewer what else will go live as a result.
+- **PWA shell**: `public/manifest.json` (`display: standalone`, icons), an
+  `apple-touch-icon`, and a service worker. Keep the service worker's caching
+  conservative — a stale cached review queue showing already-decided proposals
+  is worse than a slow one.
+- Note the layout lives at `resources/views/components/layouts/app.blade.php`
+  (anonymous Blade components resolve under `views/components/`), and the base
+  `TestCase` calls `withoutVite()` so view tests don't need a frontend build.
 
-After models, the natural order is: admin approval workflow (the `pending` →
-live promotion the Review Agent depends on), then the AI agent pipeline
-starting with the OCR output schema at `/app/AI/schemas/ocr_output.json`.
-
-Two things not yet built that the schema assumes:
-
-- A `status` (pending/live) column does **not** exist yet on any table. The
-  Insertion/Review Agents need it, so whoever builds the approval workflow
-  should add it as a new migration — decide then whether it belongs on every
-  catalog table or just the ones agents write to.
-- The photos table defaults `disk` to `'r2'`, but no R2 disk is configured in
-  `config/filesystems.php` and the R2 credentials in `.env` are still the
-  empty AWS placeholders. Wire that up before anything actually uploads.
+After the screens, the natural order is the AI pipeline, starting with the OCR
+output schema at `/app/AI/schemas/ocr_output.json` — see
+`SubmissionFactory::completed()` for the shape currently assumed. Per the
+convention above, vision/OCR calls belong in `app/Services/AI/OcrAgent.php`,
+not in the capture controller: the controller's job ends at storing the photo
+and queueing the job.

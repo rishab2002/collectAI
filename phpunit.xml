@@ -17,20 +17,44 @@
             <directory>app</directory>
         </include>
     </source>
+    <!--
+        Every entry below is force="true", and that is not optional here.
+
+        Without it PHPUnit leaves an existing environment variable alone, and
+        docker-compose injects the whole of .env into the app container via
+        env_file. The development values would therefore win over every setting
+        in this file — most dangerously DB_DATABASE, which meant the suite ran
+        RefreshDatabase against the development database and truncated it.
+
+        If a value here ever appears not to take effect, this attribute is the
+        first thing to check.
+    -->
     <php>
-        <env name="APP_ENV" value="testing"/>
-        <env name="APP_MAINTENANCE_DRIVER" value="file"/>
-        <env name="BCRYPT_ROUNDS" value="4"/>
-        <env name="BROADCAST_CONNECTION" value="null"/>
-        <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value=":memory:"/>
-        <env name="DB_URL" value=""/>
-        <env name="MAIL_MAILER" value="array"/>
-        <env name="QUEUE_CONNECTION" value="sync"/>
-        <env name="SESSION_DRIVER" value="array"/>
-        <env name="PULSE_ENABLED" value="false"/>
-        <env name="TELESCOPE_ENABLED" value="false"/>
-        <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="APP_ENV" value="testing" force="true"/>
+        <env name="APP_MAINTENANCE_DRIVER" value="file" force="true"/>
+        <env name="BCRYPT_ROUNDS" value="4" force="true"/>
+        <env name="BROADCAST_CONNECTION" value="null" force="true"/>
+        <env name="CACHE_STORE" value="array" force="true"/>
+        <!--
+            Postgres, not SQLite in-memory. The schema depends on Postgres-only
+            features — the pg_trgm extension, GIN trigram indexes, the COALESCE
+            expression unique index on variations, jsonb columns and partial
+            indexes — so a SQLite suite would fail on the first migration, and
+            any subset that did run would be exercising a different schema than
+            production. Created by docker/postgres/init-test-db.sh.
+        -->
+        <env name="DB_CONNECTION" value="pgsql" force="true"/>
+        <env name="DB_HOST" value="db" force="true"/>
+        <env name="DB_PORT" value="5432" force="true"/>
+        <env name="DB_DATABASE" value="diecast_testing" force="true"/>
+        <env name="DB_USERNAME" value="diecast" force="true"/>
+        <env name="DB_PASSWORD" value="diecast" force="true"/>
+        <env name="DB_URL" value="" force="true"/>
+        <env name="MAIL_MAILER" value="array" force="true"/>
+        <env name="QUEUE_CONNECTION" value="sync" force="true"/>
+        <env name="SESSION_DRIVER" value="array" force="true"/>
+        <env name="PULSE_ENABLED" value="false" force="true"/>
+        <env name="TELESCOPE_ENABLED" value="false" force="true"/>
+        <env name="NIGHTWATCH_ENABLED" value="false" force="true"/>
     </php>
 </phpunit>
