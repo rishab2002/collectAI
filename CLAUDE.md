@@ -18,7 +18,10 @@ from photos.
 - Laravel (PHP)
 - PostgreSQL (preferred over MySQL for trigram/fuzzy search support via
   `pg_trgm`, useful for the Comparison Agent's duplicate detection)
-- AWS S3 (photos)
+- Cloudflare R2 (photos — S3-compatible API, so it's a drop-in with
+  Laravel's built-in S3 filesystem driver; chosen over AWS S3 for zero
+  egress fees, which matters for a public, image-heavy catalog, and a
+  free tier that isn't time-limited like AWS's 12-month trial)
 - Redis (queues, caching)
 - Meilisearch (cross-brand search — typo-tolerant, low ops overhead;
   don't reach for Elasticsearch unless scale genuinely demands it)

@@ -1,0 +1,43 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/var/www/html
+      - /var/www/html/vendor
+    env_file: .env
+    depends_on:
+      - db
+      - redis
+      - meilisearch
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: diecast
+      POSTGRES_USER: diecast
+      POSTGRES_PASSWORD: diecast
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.10
+    environment:
+      MEILI_MASTER_KEY: diecast_dev_key
+      MEILI_ENV: development
+    ports:
+      - "7700:7700"
+    volumes:
+      - meili_data:/meili_data
+
+volumes:
+  pgdata:
+  meili_data:
