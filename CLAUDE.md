@@ -5,6 +5,21 @@ repo. It exists so the domain model, conventions, and pipeline design only
 have to be explained once. Update it whenever a convention changes — treat
 it as the source of truth, not the conversation history.
 
+**Last edited:** 2026-08-02
+
+## Index
+
+- [Goal](#goal)
+- [Stack](#stack)
+- [Core Data Model](#core-data-model)
+  - [Make/Model splitting rules](#makemodel-splitting-rules)
+  - [Field definitions](#field-definitions-for-consistency-across-agents-and-manual-entry)
+- [AI Agent Pipeline](#ai-agent-pipeline)
+  - [Example flow](#example-flow)
+- [Data Acquisition Priorities](#data-acquisition-priorities)
+- [Conventions for Claude Code sessions in this repo](#conventions-for-claude-code-sessions-in-this-repo)
+- [Next Steps](#next-steps)
+
 ## Goal
 
 A brand-agnostic diecast catalog and website covering Hot Wheels, Matchbox,
@@ -134,3 +149,23 @@ Input: Brand=Hot Wheels, Year=2011, Series="Night Burnerz", photo of a
 - Vision/OCR calls belong in a dedicated service class (e.g.
   `app/Services/AI/OcrAgent.php`), not inline in controllers — keeps the
   Claude API usage auditable and easy to swap/version.
+
+## Next Steps
+
+*Added 2026-08-02.*
+
+Eloquent models (`app/Models`) and migrations (`database/migrations`) for the
+full hierarchy above are in place. Outstanding:
+
+1. **Model factories and seeders** — none exist yet, so there is no way to
+   populate a local catalog or to write tests that need catalog data. The
+   models were written without `HasFactory` rather than pointing the trait at
+   factory classes that don't exist; add it to each model as its factory
+   lands. Seed at least one complete vertical slice (Make → Model → Casting →
+   Brand → Series → Release → Variation → Price History) so the AI pipeline
+   has something real to diff against.
+2. **Meilisearch indexing** — `laravel/scout` is not in `composer.json` yet,
+   so nothing is indexed and cross-brand search doesn't work end to end. Note
+   that `pg_trgm` and Meilisearch are not substitutes for each other: trigram
+   similarity is the Comparison Agent's DB-side duplicate check, Meilisearch
+   is user-facing typo-tolerant search.
