@@ -58,43 +58,4 @@ class User extends Authenticatable
             'is_admin' => 'boolean',
         ];
     }
-
-    /** @return HasMany<CollectionItem, $this> */
-    public function collectionItems(): HasMany
-    {
-        return $this->hasMany(CollectionItem::class);
-    }
-
-    /** @return HasMany<WishlistItem, $this> */
-    public function wishlistItems(): HasMany
-    {
-        return $this->hasMany(WishlistItem::class);
-    }
-
-    /**
-     * Variations this user owns. Use collectionItems() when the per-entry
-     * detail matters — this one is for "does the user have it?" checks.
-     *
-     * @return BelongsToMany<Variation, $this>
-     */
-    public function collectedVariations(): BelongsToMany
-    {
-        return $this->belongsToMany(Variation::class, 'collection_items')
-            ->withPivot(['quantity', 'condition', 'acquired_at'])
-            ->withTimestamps();
-    }
-
-    /** @return BelongsToMany<Variation, $this> */
-    public function wishlistedVariations(): BelongsToMany
-    {
-        return $this->belongsToMany(Variation::class, 'wishlist_items')
-            ->withPivot(['priority', 'max_price'])
-            ->withTimestamps();
-    }
-
-    /** @return HasMany<Photo, $this> */
-    public function uploadedPhotos(): HasMany
-    {
-        return $this->hasMany(Photo::class, 'uploaded_by');
-    }
 }
