@@ -68,23 +68,15 @@ trait HasApprovalStatus
 
     /**
      * Where this record was imported from, if it was imported rather than
-     * proposed from a photograph. Null for anything the pipeline or an admin
-     * created.
+     * photographed. Null for anything the capture pipeline or an admin created.
      *
-     * These two relations are the two ways a row can arrive, and they answer
-     * different questions: proposal() is "who vouched for this", source() is
-     * "who stated it". A record can have both — an importer-created casting
-     * whose model_id an LLM later inferred carries a source for the row and a
-     * proposal for the inference.
+     * Lives on this trait because the tables carrying the approval gate are
+     * exactly the tables a bulk import is allowed to write to — and because the
+     * public catalog has to be able to reach the attribution from any of them.
      */
     public function source(): MorphOne
     {
         return $this->morphOne(RecordSource::class, 'sourceable');
-    }
-
-    public function isImported(): bool
-    {
-        return $this->source()->exists();
     }
 
     public function isLive(): bool

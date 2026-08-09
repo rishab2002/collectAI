@@ -2,311 +2,397 @@
 
 namespace App\Services\Import\HotWheelsWiki;
 
-use App\Services\Import\WikitableParser;
-use App\Services\Import\Wikitext;
+use App\Services\Import\Wikitext\Wikitext;
+use App\Services\Import\Wikitext\WikitextTable;
 
 /**
- * Reads a casting article into the records it states.
+ * Reads a casting article into the facts the catalog stores.
  *
- * Only the {{casting}} infobox and the ==Versions== wikitable are touched. The
- * Description prose, the Notes column and the images are all deliberately left
- * behind: they are the parts of the wiki that are actually authored, and the
- * settled import rule takes facts only — which is both what keeps this an
- * original database rather than a mirror and what keeps it clear of CC-BY-SA
- * obligations beyond the attribution record_sources already carries.
+ * Two things on the page matter: the `{{casting}}` infobox, which names the
+ * tool, and the `==Versions==` wikitable, whose rows are the releases and
+ * variations. Everything else on the page — the description, the card text, the
+ * trivia — is editor-written prose under CC-BY-SA and is never read.
  */
-class CastingPageParser
+final class CastingPageParser
 {
     /**
-     * Headings that identify the versions table, lowercased. Casting pages are
-     * inconsistent about whether the table is the page's first, so it is found
-     * by its columns rather than by position.
+     * Table headers as they appear, mapped to the field they populate.
+     *
+     * Matched by name rather than by position because the tables disagree with
+     * each other: the same column is headed "Notes" on one page and
+     * "Notes / Variations" on the next, and pages add and drop columns freely.
+     * A parser indexing by position reads the wrong column the first time an
+     * editor inserts one.
      */
-    private const REQUIRED_HEADINGS = ['year', 'series'];
+    private const COLUMNS = [
+        'col #' => 'collector_number',
+        'col.#' => 'collector_number',
+        'col #.' => 'collector_number',
+        'collector #' => 'collector_number',
+        'year' => 'year',
+        'series' => 'series',
+        'color' => 'color',
+        'colour' => 'color',
+        'tampo' => 'tampo',
+        'tampos' => 'tampo',
+        'base color / type' => 'base',
+        'base color/type' => 'base',
+        'base color' => 'base',
+        'base' => 'base',
+        'window color' => 'window',
+        'windows' => 'window',
+        'interior color' => 'interior',
+        'interior' => 'interior',
+        'wheel type' => 'wheel',
+        'wheels' => 'wheel',
+        'base color / types' => 'base',
+        'toy #' => 'toy_number',
+        'toy#' => 'toy_number',
+        'country' => 'country',
+    ];
 
-    public function parse(
-        string $wikitext,
-        int $pageId,
-        string $title,
-        string $url,
-        ?int $revisionId = null,
-    ): ParsedCasting {
-        return new ParsedCasting(
-            name: $this->castingName($wikitext, $title),
-            pageId: $pageId,
+    /**
+     * Version sections that aren't Mattel releases.
+     *
+     * "Code 3" is the collector term for a car a third party has repainted or
+     * rebuilt after it left the factory. The wiki lists them under their own
+     * heading on the casting's page, but they are not something Hot Wheels ever
+     * sold, and importing them would put customs in a catalog of retail
+     * releases.
+     */
+    private const EXCLUDED_SECTIONS = ['code 3'];
+
+    public function parse(string $wikitext, string $title, int $pageId, ?int $revisionId = null): CastingPage
+    {
+        $infobox = $this->infobox($wikitext);
+
+        return new CastingPage(
             title: $title,
-            url: $url,
+            pageId: $pageId,
             revisionId: $revisionId,
-            releases: $this->releases($wikitext),
+            // The infobox name is the canonical tool name; the page title is the
+            // fallback, and is usually the same string.
+            name: $infobox['name'] ?? Wikitext::plainText($title),
+            designer: $infobox['designer'] ?? null,
+            versions: $this->versions($wikitext),
         );
     }
 
     /**
-     * The name from the {{casting}} infobox, falling back to the page title.
+     * The `{{casting|name=...|series=...}}` template's named parameters.
      *
-     * The infobox is preferred because a page title carries disambiguation the
-     * tool's name doesn't — "Honda Civic Si (2001)" is one article about a
-     * casting called "Honda Civic Si".
+     * Only `name` and `designer` are read. The infobox's `series` and `years`
+     * summarise the Versions table and disagree with it often enough — a casting
+     * "2011 - Present" whose table stops in 2019 — that trusting them over the
+     * rows would import a fact the page itself contradicts.
+     *
+     * @return array<string, string>
      */
-    public function castingName(string $wikitext, string $title): string
+    private function infobox(string $wikitext): array
     {
-        if (preg_match('/\{\{\s*casting\b(.*?)\}\}/isu', $wikitext, $matches) === 1
-            && preg_match('/\|\s*name\s*=\s*([^|}\n]+)/u', $matches[1], $name) === 1) {
-            $parsed = Wikitext::nullIfBlank(Wikitext::plain($name[1]));
-
-            if ($parsed !== null) {
-                return $parsed;
-            }
-        }
-
-        return Wikitext::tidy($title);
-    }
-
-    /**
-     * @return list<ParsedRelease>
-     */
-    public function releases(string $wikitext): array
-    {
-        $rows = $this->versionsRows($wikitext);
-
-        if ($rows === []) {
+        if (preg_match('/\{\{\s*casting\s*\|(.*?)\}\}/is', $wikitext, $matches) !== 1) {
             return [];
         }
 
-        /** @var array<string, array{release: ParsedRelease, variations: list<ParsedVariation>}> $grouped */
-        $grouped = [];
+        $fields = [];
 
-        foreach ($rows as $row) {
-            $year = $this->year($row);
-            $series = $this->series($row);
-
-            // A row the source hasn't dated or filed can't become a release: the
-            // releases table keys on year and series and both are non-nullable.
-            // Skipped rather than guessed at — the year index will usually carry
-            // the same car, and a wrong year is worse than a missing row.
-            if ($year === null || $series['name'] === null) {
+        foreach ($this->splitParameters($matches[1]) as $parameter) {
+            if (! str_contains($parameter, '=')) {
                 continue;
             }
 
-            $key = $year.'|'.($series['target'] ?? $series['name']);
+            [$key, $value] = explode('=', $parameter, 2);
+            $key = mb_strtolower(trim($key));
+            $value = Wikitext::plainText($value);
 
-            $grouped[$key] ??= [
-                'release' => new ParsedRelease(
-                    year: $year,
-                    seriesName: $series['name'],
-                    seriesTarget: $series['target'],
-                    seriesPosition: $series['position'],
-                    collectorNumber: $this->collectorNumber($row),
-                ),
-                'variations' => [],
-            ];
-
-            $variation = $this->variation($row);
-
-            // Two identical rows describe one variation — the uniqueness index
-            // would reject the second anyway, and rejecting it here keeps the
-            // per-release variation numbering (and so the source keys) stable.
-            foreach ($grouped[$key]['variations'] as $existing) {
-                if ($existing->signature() === $variation->signature()) {
-                    continue 2;
-                }
-            }
-
-            $grouped[$key]['variations'][] = $variation;
-        }
-
-        return array_values(array_map(
-            fn (array $group): ParsedRelease => $group['release']->withVariations($group['variations']),
-            $grouped,
-        ));
-    }
-
-    /**
-     * Rows from *every* versions table on the page, not just the first.
-     *
-     * Casting pages routinely carry more than one — a mainline table and a
-     * separate one for international or later releases — and they are not
-     * ordered by year, so the first is not the interesting one. Reading only the
-     * first dropped the 2011 XS-IVE release, which sits in the page's second
-     * table, and did it silently: the casting simply looked like it had no 2011
-     * release at all.
-     *
-     * Rows are keyed by heading, so tables whose columns differ slightly merge
-     * without their values sliding into the wrong fields.
-     *
-     * @return list<array<string, string>>
-     */
-    private function versionsRows(string $wikitext): array
-    {
-        $rows = [];
-
-        foreach (WikitableParser::parseAll($wikitext) as $table) {
-            if ($table === [] || ! $this->isVersionsTable($table)) {
-                continue;
-            }
-
-            foreach ($table as $row) {
-                $rows[] = $row;
+            if ($key !== '' && $value !== '') {
+                $fields[$key] = $value;
             }
         }
 
-        return $rows;
+        return $fields;
     }
 
     /**
-     * @param  list<array<string, string>>  $table
-     */
-    private function isVersionsTable(array $table): bool
-    {
-        $headings = array_map($this->normaliseHeading(...), array_keys($table[0]));
-
-        foreach (self::REQUIRED_HEADINGS as $required) {
-            if (! in_array($required, $headings, true)) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * The year cell is usually a link to that year's index —
-     * "[[List of 2006 Hot Wheels|2006]]" — so the four digits are taken from
-     * wherever they appear rather than by parsing the whole cell as a number.
-     */
-    private function year(array $row): ?int
-    {
-        $cell = Wikitext::plain($this->cell($row, 'Year') ?? '');
-
-        return preg_match('/\b(19|20)\d{2}\b/', $cell, $matches) === 1
-            ? (int) $matches[0]
-            : null;
-    }
-
-    /**
-     * Splits the series cell into the series itself and its position.
+     * Splits template parameters on pipes that belong to the template itself,
+     * not to a link inside one of its values — `designer = [[Jun Imai]] and
+     * [[Guest Designers#Danicar|Danica Patrick]]` is one parameter.
      *
-     * Two shapes appear, both of which stack values with <br>:
-     * "[[2006 First Editions]]<br>19/38" is a series and the car's place in it,
-     * and "Nightburnerz<br />'''Kmart Exclusive'''" is a series and a retail
-     * note. The position is recognised by looking like one, so the note doesn't
-     * become one.
-     *
-     * @return array{name: string|null, target: string|null, position: string|null}
+     * @return list<string>
      */
-    private function series(array $row): array
+    private function splitParameters(string $body): array
     {
-        $cell = $this->cell($row, 'Series') ?? '';
-        $lines = Wikitext::lines($cell);
+        $parameters = [];
+        $buffer = '';
+        $depth = 0;
+        $length = strlen($body);
 
-        $name = null;
-        $position = null;
+        for ($index = 0; $index < $length; $index++) {
+            $pair = substr($body, $index, 2);
 
-        foreach ($lines as $line) {
-            $plain = Wikitext::plain($line);
-
-            if (preg_match('/^\d+\s*\/\s*\d+$/', $plain) === 1) {
-                $position ??= Wikitext::tidy($plain);
+            if ($pair === '[[' || $pair === '{{') {
+                $depth++;
+                $buffer .= $pair;
+                $index++;
 
                 continue;
             }
 
-            $name ??= Wikitext::nullIfBlank($plain);
+            if ($pair === ']]' || $pair === '}}') {
+                $depth = max(0, $depth - 1);
+                $buffer .= $pair;
+                $index++;
+
+                continue;
+            }
+
+            if ($depth === 0 && $body[$index] === '|') {
+                $parameters[] = $buffer;
+                $buffer = '';
+
+                continue;
+            }
+
+            $buffer .= $body[$index];
         }
 
-        return [
-            'name' => $name,
-            'target' => Wikitext::linkTarget($cell),
-            'position' => $position,
-        ];
+        $parameters[] = $buffer;
+
+        return $parameters;
     }
 
     /**
-     * "Col #" arrives either bare ("019") or as a position in the year's whole
-     * run ("032/244"). Only the car's own number is kept — the total is a fact
-     * about the year, not about this release, and storing "032/244" would make
-     * the column disagree with itself across pages.
+     * @return list<VersionRow>
      */
-    private function collectorNumber(array $row): ?string
+    private function versions(string $wikitext): array
     {
-        $cell = Wikitext::plain($this->cell($row, 'Col #') ?? $this->cell($row, 'Col.#') ?? '');
-        $cell = Wikitext::tidy($cell);
+        $versions = [];
 
-        if ($cell === '') {
+        // Numbered across the page, not per section: the line number is what a
+        // row's provenance key is built from, and restarting it in a second
+        // section would give two different cars the same key.
+        $line = 0;
+
+        foreach ($this->versionSections($wikitext) as $label => $section) {
+            $table = WikitextTable::firstIn($section);
+
+            if ($table === null) {
+                continue;
+            }
+
+            foreach ($table->keyedRows() as $row) {
+                $versions[] = $this->version(++$line, $label ?: null, $this->mapColumns($row));
+            }
+        }
+
+        return $versions;
+    }
+
+    /**
+     * Every section whose heading ends in "Versions", keyed by the tooling it
+     * names — "" for a plain `==Versions==`.
+     *
+     * Scoped to those headings so a page whose first table is something else — a
+     * card-art gallery, a series listing — doesn't get read as a version table.
+     *
+     * Most pages have exactly one. The ones that don't are the reason this
+     * returns a list: `'57 Chevy` files its releases under "Closed Hood
+     * Versions" and "Exposed Engine Versions", which is the wiki describing two
+     * physical tools, and taking only the first table would drop half the page
+     * while taking neither would drop all of it.
+     *
+     * @return array<string, string>
+     */
+    private function versionSections(string $wikitext): array
+    {
+        preg_match_all('/^(==+)\s*(.*?Versions)\s*\1\s*$/mi', $wikitext, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
+
+        $sections = [];
+
+        foreach ($matches as $match) {
+            [$heading, $offset] = $match[0];
+            $level = strlen($match[1][0]);
+            $label = Wikitext::plainText($match[2][0]);
+
+            // "Versions" itself carries no tooling name; anything before it does.
+            $label = trim(preg_replace('/\s*Versions$/i', '', $label) ?? '');
+
+            if (in_array(mb_strtolower($label), self::EXCLUDED_SECTIONS, true)) {
+                continue;
+            }
+
+            $rest = substr($wikitext, $offset + strlen($heading));
+
+            // Stops at the next heading of the same level or higher, so a
+            // `===Variations===` subsection stays part of its Versions section.
+            if (preg_match('/^={1,'.$level.'}\s*[^=].*?={1,'.$level.'}\s*$/m', $rest, $next, PREG_OFFSET_CAPTURE) === 1) {
+                $rest = substr($rest, 0, $next[0][1]);
+            }
+
+            // A page with both "Versions" and "Custom Versions" keys them apart;
+            // a page repeating a heading keeps the first.
+            $sections[$label] ??= $rest;
+        }
+
+        return $sections;
+    }
+
+    /**
+     * The article a redirect points at, or null if this page isn't one.
+     *
+     * Year indexes link to redirects often enough to matter — three of the first
+     * sixty 2011 links are one — and a redirect parses as a page with no
+     * versions, so without this the casting is skipped in silence rather than
+     * followed.
+     */
+    public static function redirectTarget(string $wikitext): ?string
+    {
+        // Only the top of the page counts — an article discussing a redirect
+        // isn't one. A leading comment doesn't stop it being a redirect, in
+        // MediaWiki or here, so those are skipped before anchoring.
+        $head = preg_replace('/^(?:\s|<!--.*?-->)*/s', '', $wikitext) ?? $wikitext;
+
+        if (preg_match('/^#REDIRECT\s*\[\[\s*:?\s*([^\]|#]+)/i', $head, $matches) !== 1) {
             return null;
         }
 
-        return Wikitext::nullIfBlank(explode('/', $cell)[0]);
+        $target = trim(html_entity_decode($matches[1], ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+
+        return $target === '' ? null : $target;
     }
 
-    private function variation(array $row): ParsedVariation
+    /**
+     * @param  array<string, string>  $row
+     * @return array<string, string>
+     */
+    private function mapColumns(array $row): array
     {
-        return new ParsedVariation(
-            color: $this->plainCell($row, 'Color'),
-            tampo: $this->plainCell($row, 'Tampos') ?? $this->plainCell($row, 'Tampo'),
-            baseColor: $this->baseColor($row),
-            windowTint: $this->plainCell($row, 'Window Color') ?? $this->plainCell($row, 'Window Tint'),
-            // Some pages label the column "Interior / Engine Color", which is
-            // the same fact about the same part of the car under a wordier
-            // heading — matched explicitly rather than by prefix, so a genuinely
-            // different column can't quietly land in interior_color.
-            interiorColor: $this->plainCell($row, 'Interior Color')
-                ?? $this->plainCell($row, 'Interior / Engine Color')
-                ?? $this->plainCell($row, 'Interior'),
-            rimType: $this->plainCell($row, 'Wheel Type'),
-            toyNumber: $this->plainCell($row, 'Toy #'),
+        $mapped = [];
+
+        foreach ($row as $header => $cell) {
+            $normalized = trim(preg_replace('/\s*\/\s*/', ' / ', $header) ?? $header);
+            $field = self::COLUMNS[$normalized] ?? self::COLUMNS[str_replace(' ', '', $normalized)] ?? null;
+
+            // An unrecognised header is dropped on purpose. Notes and Photo land
+            // here, and so does any column an editor invents — which is the
+            // right default when the alternative is importing prose.
+            if ($field !== null && ! array_key_exists($field, $mapped)) {
+                $mapped[$field] = $cell;
+            }
+        }
+
+        return $mapped;
+    }
+
+    /**
+     * @param  array<string, string>  $cells
+     */
+    private function version(int $line, ?string $toolingLabel, array $cells): VersionRow
+    {
+        [$seriesName, $seriesPage, $seriesPosition] = $this->series($cells['series'] ?? '');
+        [$baseColor, $baseType] = $this->base($cells['base'] ?? '');
+
+        return new VersionRow(
+            line: $line,
+            toolingLabel: $toolingLabel,
+            year: $this->year($cells['year'] ?? ''),
+            // "002/244" is this car's number within the year's whole run. Only
+            // the left half identifies it; the right is the run size, which is a
+            // fact about the year and not about this release.
+            collectorNumber: $this->collectorNumber($cells['collector_number'] ?? ''),
+            seriesName: $seriesName,
+            seriesPage: $seriesPage,
+            seriesPosition: $seriesPosition,
+            color: Wikitext::valueOrNull($cells['color'] ?? ''),
+            tampo: Wikitext::valueOrNull($cells['tampo'] ?? ''),
+            baseColor: $baseColor,
+            baseType: $baseType,
+            windowColor: Wikitext::valueOrNull($cells['window'] ?? ''),
+            interiorColor: Wikitext::valueOrNull($cells['interior'] ?? ''),
+            wheelType: Wikitext::valueOrNull($cells['wheel'] ?? ''),
+            toyNumber: Wikitext::valueOrNull($cells['toy_number'] ?? ''),
+            country: Wikitext::valueOrNull($cells['country'] ?? ''),
         );
     }
 
     /**
-     * "Chrome<br>/<br>Plastic" is a base colour and the material it's made of,
-     * under a heading that names both. Only the colour is kept, because that is
-     * the column that exists; the material is a fact this schema currently has
-     * nowhere to put, and padding it into base_color would make the value
-     * disagree with the same value read off a page that omits the material.
+     * The Year cell is a link to that year's index — "[[List of 2011 Hot
+     * Wheels|2011]]" or plain "[[2011]]" — so the year is whatever four-digit
+     * number the reader ends up seeing.
      */
-    private function baseColor(array $row): ?string
+    private function year(string $cell): ?int
     {
-        $cell = $this->cell($row, 'Base Color/Type')
-            ?? $this->cell($row, 'Base Color / Type')
-            ?? $this->cell($row, 'Base Color')
-            ?? $this->cell($row, 'Base');
-
-        if ($cell === null) {
+        if (preg_match('/\b(19|20)\d{2}\b/', Wikitext::plainText($cell), $matches) !== 1) {
             return null;
         }
 
-        $lines = Wikitext::lines($cell);
-
-        return Wikitext::nullIfBlank(Wikitext::plain($lines[0] ?? ''));
+        return (int) $matches[0];
     }
 
-    private function plainCell(array $row, string $heading): ?string
+    private function collectorNumber(string $cell): ?string
     {
-        $cell = $this->cell($row, $heading);
+        $value = Wikitext::plainText($cell);
 
-        return $cell === null ? null : Wikitext::nullIfBlank(Wikitext::plain($cell));
+        if ($value === '') {
+            return null;
+        }
+
+        $number = trim(explode('/', $value)[0]);
+
+        return $number === '' ? null : $number;
     }
 
     /**
-     * Headings vary in case and spacing between pages, so they're matched
-     * loosely rather than exactly.
+     * The Series cell stacks two facts: a link to the series, and this car's
+     * position within it — "[[2011 New Models]]<br>2/50".
+     *
+     * @return array{0: string|null, 1: string|null, 2: string|null}
      */
-    private function cell(array $row, string $heading): ?string
+    private function series(string $cell): array
     {
-        $wanted = $this->normaliseHeading($heading);
+        $parts = Wikitext::splitOnBreaks($cell);
 
-        foreach ($row as $key => $value) {
-            if ($this->normaliseHeading($key) === $wanted) {
-                return $value;
-            }
+        if ($parts === []) {
+            return [null, null, null];
         }
 
-        return null;
+        $link = Wikitext::firstLink($parts[0]);
+        $name = $link !== null ? $link[1] : Wikitext::valueOrNull($parts[0]);
+        $page = $link !== null ? $link[0] : null;
+
+        // The position is only the second half when it reads like one; some
+        // pages put a second series link there instead.
+        $position = null;
+
+        if (isset($parts[1]) && preg_match('#^\d+\s*/\s*\d+$#', Wikitext::plainText($parts[1])) === 1) {
+            $position = Wikitext::plainText($parts[1]);
+        }
+
+        return [$name, $page, $position];
     }
 
-    private function normaliseHeading(string $heading): string
+    /**
+     * "Green<br>/<br>Plastic" is a colour and a material in one cell.
+     *
+     * @return array{0: string|null, 1: string|null}
+     */
+    private function base(string $cell): array
     {
-        return strtolower(preg_replace('/[^a-z0-9]/i', '', $heading) ?? $heading);
+        $parts = array_values(array_filter(
+            Wikitext::splitOnBreaks($cell),
+            static fn (string $part): bool => trim($part) !== '/',
+        ));
+
+        $color = isset($parts[0]) ? Wikitext::valueOrNull($parts[0]) : null;
+        $type = isset($parts[1]) ? Wikitext::valueOrNull($parts[1]) : null;
+
+        // A cell that wasn't stacked at all still separates the two with a
+        // slash, and splitting on it is what keeps "Black" from becoming
+        // "Black / Plastic" — two spellings of one variation.
+        if ($type === null && $color !== null && str_contains($color, '/')) {
+            [$color, $type] = array_map(trim(...), explode('/', $color, 2));
+        }
+
+        return [$color ?: null, $type ?: null];
     }
 }
