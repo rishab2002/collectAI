@@ -247,6 +247,104 @@ class HotWheelsWikiParserTest extends TestCase
         $this->assertNotContains('Nightburnerz Series (2011)', $titles);
     }
 
+    public function test_a_page_that_splits_its_versions_by_tooling_keeps_both(): void
+    {
+        $page = (new CastingPageParser)->parse($this->fixture('57-chevy'), "'57 Chevy", 21432, 1);
+
+        // This page has no `==Versions==` heading at all — it files its releases
+        // under "Closed Hood Versions" and "Exposed Engine Versions". Reading
+        // only a section by that exact name drops the entire page; reading only
+        // the first table drops half of it.
+        $this->assertSame(['Closed Hood', 'Exposed Engine'], $page->toolingLabels());
+
+        $closed = array_filter(
+            $page->importableVersions(),
+            fn (VersionRow $row): bool => $row->toolingLabel === 'Closed Hood',
+        );
+
+        $this->assertNotEmpty($closed);
+        $this->assertNotEmpty(array_filter(
+            $page->importableVersions(),
+            fn (VersionRow $row): bool => $row->toolingLabel === 'Exposed Engine',
+        ));
+    }
+
+    public function test_rows_are_numbered_across_the_whole_page(): void
+    {
+        $page = (new CastingPageParser)->parse($this->fixture('57-chevy'), "'57 Chevy", 21432, 1);
+
+        // The line number is what a row's provenance key is built from. Numbered
+        // per section, the first row of the second tooling would collide with
+        // the first row of the first.
+        $lines = array_map(fn (VersionRow $row): int => $row->line, $page->versions);
+
+        $this->assertSame($lines, array_unique($lines));
+        $this->assertSame(range(1, count($lines)), array_values($lines));
+    }
+
+    public function test_aftermarket_customs_are_not_imported_as_releases(): void
+    {
+        $page = (new CastingPageParser)->parse(<<<'WIKI'
+            {{casting|name=Test Casting}}
+            ==Versions==
+            {| class="wikitable"
+            ! Col # !! Year !! Series !! Color !! Toy #
+            |-
+            |001/244 || [[2011]] || [[2011 New Models]] || Red || T0001
+            |}
+            ==[[Code 3]] Versions==
+            {| class="wikitable"
+            ! Col # !! Year !! Series !! Color !! Toy #
+            |-
+            |002/244 || [[2011]] || [[Some Customizer]] || Gold || X0001
+            |}
+            WIKI, 'Test Casting', 1);
+
+        // A Code 3 car is one a third party repainted after it left the factory.
+        // Hot Wheels never sold it, so it is not a release — importing it would
+        // put customs in a catalog of retail cars.
+        $this->assertCount(1, $page->importableVersions());
+        $this->assertSame('T0001', $page->importableVersions()[0]->toyNumber);
+    }
+
+    public function test_a_table_that_opens_with_a_row_separator_still_has_column_names(): void
+    {
+        $page = (new CastingPageParser)->parse($this->fixture('ferrari-ff'), 'Ferrari FF', 21584, 1);
+
+        // This table writes `|-` before its header row. Treating "before the
+        // first row separator" as the header row reads all thirteen headers as
+        // the first data row, leaves the table with no column names, and every
+        // field on every row comes back null — silently, since a page with no
+        // importable rows looks the same as a page with nothing to import. Nine
+        // percent of a sixty-page sample were being dropped this way.
+        $first = $page->importableVersions()[0];
+
+        $this->assertSame(2011, $first->year);
+        $this->assertSame('045', $first->collectorNumber);
+        $this->assertSame('Red', $first->color);
+        $this->assertSame('PR5', $first->wheelType);
+        $this->assertSame('T9715', $first->toyNumber);
+        // "Base Color<br />/<br />Type" — the self-closing spelling of the same
+        // break the other pages write as "<br>".
+        $this->assertSame('Grey', $first->baseColor);
+    }
+
+    public function test_a_redirect_is_recognised_rather_than_read_as_an_empty_page(): void
+    {
+        // Three of the first sixty castings the 2011 index links to are
+        // redirects. A redirect parses as a page with no versions, so without
+        // this the casting is skipped in silence.
+        $this->assertSame(
+            "'70 Camaro",
+            CastingPageParser::redirectTarget($this->fixture('70-camaro-road-race')),
+        );
+
+        // The leading colon some redirects carry is escaping syntax, not part of
+        // the title, and a lookup for ":'58 Impala" finds nothing.
+        $this->assertSame("'58 Impala", CastingPageParser::redirectTarget("#REDIRECT [[:'58 Impala]]"));
+        $this->assertNull(CastingPageParser::redirectTarget($this->fixture('danicar')));
+    }
+
     public function test_a_year_index_title_round_trips(): void
     {
         $this->assertSame('List of 2011 Hot Wheels', YearIndexParser::titleForYear(2011));

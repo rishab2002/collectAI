@@ -129,6 +129,13 @@ final class WikitextTable
         $rows = [];
         $current = null;
 
+        // Whether a data cell has appeared yet, which is what separates the
+        // header row from the body — not position. Plenty of these tables open
+        // with a `|-` before their headers, and treating "before the first row
+        // separator" as the header row reads every header as data and leaves the
+        // table with no column names at all.
+        $seenData = false;
+
         // The remainder of the `{|` line is the table's own attributes.
         $lines = explode("\n", $body);
         array_shift($lines);
@@ -137,7 +144,7 @@ final class WikitextTable
             $trimmed = ltrim($line);
 
             if (str_starts_with($trimmed, '|-')) {
-                if ($current !== null) {
+                if ($current !== null && $current !== []) {
                     $rows[] = $current;
                 }
 
@@ -147,15 +154,15 @@ final class WikitextTable
             }
 
             if (str_starts_with($trimmed, '!')) {
-                // Headers before the first `|-` are the table's header row.
-                // Anything after is a row-level header cell, which these tables
-                // use for the occasional label column.
                 $cells = self::splitInline(substr($trimmed, 1), '!!');
 
-                if ($current === null) {
-                    $headers = [...$headers, ...$cells];
+                // Once the body has started, a `!` is a row-level header cell —
+                // these tables use one for the occasional label column — and
+                // belongs to its row rather than to the column names.
+                if ($seenData) {
+                    $current = [...($current ?? []), ...$cells];
                 } else {
-                    $current = [...$current, ...$cells];
+                    $headers = [...$headers, ...$cells];
                 }
 
                 continue;
@@ -163,6 +170,7 @@ final class WikitextTable
 
             if (str_starts_with($trimmed, '|')) {
                 $cells = self::splitInline(substr($trimmed, 1), '||');
+                $seenData = true;
 
                 if ($current === null) {
                     // A table whose first row omits the leading `|-`.
@@ -194,7 +202,7 @@ final class WikitextTable
             unset($target);
         }
 
-        if ($current !== null) {
+        if ($current !== null && $current !== []) {
             $rows[] = $current;
         }
 

@@ -50,6 +50,27 @@ final class CastingPage
     }
 
     /**
+     * The distinct tools this page describes, in the order it describes them.
+     *
+     * Usually one — a single unlabelled Versions table, so a single null. A page
+     * that files its releases under "Closed Hood Versions" and "Exposed Engine
+     * Versions" is describing two physical tools, which is a CastingVersion each
+     * rather than a note on one.
+     *
+     * @return list<string|null>
+     */
+    public function toolingLabels(): array
+    {
+        $labels = [];
+
+        foreach ($this->importableVersions() as $version) {
+            $labels[$version->toolingLabel ?? ''] = $version->toolingLabel;
+        }
+
+        return array_values($labels);
+    }
+
+    /**
      * @return list<int>
      */
     public function years(): array

@@ -45,10 +45,22 @@ final class CastingPageParser
         'interior' => 'interior',
         'wheel type' => 'wheel',
         'wheels' => 'wheel',
+        'base color / types' => 'base',
         'toy #' => 'toy_number',
         'toy#' => 'toy_number',
         'country' => 'country',
     ];
+
+    /**
+     * Version sections that aren't Mattel releases.
+     *
+     * "Code 3" is the collector term for a car a third party has repainted or
+     * rebuilt after it left the factory. The wiki lists them under their own
+     * heading on the casting's page, but they are not something Hot Wheels ever
+     * sold, and importing them would put customs in a catalog of retail
+     * releases.
+     */
+    private const EXCLUDED_SECTIONS = ['code 3'];
 
     public function parse(string $wikitext, string $title, int $pageId, ?int $revisionId = null): CastingPage
     {
@@ -154,49 +166,99 @@ final class CastingPageParser
      */
     private function versions(string $wikitext): array
     {
-        $section = $this->versionsSection($wikitext);
-
-        if ($section === null) {
-            return [];
-        }
-
-        $table = WikitextTable::firstIn($section);
-
-        if ($table === null) {
-            return [];
-        }
-
         $versions = [];
+
+        // Numbered across the page, not per section: the line number is what a
+        // row's provenance key is built from, and restarting it in a second
+        // section would give two different cars the same key.
         $line = 0;
 
-        foreach ($table->keyedRows() as $row) {
-            $versions[] = $this->version(++$line, $this->mapColumns($row));
+        foreach ($this->versionSections($wikitext) as $label => $section) {
+            $table = WikitextTable::firstIn($section);
+
+            if ($table === null) {
+                continue;
+            }
+
+            foreach ($table->keyedRows() as $row) {
+                $versions[] = $this->version(++$line, $label ?: null, $this->mapColumns($row));
+            }
         }
 
         return $versions;
     }
 
     /**
-     * The `==Versions==` section only, so a page whose first table is something
-     * else — a card-art gallery, a series listing — doesn't get read as one.
+     * Every section whose heading ends in "Versions", keyed by the tooling it
+     * names — "" for a plain `==Versions==`.
+     *
+     * Scoped to those headings so a page whose first table is something else — a
+     * card-art gallery, a series listing — doesn't get read as a version table.
+     *
+     * Most pages have exactly one. The ones that don't are the reason this
+     * returns a list: `'57 Chevy` files its releases under "Closed Hood
+     * Versions" and "Exposed Engine Versions", which is the wiki describing two
+     * physical tools, and taking only the first table would drop half the page
+     * while taking neither would drop all of it.
+     *
+     * @return array<string, string>
      */
-    private function versionsSection(string $wikitext): ?string
+    private function versionSections(string $wikitext): array
     {
-        if (preg_match('/^(==+)\s*Versions\s*\1\s*$/mi', $wikitext, $matches, PREG_OFFSET_CAPTURE) !== 1) {
+        preg_match_all('/^(==+)\s*(.*?Versions)\s*\1\s*$/mi', $wikitext, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
+
+        $sections = [];
+
+        foreach ($matches as $match) {
+            [$heading, $offset] = $match[0];
+            $level = strlen($match[1][0]);
+            $label = Wikitext::plainText($match[2][0]);
+
+            // "Versions" itself carries no tooling name; anything before it does.
+            $label = trim(preg_replace('/\s*Versions$/i', '', $label) ?? '');
+
+            if (in_array(mb_strtolower($label), self::EXCLUDED_SECTIONS, true)) {
+                continue;
+            }
+
+            $rest = substr($wikitext, $offset + strlen($heading));
+
+            // Stops at the next heading of the same level or higher, so a
+            // `===Variations===` subsection stays part of its Versions section.
+            if (preg_match('/^={1,'.$level.'}\s*[^=].*?={1,'.$level.'}\s*$/m', $rest, $next, PREG_OFFSET_CAPTURE) === 1) {
+                $rest = substr($rest, 0, $next[0][1]);
+            }
+
+            // A page with both "Versions" and "Custom Versions" keys them apart;
+            // a page repeating a heading keeps the first.
+            $sections[$label] ??= $rest;
+        }
+
+        return $sections;
+    }
+
+    /**
+     * The article a redirect points at, or null if this page isn't one.
+     *
+     * Year indexes link to redirects often enough to matter — three of the first
+     * sixty 2011 links are one — and a redirect parses as a page with no
+     * versions, so without this the casting is skipped in silence rather than
+     * followed.
+     */
+    public static function redirectTarget(string $wikitext): ?string
+    {
+        // Only the top of the page counts — an article discussing a redirect
+        // isn't one. A leading comment doesn't stop it being a redirect, in
+        // MediaWiki or here, so those are skipped before anchoring.
+        $head = preg_replace('/^(?:\s|<!--.*?-->)*/s', '', $wikitext) ?? $wikitext;
+
+        if (preg_match('/^#REDIRECT\s*\[\[\s*:?\s*([^\]|#]+)/i', $head, $matches) !== 1) {
             return null;
         }
 
-        $start = $matches[0][1] + strlen($matches[0][0]);
-        $rest = substr($wikitext, $start);
-        $level = strlen($matches[1][0]);
+        $target = trim(html_entity_decode($matches[1], ENT_QUOTES | ENT_HTML5, 'UTF-8'));
 
-        // Stops at the next heading of the same level or higher, so a
-        // `===Variations===` subsection stays part of Versions.
-        if (preg_match('/^={1,'.$level.'}\s*[^=].*?={1,'.$level.'}\s*$/m', $rest, $next, PREG_OFFSET_CAPTURE) === 1) {
-            return substr($rest, 0, $next[0][1]);
-        }
-
-        return $rest;
+        return $target === '' ? null : $target;
     }
 
     /**
@@ -225,13 +287,14 @@ final class CastingPageParser
     /**
      * @param  array<string, string>  $cells
      */
-    private function version(int $line, array $cells): VersionRow
+    private function version(int $line, ?string $toolingLabel, array $cells): VersionRow
     {
         [$seriesName, $seriesPage, $seriesPosition] = $this->series($cells['series'] ?? '');
         [$baseColor, $baseType] = $this->base($cells['base'] ?? '');
 
         return new VersionRow(
             line: $line,
+            toolingLabel: $toolingLabel,
             year: $this->year($cells['year'] ?? ''),
             // "002/244" is this car's number within the year's whole run. Only
             // the left half identifies it; the right is the run size, which is a

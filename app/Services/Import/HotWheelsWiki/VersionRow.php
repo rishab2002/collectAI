@@ -18,11 +18,13 @@ namespace App\Services\Import\HotWheelsWiki;
 final class VersionRow
 {
     /**
-     * @param  int  $line  1-based position in the table, which the row's provenance key is built from.
+     * @param  int  $line  1-based position on the page, which the row's provenance key is built from.
+     * @param  string|null  $toolingLabel  Which tooling this row belongs to, when the page splits its versions by one — "Closed Hood", "Exposed Engine". Null when the page has a single Versions table, which is the usual case.
      * @param  string|null  $seriesPage  The series' wiki article, which identifies it across years better than its name does.
      */
     public function __construct(
         public readonly int $line,
+        public readonly ?string $toolingLabel,
         public readonly ?int $year,
         public readonly ?string $collectorNumber,
         public readonly ?string $seriesName,

@@ -1,0 +1,77 @@
+<!-- Fixture captured https://hotwheels.fandom.com/wiki/Ferrari_FF
+     page 27239, revision 782878, retrieved 2026-08-09.
+     Content from hotwheels.fandom.com, licensed CC-BY-SA 3.0.
+     Kept because its Versions table opens with a `|-` before the header row. -->
+{{casting|name=Ferrari FF|series=[[2011 New Models]]|number=T9715|years=[[2011]] - [[2013]]|designer=[[John Violette]]|image=Ferrari FF 01.JPG}}
+
+==Description==
+(prose omitted from this fixture)
+
+==Versions==
+
+The '''Ferrari FF''' has come out in the following 1/64 scale versions:
+{| style="font-size: 85%; text-align: left;" class="wikitable sortable" width="100%"
+|-
+!style="border-style: none none solid solid; |'''Col #'''
+!style="border-style: none none solid solid; |'''Year'''
+!style="border-style: none none solid solid; |'''Series'''
+!style="border-style: none none solid solid; |'''Color'''
+!style="border-style: none none solid solid; |'''Tampo'''
+!style="border-style: none none solid solid; |'''Base Color<br />/<br />Type'''
+!style="border-style: none none solid solid; |'''Window Color'''
+!style="border-style: none none solid solid; |'''Interior Color'''
+!style="border-style: none none solid solid; |'''Wheel Type'''
+!style="border-style: none none solid solid; |'''Toy #'''
+!style="border-style: none none solid solid; |'''Country'''
+!style="border-style: none none solid solid; |'''Notes<br />/<br />Variations'''
+!style="border-style: none none solid solid; |'''Photo'''
+|-
+|045/244
+|[[List of 2011 Hot Wheels|2011]]
+|[[2011 New Models]]<br>45/50
+|Red
+|Detailed headlights, Ferrari emblems
+|Grey<br>/<br>Plastic
+|Clear
+|Beige
+|[[PR5]]
+|T9715
+|Malaysia
+|''Cast with and without Prancing Horse logo in grille''<br>[[Base codes|Base Codes]]: D29, D30
+|[[File:Ferrari_FF_01.JPG|75px]]
+|-
+|045/244
+|[[List of 2011 Hot Wheels|2011]]
+|[[2011 New Models]]<br>45/50
+|Metallic Grey
+|Detailed headlights, Ferrari emblems
+|Grey<br>/<br>Plastic
+|Clear
+|Beige
+|[[PR5]]
+|V0022
+|Malaysia
+|Base Codes: D41, D43, D48. D49, D50
+|[[File:Ferrari_FF_02.JPG|75px]]
+|-
+|
+|[[5-Packs#2013|2013]]
+|[[Ferrari 5-Pack (2013)|Ferrari 5-Pack]]
+|White
+|Detailed headlights, Ferrari emblems, Black/Red side stripes
+|Grey<br>/<br>Plastic
+|Tinted (Black)
+|Black
+|Chrome[[PR5|&nbsp;Rim PR5]]
+|X9848
+|Thailand
+|Base Codes: E46, E47
+|[[File:Ferrari_FF_03.JPG|75px]]
+|}
+
+==2011 card==
+(prose omitted from this fixture)
+
+==Gallery==
+(prose omitted from this fixture)
+
