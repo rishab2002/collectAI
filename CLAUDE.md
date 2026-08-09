@@ -5,7 +5,7 @@ domain model, conventions and current state only have to be explained once.
 **Treat this file as the source of truth, not the conversation history** —
 update it whenever a convention changes.
 
-**Last edited:** 2026-08-09 (OCR agent landed)
+**Last edited:** 2026-08-09 (catalog-import decisions settled)
 
 ## Start here
 
@@ -39,7 +39,7 @@ The five things most likely to trip you up, each expanded below:
 - [How to work in this repo](#how-to-work-in-this-repo) — conventions, traps
 - [Domain model](#domain-model) — [Make/Model splitting](#makemodel-splitting-rules) · [field definitions](#field-definitions)
 - [AI agent pipeline](#ai-agent-pipeline) — [example flow](#example-flow) · [acquisition priorities](#data-acquisition-priorities)
-- [Settled decisions](#settled-decisions) — [schema](#schema) · [approval](#approval--submissions) · [capture](#capture) · [AI pipeline](#ai-pipeline) · [review](#review) · [delivery](#delivery)
+- [Settled decisions](#settled-decisions) — [schema](#schema) · [approval](#approval--submissions) · [capture](#capture) · [AI pipeline](#ai-pipeline) · [catalog import](#catalog-import-hot-wheels-wiki) · [review](#review) · [delivery](#delivery)
 - [Open questions](#open-questions)
 - [Session log](docs/session-log.md) — narrative and rationale, loaded on demand
 
@@ -124,6 +124,10 @@ passed, 267 assertions**.
   (md5 match) with `content-type: image/jpeg` preserved. The bucket root returns
   404, so object listing isn't exposed. `php artisan capture:check-storage`
   re-runs the whole round trip — write, read, public fetch, delete.
+- **No catalog importer.** Every decision it needs is settled — see
+  [Settled decisions → Catalog import](#catalog-import-hot-wheels-wiki) — but
+  there is no `record_sources` table, no migration, and no importer code. The
+  catalog is still whatever `CatalogSeeder` plants.
 - **No public catalog browsing, collections, wishlists, price charts, or
   barcode scanning.** The tables exist; nothing reads them.
 - Nothing creates a `CastingVersion` automatically alongside a `Casting`.
@@ -151,14 +155,27 @@ queue.
   Cloudflare but nothing is deployed, so the capture screen has never run on a
   phone — which is the only place it's meant to run. The app is now installable
   the moment it's served over HTTPS.
-- **The rest of the AI pipeline.** The OCR Agent landed on 2026-08-09, so a
-  capture produces a reading. The next link is the one that turns a reading into
-  proposals: **Metadata** (normalise the read strings against known naming),
-  then **Comparison** (deterministic `pg_trgm` lookup — no LLM call) and
-  **Insertion** (create pending records + `submission_proposals`). Until those
-  exist the review queue only fills from `SubmissionSeeder`. Whoever writes
-  Insertion must create `CastingVersion` 1 explicitly — nothing does it
-  automatically, see below.
+- **The Hot Wheels Wiki importer.** Every decision it needs is settled — see
+  [Settled decisions → Catalog import](#catalog-import-hot-wheels-wiki) — but
+  **no code or migration exists yet**. Two pieces, in order: the
+  `record_sources` migration (a schema change, so `migrate:fresh --seed` +
+  `php artisan test` is the gate), then the importer itself, starting with
+  `List of 2011 Hot Wheels`. This comes before the rest of the pipeline on
+  purpose: Comparison's whole job is diffing against an existing catalog, and
+  right now there isn't one.
+- **Then the rest of the AI pipeline.** The OCR Agent landed on 2026-08-09, so a
+  capture produces a reading. The next link turns a reading into proposals:
+  **Metadata** (normalise the read strings against known naming), then
+  **Comparison** (deterministic `pg_trgm` lookup — no LLM call) and **Insertion**
+  (create pending records + `submission_proposals`). Until those exist the review
+  queue only fills from `SubmissionSeeder`. Whoever writes Insertion must create
+  `CastingVersion` 1 explicitly — nothing does it automatically, see below.
+- **Prove the OCR agent against the live API.** It has never run for real —
+  there's no `ANTHROPIC_API_KEY` set, and every test to date uses a faked PSR-18
+  transport. The one genuinely unverified assumption is that the API's
+  structured-output subset accepts `"type": ["string", "null"]`; if it doesn't,
+  that's a 400 at schema compilation and a switch to `anyOf`. Cheap to check,
+  and everything downstream is built on that schema.
 
 Note the layout lives at `resources/views/components/layouts/app.blade.php`
 (anonymous Blade components resolve under `views/components/`), and the base
@@ -548,6 +565,74 @@ in the [session log](docs/session-log.md).*
   admin has to notice is wrong; that review time dwarfs the token difference.
   `OCR_MAX_TOKENS` covers thinking as well as the JSON — thinking is on by
   default on Opus 5, and a limit sized for the answer alone truncates mid-read.
+
+### Catalog import (Hot Wheels Wiki)
+
+*Settled 2026-08-09 as a decisions-only session — **no importer code or
+migrations exist yet**. Verified live against the wiki the same day. Reasoning
+in the [session log](docs/session-log.md).*
+
+The catalog can't grow to useful coverage from photographs alone, so the bulk of
+it comes from [hotwheels.fandom.com](https://hotwheels.fandom.com) and the
+capture pipeline adds what the wiki lacks. This also gives the Comparison Agent
+a populated DB to diff against — without it, duplicate detection is being built
+against an empty table.
+
+- **Use the dump, not a crawler.** `https://s3.amazonaws.com/wikia_xml_dumps/h/
+  ho/hotwheels_pages_current.xml.7z` — 16.5 MB, current revisions, last modified
+  2026-03-13. The API (MediaWiki 1.43.9 at `/api.php`) is only for the delta
+  since the dump's `Last-Modified`, via revision timestamps. That's 1 download
+  plus a small delta instead of 11,041 requests. Re-check `Last-Modified` before
+  each run; if the dump has moved on, re-pull rather than widening the delta.
+- **Import facts, never prose.** The wiki is CC-BY-SA. Individual facts (year,
+  colour, wheel type, toy number) aren't copyrightable; article prose and the
+  `Notes` column are. Import only the structured wikitable columns — **do not
+  import `Notes`, article text, or the 165,987 images.** This is also what keeps
+  the result an original database rather than a mirror, which is
+  [priority 1](#data-acquisition-priorities). Attribution rides on
+  `record_sources.source_url` and should surface wherever the public catalog
+  shows an imported row.
+- **Provenance is a polymorphic `record_sources` table**, not columns on eight
+  catalog tables — same call, and same reason, as `submission_proposals`: audit
+  metadata doesn't belong in the middle of the domain model, and "everything
+  from revision N" / "everything stale" should be one indexed read. Carries
+  `sourceable_type`, `sourceable_id`, `source`, `source_key`, `source_url`,
+  `source_revision_id`, `imported_at`. Unique on `(source, source_key)` — that
+  constraint is what makes re-import idempotent — and on
+  `(sourceable_type, sourceable_id)`, one provenance row per record. `source_key`
+  must be unique per *record*, not per page: a casting article yields one
+  casting and many releases, so key them `page:12345` and `page:12345:row:7`.
+- **The gate is provenance, not table.** Columns the wiki states go live through
+  the importer. The Make/Model split and `is_fantasy` are **not** in the wiki and
+  are an LLM inference, so they go through `submission_proposals` like any other
+  inferred field.
+- **The importer gets its own auto-approve threshold**, separate from
+  `catalog.review.auto_approve_threshold`, which **stays 1.0**. Nothing a person
+  photographed auto-publishes; that invariant is untouched. The two paths have
+  genuinely different risk profiles and are tuned independently.
+- **An unresolved casting stays `pending` — it never goes live unattributed.**
+  This is the existing `Casting::approvalBlocker()` doing exactly the job it was
+  added for: a real casting with a null `model_id` can't be approved, so
+  low-confidence inferences leave a backfill queue of invisible rows rather than
+  11k review items or a catalog full of cars nobody can search for.
+- **Start with `List of 2011 Hot Wheels`**, the year in this file's worked
+  example, so the parser is validated against a case the fixtures already cover
+  before anything six-figure runs.
+- **The importer must create `CastingVersion` 1 explicitly** — nothing does it
+  automatically (see [Current state](#current-state)). It is the first bulk
+  writer, so it is the first place this bites.
+- **Single-brand by construction.** This wiki is Hot Wheels only, so every
+  imported `series.brand_id` is Hot Wheels. Other brands need other sources —
+  and needing zero schema changes to add them is the point of the design.
+
+**Parsing notes** (verified 2026-08-09): casting pages carry a `{{casting}}`
+infobox and a `==Versions==` wikitable with columns *Col # · Year · Series ·
+Color · Tampo · Base Color/Type · Window Color · Interior Color · Wheel Type ·
+Toy # · Country · Notes · Photo*, mapping almost 1:1 onto releases + variations.
+Year indexes exist as `List of YYYY Hot Wheels`, 1968–2027. Two gotchas: `Col #`
+arrives as `032/244`, and Series as `[[2011 New Models]]<br>32/50` — both need
+splitting, and Series being a wiki-link means series identity is resolvable
+rather than a bare string.
 
 ### Review
 

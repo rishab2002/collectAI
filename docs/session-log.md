@@ -14,6 +14,63 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-08-09 — Catalog import decisions (no code)
+
+A decisions-only session, per the separate-sessions convention: the importer
+touches the schema, so the shape got settled before anything was written. **No
+migration, no importer, no tests changed** — the deliverable is
+[Settled decisions → Catalog import](../CLAUDE.md#catalog-import-hot-wheels-wiki).
+Suite untouched at 92/267.
+
+**A dump exists, so there is no crawler to write.** The open item from the
+earlier research was "check `Special:Statistics` before writing an API crawler."
+Checked: `wikia_xml_dumps/h/ho/hotwheels_pages_current.xml.7z`, 16.5 MB, current
+revisions, `Last-Modified: 2026-03-13`. `Special:Statistics` itself 403s to a
+plain fetch and has no download link in its markup, and WebFetch returns 402 —
+the dump had to be found by probing Fandom's S3 path directly. So the plan is
+one download plus an API delta for the ~5 months since, rather than 11,041
+requests with rate-limit and politeness handling. Siteinfo re-confirmed live:
+11,041 articles, 165,987 images, CC-BY-SA, MediaWiki 1.43.9.
+
+**Facts, not prose.** CC-BY-SA has attribution and share-alike obligations, and
+the honest line is between facts and expression: a year, a colour and a toy
+number aren't copyrightable, article prose and the free-text `Notes` column are.
+Importing only the structured wikitable columns keeps the licence question from
+arising, and it's also what makes this an original database rather than a mirror
+— which CLAUDE.md lists as the first acquisition priority. Together with the
+existing "don't import the images" call, the legal surface is close to nil.
+
+**The two calls that were genuinely open:**
+
+- **The importer gets its own auto-approve threshold;
+  `catalog.review.auto_approve_threshold` stays 1.0.** The wiki has no
+  Make/Model split and no fantasy flag, so that inference is an LLM step, and at
+  11,041 castings per-row review is not a thing a person does. Something had to
+  auto-approve. Scoping it to the importer keeps the capture path's invariant
+  exactly as it was — nothing a person photographed publishes itself — and the
+  two paths get tuned independently, which they should, because a wikitable row
+  and a phone photo of a scratched card are not the same evidence.
+- **Provenance is a polymorphic `record_sources` table, not columns on eight
+  tables.** Same call and the same reason as `submission_proposals`: audit
+  metadata in the middle of the domain model is what that migration was written
+  to avoid, and "everything from revision N" / "everything stale" wants to be one
+  indexed read. `source_key` is keyed per record rather than per page —
+  `page:12345` for the casting, `page:12345:row:7` for a release — because one
+  article yields one casting and many releases, and idempotent re-import depends
+  on `(source, source_key)` being unique.
+
+**The nicest part is that the gate already exists.** An imported casting whose
+make and model can't be inferred confidently stays `pending` rather than going
+live unattributed — which is precisely what `Casting::approvalBlocker()`, added
+yesterday for the review screen, already enforces. So low-confidence inferences
+leave a queue of invisible rows to backfill, not 11k review items and not a
+catalog full of cars nobody can search for. A guard written for one reason turned
+out to be the mechanism the import needed.
+
+Deleted the `hotwheels-fandom-import` memory afterwards: everything in it now
+lives in CLAUDE.md, which a fresh session loads automatically rather than having
+to recall.
+
 ## 2026-08-09 — The OCR agent, and the first real pipeline output
 
 `php artisan test` green: **92 tests, 267 assertions**. `migrate:fresh --seed`
