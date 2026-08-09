@@ -5,7 +5,7 @@ domain model, conventions and current state only have to be explained once.
 **Treat this file as the source of truth, not the conversation history** —
 update it whenever a convention changes.
 
-**Last edited:** 2026-08-09 (Hot Wheels Wiki importer landed; 2011 imported)
+**Last edited:** 2026-08-09 (two duplicate importers reconciled into one)
 
 ## Start here
 
@@ -22,9 +22,10 @@ purpose.
 
 The five things most likely to trip you up, each expanded below:
 
-1. **Check `database/migrations` before writing one.** Two branches once each
-   built the entire schema, and both were merged. See
-   [How to work in this repo](#how-to-work-in-this-repo).
+1. **Check `database/migrations` before writing one, and `git branch -a` before
+   building a feature.** Two branches once each built the entire schema, and
+   both were merged. It then happened a second time with the whole importer.
+   See [How to work in this repo](#how-to-work-in-this-repo).
 2. **`migrate:fresh --seed` + `php artisan test` is the gate for schema work.**
    Plain `php artisan migrate` on an already-migrated dev DB proves nothing.
 3. **Tests run on Postgres, not SQLite**, and `docker-compose.yml` must not get
@@ -56,8 +57,8 @@ The five things most likely to trip you up, each expanded below:
 the fastest way for a new session to avoid assuming something exists.*
 
 **Running:** `docker compose up -d` brings up `app` (:8000), `db` (Postgres 16,
-:5432), `redis` (:6379), `meilisearch` (:7700). `php artisan test` → **132
-passed, 492 assertions**.
+:5432), `redis` (:6379), `meilisearch` (:7700). `php artisan test` → **154
+passed, 444 assertions**.
 
 **A clean checkout has no `.env`** (it's gitignored), so the suite fails on
 `MissingAppKeyException` before it reaches anything real. `cp .env.example .env
@@ -86,10 +87,25 @@ passed, 492 assertions**.
   `app/Services/Import/Wikitext/` (a rowspan-aware wikitable parser),
   `app/Services/Import/HotWheelsWiki/` (`CastingPageParser`, `YearIndexParser`,
   `CatalogImporter`, `ApiPageSource`, `DumpPageSource`) and
-  `catalog:import-hot-wheels`. Parser tests run on wikitext captured verbatim
-  from the wiki in `tests/Fixtures/hotwheels-wiki/`, not on wikitext written to
-  suit the parser — that distinction found four separate classes of dropped row
-  and is worth preserving.
+  `catalog:import-hot-wheels` (`--year`, `--dump`, `--limit`, `--dry-run`).
+  Parser tests run on wikitext captured verbatim from the wiki in
+  `tests/Fixtures/hotwheels-wiki/`, not on wikitext written to suit the parser —
+  that distinction found four separate classes of dropped row and is worth
+  preserving. **2011 is imported**: 241 castings, 258 casting versions, 1,856
+  series, 4,284 releases, 6,295 variations, 12,934 provenance rows, in about 27
+  seconds. Re-import is idempotent — verified against the live wiki, not just in
+  tests.
+  - **Almost all of it is `pending`, by design.** The wiki states no make or
+    model in a structured column, so imported castings are unidentified and
+    `Casting::approvalBlocker()` holds them — and their releases and variations
+    — back. Brands and series go live. `submission_proposals` is untouched: the
+    import does not create review items. Don't "fix" the pending rows by setting
+    `model_id` in the importer; that's the inference the split is meant to gate.
+  - **`--dry-run` writes and rolls back**, rather than parsing and skipping the
+    insert. What a rehearsal is for is catching writes that *collide*, and one
+    that never reaches the insert reports a clean run and then dies partway
+    through the real one. It holds a single transaction open for the whole run,
+    so pair it with `--limit` before rehearsing the dump.
 - Eloquent models for every table, factories for every model, three seeders
   (`AdminUserSeeder`, `CatalogSeeder`, `SubmissionSeeder`).
 - `pg_trgm` enabled with GIN trigram indexes.
@@ -113,6 +129,12 @@ passed, 492 assertions**.
   dispatches the job; it reads the packaging with a Claude vision call and
   writes the result to `submissions.ocr_output`. Tests fake the SDK's PSR-18
   transporter, so they assert the real request body without an API key.
+- **R2**, verified end to end on 2026-08-09 against the live `collectai-photos`
+  bucket: the capture endpoint stored a 150,000-byte photo, and fetching
+  `Photo::url()` over `img.collectai.club` returned identical bytes (md5 match)
+  with `content-type: image/jpeg` preserved. The bucket root returns 404, so
+  object listing isn't exposed. `php artisan capture:check-storage` re-runs the
+  whole round trip — write, read, public fetch, delete.
 - **The PWA shell**: `public/manifest.json`, `public/sw.js`,
   `public/offline.html`, the icon set under `public/icons/` plus
   `apple-touch-icon.png`, and registration in `resources/js/app.js`. The layout
@@ -136,30 +158,6 @@ passed, 492 assertions**.
   end to end. Note `pg_trgm` and Meilisearch are not substitutes: trigram
   similarity is the Comparison Agent's DB-side duplicate check, Meilisearch is
   user-facing typo-tolerant search.
-- **R2 is fully working**, verified end to end on 2026-08-09 against the live
-  `collectai-photos` bucket: the capture endpoint stored a 150,000-byte photo,
-  and fetching `Photo::url()` over `img.collectai.club` returned identical bytes
-  (md5 match) with `content-type: image/jpeg` preserved. The bucket root returns
-  404, so object listing isn't exposed. `php artisan capture:check-storage`
-  re-runs the whole round trip — write, read, public fetch, delete.
-- **The Hot Wheels Wiki importer** (`app/Services/Import/`,
-  `php artisan import:hot-wheels {year}`). `record_sources` +
-  `variations.toy_number` migrations, a rowspan-aware `WikitableParser`,
-  `CastingPageParser`, `YearIndexParser`, `WikiClient` and `CatalogImporter`.
-  **2011 is imported**: 242 castings, 366 releases, 650 variations, 79 series,
-  1,337 provenance rows. Re-import is idempotent — verified against the live
-  wiki, not just in tests. Fixtures under `tests/Fixtures/wiki/` are verbatim
-  live wikitext.
-  - **Almost all of it is `pending`, by design.** The wiki states no make or
-    model in a structured column, so imported castings are unidentified and
-    `Casting::approvalBlocker()` holds them — and their releases and variations
-    — back. Brands and series go live. `submission_proposals` is untouched: the
-    import does not create review items. Don't "fix" the pending rows by setting
-    `model_id` in the importer; that's the inference the split is meant to gate.
-  - **The dump reader is not built.** `WikiClient` uses the API, which is right
-    for one year (five batched requests, not 11,041) and wrong for the whole
-    wiki. See its docblock before assuming the settled dump decision was
-    reversed.
 - **No public catalog browsing, collections, wishlists, price charts, or
   barcode scanning.** The tables exist; nothing reads them.
 - Nothing creates a `CastingVersion` automatically alongside a `Casting`.
@@ -200,8 +198,8 @@ Comparison finally has a catalog to diff against.
   phone — which is the only place it's meant to run. The app is now installable
   the moment it's served over HTTPS.
 - **Import more years, then attribute what's imported.** The importer is done
-  and 2011 is in; `php artisan import:hot-wheels 2012` needs no new code. The
-  more interesting follow-on is the 242 pending castings: nothing yet turns "a
+  and 2011 is in; `catalog:import-hot-wheels --year=2012` needs no new code. The
+  more interesting follow-on is the 241 pending castings: nothing yet turns "a
   real car, not identified yet" into a Make/Model, and that inference is exactly
   what `submission_proposals` is for. That is the natural first customer for the
   Metadata Agent below.
@@ -251,6 +249,22 @@ and `/admin/*`. Worth folding in whenever the public catalog replaces it.
   forward on an already-migrated dev database hides a collision that a fresh
   `migrate` would catch immediately. (Full story in the
   [session log](docs/session-log.md).)
+- **Check whether the feature you are about to build already exists on another
+  branch.** This has now happened twice, and the second time was worse than the
+  first: `huracan` and `aventador` each built the entire Hot Wheels importer,
+  both were merged, and because the two versions mostly disagreed on *filename*
+  rather than on content, git had almost nothing to conflict on and took the
+  union. `main` ended up with two commands, two wikitext parsers, two DTO sets
+  and two migrations adding the same column. **Nothing about a clean merge means
+  the result is coherent** — `git merge` reconciles text, not designs. Before
+  starting a named piece of work, `git branch -a` and skim the branches that
+  aren't merged yet.
+- **A merge that touches a file both sides rewrote deserves a re-read, not a
+  resolution.** Every contested file in that merge silently resolved one way
+  while the surrounding code came from the other, which is how `config/catalog.php`
+  ended up shipping a threshold that this file documented as a different number.
+  If a conflict resolution is more than a few lines, check the result still
+  agrees with what CLAUDE.md claims.
 - **`migrate:fresh --seed` and `php artisan test` are the gate for any schema
   change**, because neither passes on a database that was migrated
   incrementally. Running only `php artisan migrate` proves nothing about whether
@@ -635,9 +649,9 @@ in the [session log](docs/session-log.md).*
 
 ### Catalog import (Hot Wheels Wiki)
 
-*Settled 2026-08-09 as a decisions-only session — **no importer code or
-migrations exist yet**. Verified live against the wiki the same day. Reasoning
-in the [session log](docs/session-log.md).*
+*Settled 2026-08-09 as a decisions-only session, then built and run the same
+day. Verified live against the wiki. Reasoning in the
+[session log](docs/session-log.md).*
 
 The catalog can't grow to useful coverage from photographs alone, so the bulk of
 it comes from [hotwheels.fandom.com](https://hotwheels.fandom.com) and the
@@ -694,7 +708,7 @@ against an empty table.
 
 **Rules learned building it** (2026-08-09). Each came from a bug that failed
 silently; all are now regression-tested against verbatim live wikitext under
-`tests/Fixtures/wiki/`:
+`tests/Fixtures/hotwheels-wiki/`:
 
 - **`rowspan` is the whole ballgame, and a rowspan block is a release.** Versions
   tables write one release sold with four wheel types as a row carrying
