@@ -24,6 +24,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'interior_color',
     'window_tint',
     'base_color',
+    'toy_number',
     'notes',
 ])]
 class Variation extends Model
@@ -47,6 +48,10 @@ class Variation extends Model
         'interior_color',
         'window_tint',
         'base_color',
+        // The manufacturer's SKU. One release can carry several — the 2011
+        // Nightburnerz 350Z was sold as both T9819 and T9950 — so it genuinely
+        // distinguishes one unit from another rather than describing the release.
+        'toy_number',
     ];
 
     public function release(): BelongsTo
