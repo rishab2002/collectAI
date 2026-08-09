@@ -5,7 +5,7 @@ domain model, conventions and current state only have to be explained once.
 **Treat this file as the source of truth, not the conversation history** —
 update it whenever a convention changes.
 
-**Last edited:** 2026-08-09 (catalog-import decisions settled)
+**Last edited:** 2026-08-09 (Hot Wheels Wiki importer built and run)
 
 ## Start here
 
@@ -13,9 +13,12 @@ A brand-agnostic diecast catalog (Hot Wheels, Matchbox, Tomica, Mini GT, …) on
 Laravel + Postgres, whose catalog grows from photographs of packaging via an AI
 pipeline, gated behind admin approval.
 
-**The data layer is complete and tested. The product is not started.** Read
+**The data layer is complete and tested, and the catalog now has 241 real
+castings in it. The public product is not started.** Read
 [Current state](#current-state) before assuming any feature exists — several
 plausible-sounding ones don't, including some the commit history implies.
+In particular: everything imported is `pending` and therefore invisible, on
+purpose.
 
 The five things most likely to trip you up, each expanded below:
 
@@ -30,7 +33,9 @@ The five things most likely to trip you up, each expanded below:
    brand that sold it is a fact about the release. See
    [Settled decisions → Schema](#schema).
 5. **Nothing auto-publishes.** Catalog rows default to `pending`, `status` is
-   not fillable anywhere, and approval promotes the whole ancestor chain.
+   not fillable anywhere, and approval promotes the whole ancestor chain. The
+   6,295 imported variations are all pending because their castings have no
+   identified model — that's the blocker doing its job, not a bug.
 
 ## Index
 
@@ -51,8 +56,14 @@ The five things most likely to trip you up, each expanded below:
 the fastest way for a new session to avoid assuming something exists.*
 
 **Running:** `docker compose up -d` brings up `app` (:8000), `db` (Postgres 16,
-:5432), `redis` (:6379), `meilisearch` (:7700). `php artisan test` → **92
-passed, 267 assertions**.
+:5432), `redis` (:6379), `meilisearch` (:7700). `php artisan test` → **153
+passed, 440 assertions**.
+
+**The catalog is populated.** `catalog:import-hot-wheels --year=2011` has been
+run for real against the live wiki: 241 castings, 4,284 releases, 6,295
+variations. All of it is `pending` — see
+[Settled decisions → Catalog import](#catalog-import-hot-wheels-wiki) for why,
+and don't read the empty public catalog as a sign the import failed.
 
 **A clean checkout has no `.env`** (it's gitignored), so the suite fails on
 `MissingAppKeyException` before it reaches anything real. `cp .env.example .env
@@ -75,8 +86,16 @@ passed, 267 assertions**.
 **Built and tested:**
 
 - All 12 catalog tables + `submissions`, `submission_photos`,
-  `submission_proposals`. Migrations verified from zero (`migrate`, `rollback`,
-  `re-migrate`, `migrate:fresh --seed` all clean).
+  `submission_proposals`, `record_sources`. Migrations verified from zero
+  (`migrate`, `rollback`, `re-migrate`, `migrate:fresh --seed` all clean).
+- **The Hot Wheels Wiki importer** — the whole path, end to end:
+  `app/Services/Import/Wikitext/` (a rowspan-aware wikitable parser),
+  `app/Services/Import/HotWheelsWiki/` (`CastingPageParser`, `YearIndexParser`,
+  `CatalogImporter`, `ApiPageSource`, `DumpPageSource`) and
+  `catalog:import-hot-wheels`. Parser tests run on wikitext captured verbatim
+  from the wiki in `tests/Fixtures/hotwheels-wiki/`, not on wikitext written to
+  suit the parser — that distinction found four separate classes of dropped row
+  and is worth preserving.
 - Eloquent models for every table, factories for every model, three seeders
   (`AdminUserSeeder`, `CatalogSeeder`, `SubmissionSeeder`).
 - `pg_trgm` enabled with GIN trigram indexes.
@@ -113,6 +132,11 @@ passed, 267 assertions**.
   completed submission has a reading and **no proposals**. Nothing populates the
   review queue automatically yet — `SubmissionSeeder` is still what puts
   proposals in it.
+- **The dump has never been read for real.** `DumpPageSource` is tested against
+  an archive built by the same 7-Zip binary, but every real run so far has gone
+  through `ApiPageSource`. Going wide (11,041 pages) should use `--dump=` and is
+  the first thing that will exercise it at size.
+
 - **No Meilisearch integration.** The container runs, but `laravel/scout` is not
   in `composer.json`, so nothing is indexed and cross-brand search doesn't work
   end to end. Note `pg_trgm` and Meilisearch are not substitutes: trigram
@@ -124,17 +148,21 @@ passed, 267 assertions**.
   (md5 match) with `content-type: image/jpeg` preserved. The bucket root returns
   404, so object listing isn't exposed. `php artisan capture:check-storage`
   re-runs the whole round trip — write, read, public fetch, delete.
-- **No catalog importer.** Every decision it needs is settled — see
-  [Settled decisions → Catalog import](#catalog-import-hot-wheels-wiki) — but
-  there is no `record_sources` table, no migration, and no importer code. The
-  catalog is still whatever `CatalogSeeder` plants.
+- **No Make/Model inference, so the imported catalog is invisible.** The
+  importer creates castings *unidentified* — the wiki never states which real
+  vehicle a casting is based on — and `Casting::approvalBlocker()` refuses to
+  publish one of those, so every imported release and variation is pending under
+  a pending casting. Resolving that is the next agent's job, and
+  `submission_proposals.submission_id` was made nullable to give it somewhere to
+  put its proposals. `catalog.import.auto_approve_threshold` (0.9) exists for it
+  and **is not read by anything yet**.
 - **No public catalog browsing, collections, wishlists, price charts, or
   barcode scanning.** The tables exist; nothing reads them.
 - Nothing creates a `CastingVersion` automatically alongside a `Casting`.
-  `CatalogSeeder::casting()` does it explicitly. This is deliberate: a model
-  `created` hook would collide with `CastingVersionFactory`, which builds a
-  casting and its version separately. Whoever writes the Insertion Agent must
-  create version 1 explicitly.
+  `CatalogSeeder::casting()` and `CatalogImporter::castingVersions()` both do it
+  explicitly. This is deliberate: a model `created` hook would collide with
+  `CastingVersionFactory`, which builds a casting and its version separately.
+  Whoever writes the Insertion Agent must create version 1 explicitly.
 
 ## What to do next
 
@@ -149,27 +177,35 @@ what the pipeline proposed, watch it go live. Nothing produces proposals
 automatically yet, so `SubmissionSeeder` is still what puts anything in the
 queue.
 
-**The two obvious next moves, in either order:**
+**The importer landed on 2026-08-09** and 2011 has been imported for real, so
+Comparison finally has a catalog to diff against.
 
+**The obvious next moves:**
+
+- **Make/Model inference — the one thing blocking everything imported.** 241
+  castings are sitting `pending` and unidentified, and each one blocks its own
+  releases and variations from ever going live. This is the Metadata Agent's
+  work: read `'72 Ford Gran Torino Sport` and produce Make: Ford, Model: Gran
+  Torino Sport, with a confidence. Above `catalog.import.auto_approve_threshold`
+  it attaches; below it, the casting stays pending as a backfill queue. The
+  plumbing is in place — `submission_proposals.submission_id` is nullable now —
+  but nothing reads that threshold yet, and there is no review screen for a
+  proposal with no submission behind it.
 - **Deploy to the apex.** `collectai.club` is registered and delegated to
   Cloudflare but nothing is deployed, so the capture screen has never run on a
   phone — which is the only place it's meant to run. The app is now installable
   the moment it's served over HTTPS.
-- **The Hot Wheels Wiki importer.** Every decision it needs is settled — see
-  [Settled decisions → Catalog import](#catalog-import-hot-wheels-wiki) — but
-  **no code or migration exists yet**. Two pieces, in order: the
-  `record_sources` migration (a schema change, so `migrate:fresh --seed` +
-  `php artisan test` is the gate), then the importer itself, starting with
-  `List of 2011 Hot Wheels`. This comes before the rest of the pipeline on
-  purpose: Comparison's whole job is diffing against an existing catalog, and
-  right now there isn't one.
+- **Import more years, and go wide via the dump.** `--year=` takes any year
+  1968–2027. The full run should use `--dump=` rather than the API: p7zip is in
+  the image and `DumpPageSource` streams it, but the dump has only ever been
+  read in tests, not against the real 16.5 MB archive.
 - **Then the rest of the AI pipeline.** The OCR Agent landed on 2026-08-09, so a
-  capture produces a reading. The next link turns a reading into proposals:
-  **Metadata** (normalise the read strings against known naming), then
-  **Comparison** (deterministic `pg_trgm` lookup — no LLM call) and **Insertion**
-  (create pending records + `submission_proposals`). Until those exist the review
-  queue only fills from `SubmissionSeeder`. Whoever writes Insertion must create
-  `CastingVersion` 1 explicitly — nothing does it automatically, see below.
+  capture produces a reading. **Comparison** (deterministic `pg_trgm` lookup — no
+  LLM call) and **Insertion** (create pending records + `submission_proposals`)
+  turn that into proposals. Until those exist the review queue only fills from
+  `SubmissionSeeder`. Whoever writes Insertion must create `CastingVersion` 1
+  explicitly — nothing does it automatically, see below; `CatalogImporter` is
+  the worked example.
 - **Prove the OCR agent against the live API.** It has never run for real —
   there's no `ANTHROPIC_API_KEY` set, and every test to date uses a faked PSR-18
   transport. The one genuinely unverified assumption is that the API's
@@ -226,6 +262,10 @@ and `/admin/*`. Worth folding in whenever the public catalog replaces it.
   indexes, the `COALESCE` expression index, `jsonb` and partial indexes don't
   exist in SQLite. `docker/postgres/init-test-db.sh` creates `diecast_testing`
   on first volume creation; an existing environment needs it made by hand.
+
+- **`p7zip` is in the Dockerfile for the wiki dump.** `DumpPageSource` shells out
+  to `7z` and streams the archive; there is no usable pure-PHP 7-Zip reader. If
+  the image is ever slimmed, this is not a stray dependency.
 
 - **The app container has no GD**, so `UploadedFile::fake()->image()` throws.
   `CaptureTest` fakes photos with `->create($name, $kb, 'image/jpeg')` instead,
@@ -419,6 +459,21 @@ The rationale for each is in the [session log](docs/session-log.md).*
   and every distinguishing attribute is optional, so NULL collisions would be
   the common case. Enforced via an expression unique index wrapping each column
   in `COALESCE(col, '')` (see `2026_08_02_100008_create_variations_table.php`).
+  **`toy_number` and `country` are part of that identity**, not description:
+  measured against 1,183 real wiki rows, 11 collided without them and 5 with.
+  Keep `Variation::DISTINGUISHING_ATTRIBUTES` and the index in step — the model's
+  `attributeSignature()` is what application-side duplicate checks compare, and
+  if the two drift a check passes and the insert then fails.
+- **`variations.tampo` is `text`, not `varchar`.** Describing printed graphics
+  is prose-shaped in a way the other attributes aren't — a convention car runs to
+  328 characters. Truncating it would not just lose text: tampo is in the
+  uniqueness index, so a cut-off description changes which cars count as the same
+  car.
+- **`submission_proposals.submission_id` is nullable.** A proposal is a record
+  the pipeline produced; a capture session behind it is optional, because the
+  importer's inferences have none. Don't "fix" it back — the alternative was a
+  synthetic photo-less Submission per import run, which makes `submissions` mean
+  two things and puts rows in the capture app's list that nobody captured.
 - **Hard-unique vs. fuzzy-only**: `makes.name` and `brands.name` are small,
   admin-controlled vocabularies — hard `UNIQUE`, a duplicate there is always a
   data-entry error. `models.name`, `castings.name`, `series.name` are populated
@@ -470,6 +525,8 @@ The rationale for each is in the [session log](docs/session-log.md).*
 - **`config/catalog.php`** holds the admin identity and
   `review.auto_approve_threshold`, which starts at **1.0** — nothing
   auto-approves until there's real pipeline output to justify lowering it.
+  `import.auto_approve_threshold` is a separate dial at **0.9**, governing only
+  the importer's inferences; the 1.0 above is not up for tuning with it.
 
 ### Capture
 
@@ -625,14 +682,63 @@ against an empty table.
   imported `series.brand_id` is Hot Wheels. Other brands need other sources —
   and needing zero schema changes to add them is the point of the design.
 
-**Parsing notes** (verified 2026-08-09): casting pages carry a `{{casting}}`
-infobox and a `==Versions==` wikitable with columns *Col # · Year · Series ·
-Color · Tampo · Base Color/Type · Window Color · Interior Color · Wheel Type ·
-Toy # · Country · Notes · Photo*, mapping almost 1:1 onto releases + variations.
-Year indexes exist as `List of YYYY Hot Wheels`, 1968–2027. Two gotchas: `Col #`
-arrives as `032/244`, and Series as `[[2011 New Models]]<br>32/50` — both need
-splitting, and Series being a wiki-link means series identity is resolvable
-rather than a bare string.
+**Built and run on 2026-08-09.** The rules below came out of running it over
+real pages; the narrative is in the [session log](docs/session-log.md).
+
+- **A year index is a work list of castings, not a filter on years.** Importing
+  `List of 2011 Hot Wheels` imports each casting's *whole* Versions table, 1968
+  onwards — which is why 241 castings produced 1,856 series. The casting page is
+  the unit of truth, and importing half of one would leave its provenance
+  claiming the page was done.
+- **Test the parser on captured wikitext, never on wikitext written to suit
+  it.** `tests/Fixtures/hotwheels-wiki/` holds real pages with their source URL,
+  page id, revision and licence in a header comment, prose sections stubbed out.
+  Writing fixtures by hand only exercises the shapes already known about; the
+  sixty-page sample that validated this found four separate classes of silently
+  dropped row.
+- **Duplicate variations are detected before the insert, never caught after
+  it.** Postgres aborts the whole transaction on a failed statement, so catching
+  the constraint violation and carrying on takes the rest of the page down with
+  it. Any future bulk writer owes the same.
+- **Provenance keys use raw titles, not `Str::slug()`.** Slugging collapses
+  "Muscle Mania (2012)" and "Muscle Mania 2012" into one key, and the importer
+  would overwrite one series with the other.
+- **Imported castings are unidentified, never fantasy.** The wiki has no
+  structured field for the real vehicle, and `is_fantasy` is a positive assertion
+  that there is no real car. So the import publishes brand and series and nothing
+  else — see [What to do next](#what-to-do-next).
+
+**Parsing notes** (verified 2026-08-09 against real pages): casting pages carry a
+`{{casting}}` infobox and a `==Versions==` wikitable with columns *Col # · Year ·
+Series · Color · Tampo · Base Color/Type · Window Color · Interior Color · Wheel
+Type · Toy # · Country · Notes · Photo*. Year indexes exist as
+`List of YYYY Hot Wheels`, 1968–2027. `Col #` arrives as `032/244` and Series as
+`[[2011 New Models]]<br>32/50` — both need splitting, and Series being a wiki-link
+means series identity is resolvable rather than a bare string. What the tables
+*also* do, all of it handled and all of it load-bearing:
+
+- **`rowspan`, heavily.** A row can carry five cells where the header declares
+  thirteen, inheriting the rest from above. Zipping cells against headers puts a
+  toy number in the colour column for exactly the interesting variants.
+- **Header names move** (`Notes` vs `Notes / Variations`, plus one-off columns
+  like `Clip Color`), so columns are matched by name and unrecognised ones are
+  dropped — which is also what keeps `Notes` and `Photo` out.
+- **A `|-` before the header row**, on ~9% of pages. Treating "before the first
+  row separator" as the header row leaves the table with no column names and
+  every field null.
+- **No `==Versions==` heading at all.** `'57 Chevy` uses "Closed Hood Versions"
+  and "Exposed Engine Versions" — two physical tools, so a `CastingVersion` each.
+  `[[Code 3]] Versions` is excluded: a third-party repaint is not a release.
+- **Redirects**, ~5% of index links, which parse as a page with no versions.
+- **Blank collector numbers are real data**, not a parse failure — 8% in 2011,
+  past 60% in later years.
+
+**The licence's real cost, worth knowing up front:** ~1.8% of rows are
+indistinguishable from another row using only the columns we're allowed to
+import. Some are genuine duplicate listings; others are real sub-variants whose
+only distinguishing fact is in the `Notes` prose ("short-run small Goodyear
+tampo on rear wheels"). The catalog records the car it can describe rather than
+inventing a distinction from a field it never read.
 
 ### Review
 

@@ -14,6 +14,120 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-08-09 — The Hot Wheels Wiki importer, built and run
+
+The importer the previous session settled the shape of. Suite 92 → **153
+passed, 440 assertions**. Ran for real against the live wiki: **241 castings,
+4,284 releases, 6,295 variations in 28 seconds**.
+
+Built in the order CLAUDE.md set out — `record_sources` first, then the
+importer — but the middle of it turned into a second schema session, because
+running the parser over real pages found three things the catalog had no room
+for. Those were put to the user rather than decided unilaterally, per the
+separate-sessions convention.
+
+**Reading real pages changed the parser's design twice.** CLAUDE.md's parsing
+notes described the Versions table as mapping "almost 1:1 onto releases +
+variations", and the two gotchas it named (`032/244`, `[[2011 New Models]]<br>32/50`)
+were both real. Two it didn't name mattered more:
+
+- **`rowspan`.** Versions tables use it heavily — Danicar states a colour once
+  and spans it down, so the row beneath carries five cells where the header
+  declares thirteen. Splitting on the row separator and zipping against the
+  headers puts a toy number in the colour column, silently, and for exactly the
+  rows that describe the interesting variants. Cells have to be laid into a
+  grid with carry-over, the way an HTML table is.
+- **Column names move.** The same column is headed `Notes` on one page and
+  `Notes / Variations` on the next; some pages add `Clip Color` or `Fender
+  Color`. Anything indexed by position is one edit away from reading the wrong
+  column, so headers are matched by name and an unrecognised one is dropped.
+
+**Then the sixty-page sample, which was the most valuable hour.** Rather than
+trust three fixtures, the parser was run over the first sixty casting articles
+the 2011 index links to — 1,184 rows. It was quietly dropping 11% of them, in
+four distinct ways, none visible from the fixtures:
+
+- **Five of fifty-seven articles open their Versions table with a `|-` before
+  the header row.** Treating "before the first row separator" as the header row
+  read all thirteen headers as data, left the table with no column names, and
+  returned every field null on every row — indistinguishable from a page with
+  nothing to import. This was the big one.
+- **Three of sixty index links are redirects**, which parse as a page with no
+  versions and were skipped in silence.
+- **`'57 Chevy` has no `==Versions==` heading at all.** It files releases under
+  "Closed Hood Versions" and "Exposed Engine Versions" — the wiki describing two
+  physical tools, which is a `CastingVersion` each. Reading only a section by
+  that exact name dropped the whole page.
+- **`[[Code 3]] Versions`** sections are now excluded. A Code 3 car is one a
+  third party repainted after it left the factory; Hot Wheels never sold it, so
+  it is not a release.
+
+898 of 1,008 rows imported before, 1,183 of 1,184 after, and no article yields
+nothing. One thing that *looked* like a parser gap wasn't: 57% of rows have no
+collector number, but broken down by year it is 8% in 2011 rising past 60%
+later — the wiki stops recording them for non-mainline releases. Real data.
+
+**Three gaps the settled decisions didn't cover, all put to the user.**
+
+- **Toy # and Country had nowhere to live.** Against the existing uniqueness
+  index, 11 of 1,183 rows collided with a sibling in the same release —
+  identical on every distinguishing column, so the second insert fails and the
+  car is lost. Toy number resolves three and country another three. Both were
+  added to `variations` *and* to the uniqueness index, since being told apart is
+  the whole point; toy number also got a trigram index, being the number
+  collectors type in from the base.
+- **`submission_proposals.submission_id` was non-nullable**, but the Make/Model
+  split the importer infers has no capture behind it. Made nullable, rather than
+  minting a synthetic photo-less Submission per run — which would have made
+  `submissions` mean two things and put rows in the capture app's list that
+  nobody captured.
+- **The container had no 7z**, so nothing could read the dump. `p7zip` added to
+  the Dockerfile.
+
+**`variations.tampo` became `text`.** Found by the importer failing on `'57
+Chevy`: a convention car's tampo runs to 328 characters against a varchar(255).
+Four rows in 1,183 overflow; every other attribute measured stays under 65.
+Truncating would be worse than it looks — tampo is part of the uniqueness index,
+so a cut-off description doesn't just lose text, it changes which cars count as
+the same car.
+
+**Two implementation calls worth keeping.**
+
+*Duplicates are detected before the insert, never caught after it.* Postgres
+aborts the whole transaction on a failed statement, so catching the constraint
+violation and carrying on would take down the rest of the page — and a page
+listing the same car twice is ordinary, not broken. The check runs through
+`Variation::attributeSignature()`, which builds the same `COALESCE(col, '')`
+identity the index does, so the two agree by construction.
+
+*Keys are raw titles, not slugs.* `Str::slug()` would collapse "Muscle Mania
+(2012)" and "Muscle Mania 2012" to one key, and the importer would overwrite one
+series with the other.
+
+**What the live run showed.** 117 rows (1.8%) reported as indistinguishable from
+one already imported — and they are not all duplicate listings. Pass'n Gasser
+accounts for nine: real sub-variants whose only distinguishing fact is in the
+Notes column — *"short-run small 'Goodyear' tampo on rear wheels"* — identical in
+every structured column. Notes is the editors' prose and is not ours to take, so
+the catalog records the car it can describe rather than inventing a distinction
+from a field it never read. The skip message says exactly that rather than
+claiming the rows are the same car. **This is the licence line's real cost, and
+it is worth knowing rather than discovering later.**
+
+Also worth knowing: importing "List of 2011 Hot Wheels" imports each casting's
+*whole* Versions table, 1968 onwards — which is why 241 castings produced 1,856
+series. The year index is a work list of tools, not a filter on years. That is
+deliberate: the casting page is the unit of truth, and importing half of one
+would leave provenance claiming the page was done.
+
+**Nothing from the import is publicly visible yet, by design.** Brand and series
+publish — the wiki states them outright. Castings land unidentified, because the
+wiki never says which real vehicle a casting is based on in a structured field
+and `is_fantasy` is a positive assertion that there is no real car behind it.
+`Casting::approvalBlocker()` then keeps them, and everything under them, pending.
+Resolving that attribution is the inference the next session owes, and the
+nullable `submission_id` is the plumbing it needs.
+
 ## 2026-08-09 — Catalog import decisions (no code)
 
 A decisions-only session, per the separate-sessions convention: the importer
