@@ -255,7 +255,17 @@ final class CatalogImporter
         // A row this source already owns is an update, however it now reads.
         // Only a row the importer has never seen can be a duplicate of one.
         if ($this->recordFor($key) === null && $this->collidesWithSibling($release, $attributes)) {
-            $summary->problem("{$page->title}: row {$row->line} states the same car as a row already imported");
+            // Worth wording carefully, because two different things end up here.
+            // Some pages genuinely list a car twice. Others describe a real
+            // sub-variant — Pass'n Gasser has nine — whose only distinguishing
+            // fact is written in the Notes column: "short-run small Goodyear
+            // tampo on rear wheels", identical in every structured column. Notes
+            // is the editors' prose and is not ours to import, so the catalog
+            // records the car it can describe and does not invent a distinction
+            // from a field it never read.
+            $summary->problem(
+                "{$page->title}: row {$row->line} is identical to a row already imported in every column this importer reads"
+            );
 
             return;
         }
