@@ -1,5 +1,13 @@
 <x-layouts.app title="Review queue">
-    <h1 class="text-xl font-semibold">Review queue</h1>
+    <div class="flex items-baseline justify-between gap-4">
+        <h1 class="text-xl font-semibold">Review queue</h1>
+        <a
+            href="{{ route('admin.capture') }}"
+            class="rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white dark:bg-white dark:text-neutral-900"
+        >
+            New capture
+        </a>
+    </div>
 
     @if ($submissions->isEmpty())
         <p class="mt-4 text-sm text-neutral-500">Nothing awaiting review.</p>

@@ -5,7 +5,7 @@ domain model, conventions and current state only have to be explained once.
 **Treat this file as the source of truth, not the conversation history** —
 update it whenever a convention changes.
 
-**Last edited:** 2026-08-03 (brand placement settled and migrated)
+**Last edited:** 2026-08-09 (capture screen landed)
 
 ## Start here
 
@@ -39,7 +39,7 @@ The five things most likely to trip you up, each expanded below:
 - [How to work in this repo](#how-to-work-in-this-repo) — conventions, traps
 - [Domain model](#domain-model) — [Make/Model splitting](#makemodel-splitting-rules) · [field definitions](#field-definitions)
 - [AI agent pipeline](#ai-agent-pipeline) — [example flow](#example-flow) · [acquisition priorities](#data-acquisition-priorities)
-- [Settled decisions](#settled-decisions) — [schema](#schema) · [approval](#approval--submissions) · [delivery](#delivery)
+- [Settled decisions](#settled-decisions) — [schema](#schema) · [approval](#approval--submissions) · [capture](#capture) · [delivery](#delivery)
 - [Open questions](#open-questions)
 - [Session log](docs/session-log.md) — narrative and rationale, loaded on demand
 
@@ -47,21 +47,27 @@ The five things most likely to trip you up, each expanded below:
 
 ## Current state
 
-*Verified 2026-08-03 against the running stack. Keep this section honest — it's
+*Verified 2026-08-09 against the running stack. Keep this section honest — it's
 the fastest way for a new session to avoid assuming something exists.*
 
 **Running:** `docker compose up -d` brings up `app` (:8000), `db` (Postgres 16,
-:5432), `redis` (:6379), `meilisearch` (:7700). `php artisan test` → **41
-passed, 81 assertions**.
+:5432), `redis` (:6379), `meilisearch` (:7700). `php artisan test` → **55
+passed, 137 assertions**.
 
-**The entire HTTP surface is four routes** (`routes/web.php`):
+**A clean checkout has no `.env`** (it's gitignored), so the suite fails on
+`MissingAppKeyException` before it reaches anything real. `cp .env.example .env
+&& php artisan key:generate` is step one.
+
+**The entire HTTP surface is six routes** (`routes/web.php`):
 
 | Route | State |
 |---|---|
 | `GET /` | Stock Laravel welcome page, untouched scaffold |
 | `GET\|POST /login` | Real. Admin only — no registration, no password reset |
 | `POST /logout` | Real |
-| `GET /admin` | Read-only list of submissions awaiting review. Nothing clickable |
+| `GET /admin` | Read-only list of submissions awaiting review. Links to capture |
+| `GET /admin/capture` | Real. Camera capture form + optional brand/year/series hints |
+| `POST /admin/capture` | Real. Uploads photos, creates a `queued` submission |
 
 **Built and tested:**
 
@@ -74,6 +80,13 @@ passed, 81 assertions**.
 - Admin session auth + `EnsureUserIsAdmin` (alias `admin`).
 - Approval mechanics: `promoteWithDependencies()`, `SubmissionProposal::approve()`
   / `reject()`, `SubmissionPhoto::promoteTo()`. Tested, but no UI calls them.
+- **The capture screen** (`CaptureController`, `StoreSubmissionRequest`,
+  `resources/views/admin/capture.blade.php`, the enhancement layer in
+  `resources/js/app.js`). Named photo slots (card front / card back / loose),
+  hint fields, foreground XHR upload with progress and retry, orphan cleanup if
+  storage or the DB write fails. Works as a plain form POST with JS disabled.
+  `config('catalog.capture.disk')` chooses the target disk — set
+  `CAPTURE_DISK=local` to use it before R2 credentials exist.
 
 **Not built — do not assume these exist:**
 
@@ -81,17 +94,22 @@ passed, 81 assertions**.
   `app/AI/` directory, and no `ocr_output.json`. `SubmissionFactory::completed()`
   and `SubmissionSeeder` hand-write the shape the OCR agent is expected to emit;
   that's the starting point for the schema, not the schema.
-- **No PWA.** No `public/manifest.json`, no service worker, no `apple-touch-icon`,
-  no capture screen — despite commit `e2ce9d1` being titled "PWA".
+- **No PWA shell.** No `public/manifest.json`, no service worker, no
+  `apple-touch-icon` — despite commit `e2ce9d1` being titled "PWA". The capture
+  screen exists as of 2026-08-09; the installable-app wrapper around it doesn't.
+- **No review screen.** `/admin` lists submissions awaiting review, but nothing
+  opens one, and nothing in the UI calls `approve()` / `reject()`.
 - **No Meilisearch integration.** The container runs, but `laravel/scout` is not
   in `composer.json`, so nothing is indexed and cross-brand search doesn't work
   end to end. Note `pg_trgm` and Meilisearch are not substitutes: trigram
   similarity is the Comparison Agent's DB-side duplicate check, Meilisearch is
   user-facing typo-tolerant search.
-- **No R2 uploads.** The disk is wired in `config/filesystems.php`
-  (`league/flysystem-aws-s3-v3` installed, `throw => true` so a silent upload
-  failure can't record a photo whose bytes never arrived), but the credentials
-  in `.env` are empty placeholders and nothing has ever uploaded through it.
+- **R2 is fully working**, verified end to end on 2026-08-09 against the live
+  `collectai-photos` bucket: the capture endpoint stored a 150,000-byte photo,
+  and fetching `Photo::url()` over `img.collectai.club` returned identical bytes
+  (md5 match) with `content-type: image/jpeg` preserved. The bucket root returns
+  404, so object listing isn't exposed. `php artisan capture:check-storage`
+  re-runs the whole round trip — write, read, public fetch, delete.
 - **No public catalog browsing, collections, wishlists, price charts, or
   barcode scanning.** The tables exist; nothing reads them.
 - Nothing creates a `CastingVersion` automatically alongside a `Casting`.
@@ -107,19 +125,10 @@ all settled and tested. Per the separate-sessions convention, don't revisit the
 Casting/Model split, the migrations, or the approval-status decisions — build on
 them.
 
-**The recommended next step is the capture and review screens** — the PWA the
-whole submission system exists for. The backing models and the approve/reject
-methods are already there and tested; this is UI plus two controllers.
+**The capture screen landed on 2026-08-09.** What's left of that milestone is
+the review screen and the PWA shell. The backing models and the approve/reject
+methods are already there and tested; this is UI plus one controller.
 
-- **Capture screen** (`/admin/capture`): a form posting one or more photos plus
-  the optional brand/year/series hints. Use
-  `<input type="file" accept="image/*" capture="environment">` — on iOS that
-  opens the camera directly, and it degrades to a file picker on desktop.
-  Upload to the `r2` disk, create a `Submission` with its `SubmissionPhoto`
-  rows, set `state` to `queued`.
-  - Uploads must be **foreground**; iOS suspends background web uploads. Show
-    real progress and make a failed upload retryable rather than silent.
-  - This needs real R2 credentials in `.env` first — nothing has uploaded yet.
 - **Review screen** (`/admin/submissions/{submission}`): the submission's
   photos alongside its `proposals` (eager-load `proposable`), with approve and
   reject actions calling `SubmissionProposal::approve()` / `reject()`. Show
@@ -184,10 +193,22 @@ scanning.
   exist in SQLite. `docker/postgres/init-test-db.sh` creates `diecast_testing`
   on first volume creation; an existing environment needs it made by hand.
 
+- **The app container has no GD**, so `UploadedFile::fake()->image()` throws.
+  `CaptureTest` fakes photos with `->create($name, $kb, 'image/jpeg')` instead,
+  which sets the MIME type the `mimetypes` rule reads. Don't "fix" those tests
+  by switching to `->image()` — that adds a PHP extension to make a test pass
+  rather than to make the app work. Revisit only if server-side thumbnailing
+  lands.
+
 Also note: `env('SOME_VAR')` returns `''`, not `null`, for a bare `VAR=` line in
 `.env`. That produced an admin account whose password was the empty string and
 which authenticated against it. `config/catalog.php` normalizes with `?: null`
 and `AdminUserSeeder` uses `blank()`; `AdminUserSeederTest` guards it.
+
+- **`.env.example` is tracked; `.env` is not.** Real credentials go in `.env`
+  only. A secret pasted into `.env.example` is one `git add` away from being
+  permanent, and deleting it in a later commit doesn't remove it from history.
+  Same rule as the admin password below, for the same reason.
 
 **Where the admin password lives:** `ADMIN_PASSWORD` in `.env`, which is
 gitignored. Set it there and it survives reseeds; leave it blank and
@@ -201,14 +222,15 @@ the password means deleting the `admin@example.test` row and re-running
 
 ### Still not built
 
-- No capture or review **screens** yet — `/admin` is a placeholder list of
-  submissions awaiting review. The PWA manifest, service worker, camera capture
-  and approve/reject UI are the next milestone.
+- No review **screen** yet — `/admin` is a placeholder list of submissions
+  awaiting review. The PWA manifest, service worker and approve/reject UI are
+  what's left of the current milestone.
 - No AI agent code at all. `/app/AI/schemas/ocr_output.json` doesn't exist yet;
   `SubmissionFactory::completed()` and `SubmissionSeeder` hand-write the shape
   the OCR agent is expected to emit, which is a starting point for that schema.
 - R2 credentials in `.env` are still empty placeholders — the disk is
-  configured but nothing has uploaded through it.
+  configured and the capture screen writes through it, but nothing has actually
+  reached Cloudflare.
 - Nothing creates a `CastingVersion` automatically alongside a `Casting`.
   `CatalogSeeder::casting()` does it explicitly. This is deliberate: a model
   `created` hook would collide with `CastingVersionFactory`, which builds a
@@ -430,16 +452,80 @@ The rationale for each is in the [session log](docs/session-log.md).*
   `review.auto_approve_threshold`, which starts at **1.0** — nothing
   auto-approves until there's real pipeline output to justify lowering it.
 
+### Capture
+
+*The four calls the capture screen turns on. Landed 2026-08-09; the reasoning is
+in the [session log](docs/session-log.md).*
+
+- **Named photo slots, not one `photos[]` array.** Card front / card back /
+  loose, so each upload arrives already typed. `submission_photos.type` is
+  deliberately free text — which angles exist is brand-dependent — and that
+  migration's comment says the shortlist belongs in the UI layer. This is that.
+  A brand that packages differently gets new slots in the Blade file, not a
+  migration.
+- **`capture="environment"` on the two card slots only.** On iOS it opens the
+  rear camera directly, which is what you want with the car in your other hand
+  — but it also *removes* the library option and beats `multiple`. Several
+  angles of a loose car is the normal case, so that slot keeps `multiple` and
+  drops `capture`; the iOS picker still offers Take Photo, so nothing is lost.
+  Don't "fix" the inconsistency by adding `capture` back to the loose slot.
+- **Orphan cleanup is the controller's job.** `throw => true` on the r2 disk is
+  what stops a photo row existing for bytes that never arrived — but it also
+  means a failure partway through strands the uploads that already succeeded,
+  and nothing else will ever know they're there. `CaptureController::store()`
+  deletes what it stored before re-throwing, and `CaptureTest` forces a
+  mid-transaction failure to assert the bucket comes back empty. Any future
+  endpoint that writes to a disk before writing rows owes the same cleanup.
+- **`config/catalog.php` owns `capture.disk`,** rather than the `r2` disk being
+  hard-coded at the call site. `submission_photos.disk` already records the
+  choice per row for exactly this reason, so `CAPTURE_DISK=local` exercises the
+  whole path before Cloudflare credentials exist and photos captured that way
+  keep resolving after the switch.
+- **JSON responses are opted into per endpoint, never globally.**
+  `bootstrap/app.php` renders exceptions as JSON only for `api/*`, so every HTML
+  form keeps redirect-with-errors regardless of what Accept header a browser
+  sends. The capture upload is the one genuine XHR endpoint, and an HTML
+  redirect body is no use to a progress bar — so it attaches an explicit 422 in
+  `StoreSubmissionRequest::failedValidation()`. Widen that global rule instead
+  and login's error handling changes with it.
+
 ### Delivery
 
-- **A PWA served by this Laravel app**, not native. The dev machine is Windows,
-  so building/signing a native iOS app would need a Mac or paid cloud CI. Plan
-  is to optionally wrap it with Capacitor later, pointed at the deployed origin
-  — which is why auth is **session-based** rather than tokens. A Capacitor build
-  that loads from the live URL keeps cookies working; only a build that bundles
-  assets under its own scheme would need tokens, and that's the point to add them.
+- **A PWA served by this Laravel app**, not native. The original reason (the dev
+  machine was Windows, so signing an iOS build needed a Mac or paid CI) no
+  longer applies — development moved to macOS in 2026-08. The decision stands on
+  a different footing now: **the app has to run on both iPhone and Android**, and
+  one web codebase is the only option here that does that without writing the
+  client twice. Plan is to optionally wrap it with Capacitor, pointed at the
+  deployed origin — which is why auth is **session-based** rather than tokens. A
+  Capacitor build that loads from the live URL keeps cookies working; only a
+  build that bundles assets under its own scheme would need tokens, and that's
+  the point to add them.
+- **Swift is not a cross-platform answer.** SwiftUI is Apple-only, and Swift on
+  Android has no production UI story — choosing Swift means writing the Android
+  client separately in Kotlin, i.e. two clients, two release processes, for an
+  app whose entire job is a camera form and a review list. If native ever
+  becomes genuinely necessary (background uploads, better camera control),
+  reach for one cross-platform toolkit rather than Swift alone.
 - **Admin auth returns 404, not 403** for non-admins, so they can't discover the
   admin area exists. Login is throttled on email+IP together.
+- **The domain is `collectai.club`** — registered at Porkbun, DNS delegated to
+  Cloudflare (2026-08-09). The app itself isn't deployed anywhere yet; the apex
+  is deliberately still free for it. `img.collectai.club` is a custom domain on
+  the `collectai-photos` R2 bucket, chosen over the bucket's `r2.dev` subdomain
+  because `r2.dev` is rate-limited and explicitly not for production — and
+  because photo URLs outlive whatever hostname first served them.
+- **Photos in the bucket are world-readable**, including submission captures
+  that haven't been approved. `SubmissionPhoto::promoteTo()` references the same
+  stored object rather than re-uploading, so capture and catalog photos share
+  one bucket by design. Paths are unguessable (a ULID prefix plus a random
+  filename) and the bucket root 404s rather than listing, so this is obscurity
+  rather than access control. Fine for a public catalog; revisit before storing
+  anything that isn't destined to be public anyway.
+- **Enhancement, not dependency.** The capture form is a working multipart POST
+  on its own; `resources/js/app.js` only adds thumbnails, progress and retry.
+  Feature tests exercise the no-JS path, so a broken bundle degrades instead of
+  taking the capture app down — worth preserving on the review screen too.
 
 ## Open questions
 

@@ -14,6 +14,107 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-08-09 — R2 credentials live, uploads proven
+
+`collectai-photos` bucket created, scoped API token in `.env`. Added
+`php artisan capture:check-storage`, which round-trips a throwaway object
+through the configured capture disk and separately checks the public URL — "the
+disk is configured" and "the disk works" are different claims, and a private
+bucket writes fine and then serves 401s to every photo in the catalog.
+
+Verified by driving the real capture endpoint against the live bucket with two
+genuine payloads (200,000 and 120,000 bytes), which landed under one ULID prefix
+and were deleted again; the bucket is empty. Note `UploadedFile::fake()->create()`
+reports a size without writing content, so the first attempt uploaded two 0-byte
+objects and looked like a pass — real bytes matter for this check. The `mimetypes`
+rule also sniffs content on a real upload, so the padding needs a genuine JPEG
+header.
+
+**Public reads now work too.** Nameservers moved from Porkbun to Cloudflare the
+same day and `img.collectai.club` was connected to the bucket. Verified by
+capturing a 150,000-byte photo through the real endpoint and fetching
+`Photo::url()` back over the custom domain: identical bytes (md5 match),
+`content-type: image/jpeg` preserved, Cloudflare-terminated TLS. The bucket root
+returns 404, so object listing isn't exposed.
+
+Worth recording: enabling public access makes **submission photos public too**,
+not just approved catalog ones — they share a bucket because
+`SubmissionPhoto::promoteTo()` references the same stored object rather than
+re-uploading. Paths are unguessable (ULID prefix + random filename), but that is
+obscurity, not access control. Acceptable for a catalog whose photos are all
+destined to be public; not acceptable if that ever stops being true.
+
+**Credentials were initially pasted into `.env.example`, which is tracked.**
+Caught before any commit; the values moved to `.env` and the example went back
+to placeholders. `R2_ENDPOINT` and `R2_URL` had also been swapped — the
+`r2.cloudflarestorage.com` host is the S3 API endpoint for uploads, not the
+public read URL. Rule promoted into `CLAUDE.md`.
+
+**Delivery: the PWA decision holds, on new grounds.** Its original rationale
+(Windows dev machine, no way to sign an iOS build) expired when development
+moved to macOS. It survives because the requirement is now explicitly *iPhone
+and Android*, and Swift doesn't cross that line — SwiftUI is Apple-only and
+Swift-on-Android has no production UI story, so Swift means two clients for what
+is a camera form and a review list.
+
+## 2026-08-09 — Capture screen landed
+
+The first half of the PWA milestone. `php artisan test` green: **55 tests, 137
+assertions** (was 41/81). Scope was the capture screen only — the review screen,
+the manifest and the service worker are still ahead.
+
+`GET|POST /admin/capture` → `CaptureController` + `StoreSubmissionRequest`,
+writing a `Submission` (state `queued`) and its `SubmissionPhoto` rows.
+
+- **Named photo slots, not one `photos[]` array.** Card front / card back /
+  loose, so each upload arrives already typed. `submission_photos.type` is free
+  text on purpose — which angles exist is brand-dependent — so the shortlist
+  lives in the UI layer, which is what that migration's comment asked for.
+- **`capture="environment"` on the two card slots only.** It opens the rear
+  camera directly on iOS, but it also *removes* the library option and beats
+  `multiple`. Several angles of a loose car is the normal case, so that slot
+  drops `capture` and keeps `multiple`; the iOS picker still offers Take Photo,
+  so nothing is lost.
+- **Uploads are a foreground XHR, and the form works without JS.** The plain
+  multipart POST is the path the feature tests exercise and the fallback if the
+  bundle never loads; `resources/js/app.js` upgrades it with thumbnails, a real
+  progress bar and a retry that re-sends the files still sitting in the inputs.
+  The bar deliberately switches to "Storing photos…" at 100% rather than
+  claiming success — the bytes have left the phone but R2 can still fail, and
+  iOS suspends a backgrounded upload either way.
+- **Orphan cleanup on failure.** The `r2` disk has `throw => true`, which is
+  what stops a photo row existing for bytes that never arrived; the cost is that
+  a failure partway through strands earlier uploads that nothing will ever
+  reference. The controller deletes what it stored before re-throwing, and a
+  test forces a mid-transaction failure to prove the bucket comes back empty.
+- **`config/catalog.php` gained `capture.disk`**, defaulting to `r2` but
+  settable to `local` via `CAPTURE_DISK`. R2 credentials are still empty
+  placeholders, and a capture screen that can't be run until they exist is a
+  capture screen nobody reviews. `submission_photos.disk` records the choice per
+  row, so anything captured locally keeps resolving after the switch.
+- **JSON validation errors are opted into per-request, not globally.**
+  `bootstrap/app.php` restricts JSON exception rendering to `api/*` on purpose,
+  so the HTML forms always get redirect-with-errors. The capture upload is the
+  one endpoint that genuinely posts by XHR, so `StoreSubmissionRequest`
+  overrides `failedValidation()` to attach an explicit 422 response rather than
+  widening the global rule and changing how login behaves.
+- **Hints are trimmed to null.** An empty text input posts `''`, and `''` is a
+  value the pipeline would go looking for a brand named `""` with — the same
+  class of bug as the empty-string admin password. `hint_year` is also range
+  checked in validation, so a typo is a form error rather than a 500 from
+  `submissions_hint_year_range`.
+
+Two environment notes that cost time and aren't visible in the code:
+
+- **The app container has no GD.** `UploadedFile::fake()->image()` throws
+  there, so `CaptureTest` fakes photos with `->create($name, $kb, 'image/jpeg')`
+  instead. Nothing in this feature decodes an image, so adding a PHP extension
+  purely to make a test pass would have been the wrong trade — revisit if
+  server-side thumbnailing ever lands.
+- **A clean checkout has no `.env`,** so the whole suite fails on
+  `MissingAppKeyException` before it fails on anything real. `cp .env.example
+  .env && php artisan key:generate` first.
+
 ## 2026-08-03 — `castings.brand_id` dropped
 
 Implementation of the decision below, in its own session per the

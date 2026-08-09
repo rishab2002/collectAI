@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\CaptureController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Auth\LoginController;
 use Illuminate\Support\Facades\Route;
@@ -24,4 +25,7 @@ Route::middleware(['auth', 'admin'])
     ->name('admin.')
     ->group(function () {
         Route::get('/', DashboardController::class)->name('dashboard');
+
+        Route::get('capture', [CaptureController::class, 'show'])->name('capture');
+        Route::post('capture', [CaptureController::class, 'store'])->name('capture.store');
     });

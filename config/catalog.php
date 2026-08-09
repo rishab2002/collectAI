@@ -27,6 +27,29 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Capture
+    |--------------------------------------------------------------------------
+    |
+    | Where photos taken on the phone are written. Configurable rather than
+    | hard-coded to 'r2' for the same reason submission_photos.disk is stored
+    | per row: a capture made while the app was pointed at the local disk has to
+    | keep resolving after R2 is switched on. Set CAPTURE_DISK=local to use the
+    | screen before real R2 credentials exist.
+    |
+    | The size cap is per photo and in kilobytes, to match Laravel's `max` rule.
+    | 12 MB clears a modern phone camera with room to spare; PHP's own
+    | upload_max_filesize and post_max_size still have to be at least as
+    | generous or the request never reaches validation.
+    |
+    */
+
+    'capture' => [
+        'disk' => env('CAPTURE_DISK', 'r2'),
+        'max_photo_kilobytes' => (int) env('CAPTURE_MAX_PHOTO_KB', 12288),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Review Thresholds
     |--------------------------------------------------------------------------
     |
