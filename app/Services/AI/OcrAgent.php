@@ -2,10 +2,10 @@
 
 namespace App\Services\AI;
 
+use Anthropic\Client;
 use App\Exceptions\OcrFailedException;
 use App\Models\Submission;
 use App\Models\SubmissionPhoto;
-use Anthropic\Client;
 use Illuminate\Support\Facades\Storage;
 
 /**
