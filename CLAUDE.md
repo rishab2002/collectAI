@@ -5,7 +5,7 @@ domain model, conventions and current state only have to be explained once.
 **Treat this file as the source of truth, not the conversation history** —
 update it whenever a convention changes.
 
-**Last edited:** 2026-08-09 (capture screen landed)
+**Last edited:** 2026-08-09 (OCR agent landed)
 
 ## Start here
 
@@ -39,7 +39,7 @@ The five things most likely to trip you up, each expanded below:
 - [How to work in this repo](#how-to-work-in-this-repo) — conventions, traps
 - [Domain model](#domain-model) — [Make/Model splitting](#makemodel-splitting-rules) · [field definitions](#field-definitions)
 - [AI agent pipeline](#ai-agent-pipeline) — [example flow](#example-flow) · [acquisition priorities](#data-acquisition-priorities)
-- [Settled decisions](#settled-decisions) — [schema](#schema) · [approval](#approval--submissions) · [capture](#capture) · [delivery](#delivery)
+- [Settled decisions](#settled-decisions) — [schema](#schema) · [approval](#approval--submissions) · [capture](#capture) · [AI pipeline](#ai-pipeline) · [review](#review) · [delivery](#delivery)
 - [Open questions](#open-questions)
 - [Session log](docs/session-log.md) — narrative and rationale, loaded on demand
 
@@ -51,23 +51,26 @@ The five things most likely to trip you up, each expanded below:
 the fastest way for a new session to avoid assuming something exists.*
 
 **Running:** `docker compose up -d` brings up `app` (:8000), `db` (Postgres 16,
-:5432), `redis` (:6379), `meilisearch` (:7700). `php artisan test` → **55
-passed, 137 assertions**.
+:5432), `redis` (:6379), `meilisearch` (:7700). `php artisan test` → **92
+passed, 267 assertions**.
 
 **A clean checkout has no `.env`** (it's gitignored), so the suite fails on
 `MissingAppKeyException` before it reaches anything real. `cp .env.example .env
 && php artisan key:generate` is step one.
 
-**The entire HTTP surface is six routes** (`routes/web.php`):
+**The entire HTTP surface is nine routes** (`routes/web.php`):
 
 | Route | State |
 |---|---|
 | `GET /` | Stock Laravel welcome page, untouched scaffold |
 | `GET\|POST /login` | Real. Admin only — no registration, no password reset |
 | `POST /logout` | Real |
-| `GET /admin` | Read-only list of submissions awaiting review. Links to capture |
+| `GET /admin` | Review queue — submissions awaiting review, each linking to its review screen |
 | `GET /admin/capture` | Real. Camera capture form + optional brand/year/series hints |
 | `POST /admin/capture` | Real. Uploads photos, creates a `queued` submission |
+| `GET /admin/submissions/{submission}` | Real. Photos + proposals, with approve/reject |
+| `POST …/{submission}/proposals/{proposal}/approve` | Real. Scoped bindings |
+| `POST …/{submission}/proposals/{proposal}/reject` | Real. Scoped bindings |
 
 **Built and tested:**
 
@@ -87,18 +90,29 @@ passed, 137 assertions**.
   storage or the DB write fails. Works as a plain form POST with JS disabled.
   `config('catalog.capture.disk')` chooses the target disk — set
   `CAPTURE_DISK=local` to use it before R2 credentials exist.
+- **The review screen** (`SubmissionReviewController`,
+  `resources/views/admin/submissions/show.blade.php`, `ProposalPresenter`).
+  Photos beside proposals, each with its confidence, what else approving would
+  publish, and approve/reject wired to the existing model methods. Plain form
+  POSTs — no JS involved.
+- **The OCR Agent** (`app/AI/schemas/ocr_output.json`,
+  `app/Services/AI/OcrAgent.php`, `app/Jobs/ReadSubmissionPhotos.php`). Capture
+  dispatches the job; it reads the packaging with a Claude vision call and
+  writes the result to `submissions.ocr_output`. Tests fake the SDK's PSR-18
+  transporter, so they assert the real request body without an API key.
+- **The PWA shell**: `public/manifest.json`, `public/sw.js`,
+  `public/offline.html`, the icon set under `public/icons/` plus
+  `apple-touch-icon.png`, and registration in `resources/js/app.js`. The layout
+  is now a real HTML document (it used to start at `<meta name="viewport">`, so
+  every page rendered in quirks mode).
 
 **Not built — do not assume these exist:**
 
-- **No AI pipeline code whatsoever.** There is no `app/Services/` directory, no
-  `app/AI/` directory, and no `ocr_output.json`. `SubmissionFactory::completed()`
-  and `SubmissionSeeder` hand-write the shape the OCR agent is expected to emit;
-  that's the starting point for the schema, not the schema.
-- **No PWA shell.** No `public/manifest.json`, no service worker, no
-  `apple-touch-icon` — despite commit `e2ce9d1` being titled "PWA". The capture
-  screen exists as of 2026-08-09; the installable-app wrapper around it doesn't.
-- **No review screen.** `/admin` lists submissions awaiting review, but nothing
-  opens one, and nothing in the UI calls `approve()` / `reject()`.
+- **Only the first of the seven agents exists.** The OCR Agent reads packaging
+  text; Metadata, Search, Comparison, Insertion and Review do not exist, so a
+  completed submission has a reading and **no proposals**. Nothing populates the
+  review queue automatically yet — `SubmissionSeeder` is still what puts
+  proposals in it.
 - **No Meilisearch integration.** The container runs, but `laravel/scout` is not
   in `composer.json`, so nothing is indexed and cross-brand search doesn't work
   end to end. Note `pg_trgm` and Meilisearch are not substitutes: trigram
@@ -125,33 +139,36 @@ all settled and tested. Per the separate-sessions convention, don't revisit the
 Casting/Model split, the migrations, or the approval-status decisions — build on
 them.
 
-**The capture screen landed on 2026-08-09.** What's left of that milestone is
-the review screen and the PWA shell. The backing models and the approve/reject
-methods are already there and tested; this is UI plus one controller.
+**The capture/review milestone is complete as of 2026-08-09** — capture, review
+and the PWA shell all landed. The admin loop closes: photograph a car, rule on
+what the pipeline proposed, watch it go live. Nothing produces proposals
+automatically yet, so `SubmissionSeeder` is still what puts anything in the
+queue.
 
-- **Review screen** (`/admin/submissions/{submission}`): the submission's
-  photos alongside its `proposals` (eager-load `proposable`), with approve and
-  reject actions calling `SubmissionProposal::approve()` / `reject()`. Show
-  `confidence` and flag anything `requiresManualReview()`. Approving a leaf
-  already promotes its ancestors, so the UI does not need to walk the tree —
-  but it should show the reviewer what else will go live as a result.
-- **PWA shell**: `public/manifest.json` (`display: standalone`, icons), an
-  `apple-touch-icon`, and a service worker. Keep the service worker's caching
-  conservative — a stale cached review queue showing already-decided proposals
-  is worse than a slow one.
-- Note the layout lives at `resources/views/components/layouts/app.blade.php`
-  (anonymous Blade components resolve under `views/components/`), and the base
-  `TestCase` calls `withoutVite()` so view tests don't need a frontend build.
+**The two obvious next moves, in either order:**
 
-**Then the AI pipeline**, starting with the OCR output schema at
-`/app/AI/schemas/ocr_output.json` — see `SubmissionFactory::completed()` for the
-shape currently assumed. Vision/OCR calls belong in
-`app/Services/AI/OcrAgent.php`, not in the capture controller: the controller's
-job ends at storing the photo and queueing the job.
+- **Deploy to the apex.** `collectai.club` is registered and delegated to
+  Cloudflare but nothing is deployed, so the capture screen has never run on a
+  phone — which is the only place it's meant to run. The app is now installable
+  the moment it's served over HTTPS.
+- **The rest of the AI pipeline.** The OCR Agent landed on 2026-08-09, so a
+  capture produces a reading. The next link is the one that turns a reading into
+  proposals: **Metadata** (normalise the read strings against known naming),
+  then **Comparison** (deterministic `pg_trgm` lookup — no LLM call) and
+  **Insertion** (create pending records + `submission_proposals`). Until those
+  exist the review queue only fills from `SubmissionSeeder`. Whoever writes
+  Insertion must create `CastingVersion` 1 explicitly — nothing does it
+  automatically, see below.
+
+Note the layout lives at `resources/views/components/layouts/app.blade.php`
+(anonymous Blade components resolve under `views/components/`), and the base
+`TestCase` calls `withoutVite()` so view tests don't need a frontend build.
 
 **Further out, still untouched:** Meilisearch indexing (`laravel/scout` isn't
 installed), the public catalog, collections/wishlists, price charts, barcode
-scanning.
+scanning. `/` is still the stock welcome page and is the one screen not using
+the app layout, so it carries no manifest link — install works from `/login`
+and `/admin/*`. Worth folding in whenever the public catalog replaces it.
 
 ## How to work in this repo
 
@@ -219,23 +236,6 @@ pushed, and git history keeps a committed secret whether or not it's later
 deleted. The seeder is idempotent and won't reset an existing admin, so changing
 the password means deleting the `admin@example.test` row and re-running
 `db:seed --class=AdminUserSeeder`.
-
-### Still not built
-
-- No review **screen** yet — `/admin` is a placeholder list of submissions
-  awaiting review. The PWA manifest, service worker and approve/reject UI are
-  what's left of the current milestone.
-- No AI agent code at all. `/app/AI/schemas/ocr_output.json` doesn't exist yet;
-  `SubmissionFactory::completed()` and `SubmissionSeeder` hand-write the shape
-  the OCR agent is expected to emit, which is a starting point for that schema.
-- R2 credentials in `.env` are still empty placeholders — the disk is
-  configured and the capture screen writes through it, but nothing has actually
-  reached Cloudflare.
-- Nothing creates a `CastingVersion` automatically alongside a `Casting`.
-  `CatalogSeeder::casting()` does it explicitly. This is deliberate: a model
-  `created` hook would collide with `CastingVersionFactory`, which builds a
-  casting and its version separately. Whoever writes the Insertion Agent must
-  create version 1 explicitly.
 
 ---
 
@@ -317,8 +317,9 @@ For consistency across agents and manual entry.
 
 ## AI agent pipeline
 
-**None of this is written yet** — see [Current state](#current-state). The tables
-it writes into and the approve/reject mechanics it feeds are built and tested.
+**Agent 2 of 7 is written** — see [Current state](#current-state). The tables the
+rest write into, and the approve/reject mechanics they feed, are built and
+tested.
 
 Order matters; later agents depend on earlier output. Only the first three
 should call the Claude API directly. Everything from Comparison onward should be
@@ -326,10 +327,11 @@ deterministic application code, not LLM calls — cheaper, faster and more
 reliable for DB matching.
 
 1. **Image Agent** — reads card/package photos.
-2. **OCR Agent** — extracts brand, year, series, casting name, collector number.
-   Output as strict JSON (define and version the schema in
-   `/app/AI/schemas/ocr_output.json` — don't let it drift between prompt
-   iterations).
+2. **OCR Agent** — **built.** Extracts brand, year, series, casting name,
+   collector number and toy number, plus a confidence score per field. The
+   schema at `app/AI/schemas/ocr_output.json` is sent to the model as the
+   structured-output format *and* is the contract for `submissions.ocr_output`,
+   so the prompt and the stored shape cannot drift.
 3. **Metadata Agent** — normalizes extracted names/attributes against known
    casting/brand/series naming conventions (resolves OCR typos, standardizes
    series names).
@@ -488,6 +490,108 @@ in the [session log](docs/session-log.md).*
   redirect body is no use to a progress bar — so it attaches an explicit 422 in
   `StoreSubmissionRequest::failedValidation()`. Widen that global rule instead
   and login's error handling changes with it.
+
+### AI pipeline
+
+*Settled while building the OCR Agent on 2026-08-09; reasoning in the
+[session log](docs/session-log.md).*
+
+- **`app/AI/schemas/ocr_output.json` is one file used twice** — sent to the model
+  as the structured-output schema, and the contract for what lands in
+  `submissions.ocr_output`. That is the whole point: a separate "what we send"
+  and "what we store" is how the prompt and the stored shape drift. Two rules
+  follow. It must stay inside the API's supported JSON Schema subset (no
+  `minimum`/`maximum`, no `minLength`, no recursion, `additionalProperties:
+  false` on every object), which is why the 0-to-1 bound on confidence is prose
+  plus a PHP check. And **every field is required with `null` allowed** — an
+  omitted key and a field the model couldn't read are different claims.
+- **Bump `schema_version` rather than editing v1 in place** once real output
+  exists to migrate. `OcrAgent::FIELDS` and `SCHEMA_VERSION` mirror the file and
+  a test asserts they agree, so a one-sided edit fails rather than silently
+  dropping a field.
+- **The OCR Agent transcribes; it does not normalise.** It reports what is
+  printed, keeping spelling and abbreviations, because resolving "HW" to "Hot
+  Wheels" is the Metadata Agent's job and it can only do that if it sees what
+  the card said. Capture hints are passed as context, explicitly not as answers
+  — they're typed from memory with a car in one hand.
+- **Confidence is per field, not per read.** A card can carry a huge logo and a
+  four-point toy number; one score tells a reviewer to check everything or
+  nothing.
+- **Vision accepts JPEG/PNG/WebP/GIF — not the HEIC the capture screen allows.**
+  `OcrAgent` maps each stored photo's extension to a media type and skips what
+  it can't send. Don't "fix" this by rejecting HEIC at capture: iOS doesn't
+  reliably transcode, and a rejected photo of a car already back in its case is
+  a reshoot. Converting isn't available either — the container has no GD.
+- **Card photos get the photo budget first** (`catalog.ocr.max_photos`). Photos
+  are base64-encoded into the request body, so eight 12 MB images is a ~130 MB
+  request. Loose shots still qualify — a Hot Wheels base is printed with the
+  casting name, year and toy number.
+- **Check `stop_reason` before reading `content`.** A refused request is an HTTP
+  200 with empty or partial content, so indexing `content[0]` first turns a
+  refusal into a type error instead of a message an admin can act on.
+- **`fallbacks: "default"`, never a pinned model.** The right substitute depends
+  on the refusal category, and naming one is a migration owed the day it's
+  deprecated. This is why the call uses `beta->messages->create` — the parameter
+  only exists there. The scalar form is gated by
+  `server-side-fallback-2026-07-01`; the *array* form is gated by a different,
+  earlier-dated header, and pairing either header with the other form is a 400,
+  so don't "fix" them into looking consistent. `OCR_FALLBACKS` turns it off:
+  it's Claude-API-only and eligible substitutes are per-model.
+- **Tests fake the SDK's PSR-18 transporter, never the client.** A mocked client
+  only proves `OcrAgent` called the method it was written to call; faking
+  transport means the SDK really serialises the request, so the tests assert the
+  actual JSON body — and catch a named argument that doesn't reach the wire.
+- **`Queue::fake()` is load-bearing in `CaptureTest`.** The suite runs the
+  `sync` driver, so without it the capture endpoint's dispatch runs the vision
+  call inline and a file-upload test makes a live API request.
+- **Tune `OCR_EFFORT` before `OCR_MODEL`.** A misread becomes a catalog row an
+  admin has to notice is wrong; that review time dwarfs the token difference.
+  `OCR_MAX_TOKENS` covers thinking as well as the JSON — thinking is on by
+  default on Opus 5, and a limit sized for the answer alone truncates mid-read.
+
+### Review
+
+*The calls the review screen turns on. Landed 2026-08-09; the reasoning is in
+the [session log](docs/session-log.md).*
+
+- **Approving rules on the ancestors' proposals too.** The walk publishes
+  parents; `SubmissionProposal::approve()` also marks *their* proposal rows
+  approved, with the same admin and timestamp. Otherwise a submission goes live
+  and stays in the queue offering Approve buttons for records that are already
+  public. Rejection still doesn't cascade — that asymmetry is deliberate.
+- **An unidentified casting cannot be approved.** `approvalBlocker()` on
+  `HasApprovalStatus` (null by default, overridden by `Casting`) is the
+  enforcement of the long-standing `is_fantasy` rule: a real casting with a null
+  `model_id` raises `ApprovalBlockedException` from `approve()`, and
+  `approvalBlockers()` checks the whole chain, so a blocked *ancestor* stops a
+  descendant too. The guard is in the domain, not the controller, so the
+  eventual bulk auto-approve inherits it; the screen also disables the button
+  and says why.
+- **A blocker is not the same as an unapproved parent.** An unapproved parent is
+  fixed by promoting it, which the walk does by itself. A blocker is something
+  no amount of approving resolves — a human has to correct the record first.
+- **Photo URLs go through `ResolvesStoredUrl`**, shared by `Photo` and
+  `SubmissionPhoto`. Promotion doesn't move bytes, so the two must resolve
+  identically or a photo would change address on approval. It signs **only for
+  private local disks**, where Laravel's file server rejects unsigned requests —
+  that's why `CAPTURE_DISK=local` rendered every photo as a 403 until now. Do
+  not extend signing to R2: that bucket is world-readable behind
+  `img.collectai.club`, and a presigned R2 URL points at the S3 API endpoint,
+  which isn't publicly reachable at all.
+- **Presenting a record to a human is `ProposalPresenter`, not a model method.**
+  The eight catalog models are the pipeline's write target; how a row reads to a
+  person belongs to the screen reading it, and the public catalog will want a
+  different summary of the same Release.
+- **The screen shows what else an approval publishes**
+  (`pendingDependencies()`), because one click can make six records public.
+- **The service worker never caches HTML and never touches non-GET requests.**
+  Only content-hashed `/build/` output, the icons and one offline page. A stale
+  review queue is worse than a slow one, and a worker that retried a POST would
+  duplicate captures and apply approvals out of order. `PwaTest` guards both.
+- **The layout is a full HTML document.** It used to begin at
+  `<meta name="viewport">` — no doctype, so every page rendered in quirks mode —
+  which also left `<link rel="manifest">` nowhere valid to sit. Don't strip it
+  back to a fragment.
 
 ### Delivery
 

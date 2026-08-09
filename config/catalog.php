@@ -50,6 +50,50 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | OCR Agent
+    |--------------------------------------------------------------------------
+    |
+    | The vision call that reads packaging text off a capture. The credential
+    | lives here rather than in config/services.php to keep every value this app
+    | is configured by in one file, the same way the admin identity above is.
+    |
+    | `model` defaults to Claude Opus 5. Don't lower it to save money without
+    | measuring first: a misread here becomes a catalog row an admin has to
+    | notice is wrong, and the review time that costs dwarfs the token
+    | difference. `effort` is the cheaper dial and the one to sweep — it starts
+    | at Anthropic's recommended `high` for intelligence-sensitive work, and
+    | `medium` and `low` are worth testing against real cards before assuming
+    | they're worse.
+    |
+    | `max_tokens` covers thinking *and* the JSON, which is why it is far larger
+    | than the output: thinking is on by default on Opus 5, and a limit sized
+    | for the answer alone truncates mid-read.
+    |
+    | `max_photos` bounds the request. Photos are base64-encoded into the body,
+    | and a capture may hold eight 12 MB images — sending all of them would be a
+    | ~130 MB request to read text that is legible in two. OcrAgent spends the
+    | budget on card photos first.
+    |
+    */
+
+    'ocr' => [
+        'api_key' => env('ANTHROPIC_API_KEY') ?: null,
+        'model' => env('OCR_MODEL', 'claude-opus-5'),
+        'effort' => env('OCR_EFFORT', 'high'),
+        'max_tokens' => (int) env('OCR_MAX_TOKENS', 8000),
+        'max_photos' => (int) env('OCR_MAX_PHOTOS', 4),
+
+        // Server-side retry on a substitute model when the requested one
+        // declines for policy reasons. "default" lets Anthropic route by
+        // refusal category rather than pinning a model that will one day be
+        // deprecated. Blank disables it — the parameter is Claude-API-only and
+        // the eligible substitutes are per-model, so a different OCR_MODEL may
+        // have none.
+        'fallbacks' => env('OCR_FALLBACKS', 'default') ?: null,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Review Thresholds
     |--------------------------------------------------------------------------
     |

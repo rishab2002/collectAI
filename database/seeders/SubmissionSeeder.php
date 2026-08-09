@@ -48,12 +48,25 @@ class SubmissionSeeder extends Seeder
             'hint_brand' => 'Hot Wheels',
             'hint_year' => 2011,
             'hint_series' => 'Night Burnerz',
+            // Shaped by app/AI/schemas/ocr_output.json. The low toy_number
+            // score is the interesting case for the review screen: a reviewer
+            // should be steered to check that field and not the brand.
             'ocr_output' => [
+                'schema_version' => 1,
                 'brand' => 'Hot Wheels',
                 'year' => 2011,
                 'series' => 'Night Burnerz',
                 'casting_name' => "'92 Honda Prelude",
                 'collector_number' => '160/244',
+                'toy_number' => null,
+                'confidence' => [
+                    'brand' => 0.99,
+                    'year' => 0.95,
+                    'series' => 0.93,
+                    'casting_name' => 0.9,
+                    'collector_number' => 0.72,
+                    'toy_number' => 0.0,
+                ],
             ],
             'processed_at' => now(),
         ]);

@@ -6,7 +6,9 @@ use App\Models\Submission;
 use App\Models\SubmissionPhoto;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use App\Jobs\ReadSubmissionPhotos;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Tests\TestCase;
@@ -21,6 +23,11 @@ class CaptureTest extends TestCase
 
         config(['catalog.capture.disk' => 'r2']);
         Storage::fake('r2');
+
+        // The suite runs the sync queue driver, so without this the capture
+        // endpoint's dispatch would run the OCR agent inline and reach for the
+        // Anthropic API from a test about uploading files.
+        Queue::fake();
     }
 
     private function admin(): User
