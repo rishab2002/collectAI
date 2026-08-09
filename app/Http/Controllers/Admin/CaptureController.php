@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreSubmissionRequest;
+use App\Jobs\ReadSubmissionPhotos;
 use App\Models\Submission;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -54,9 +55,7 @@ class CaptureController extends Controller
                 $submission = $request->user()->submissions()->create([
                     // Queued, not draft: the photos are already in the bucket, so
                     // there's nothing left for the admin to do to this submission.
-                    // Nothing consumes the state yet — the agent doesn't exist —
-                    // but when it lands it picks up from here and this controller
-                    // doesn't change.
+                    // ReadSubmissionPhotos moves it on from here.
                     'state' => Submission::STATE_QUEUED,
                     ...$request->hints(),
                 ]);
@@ -75,6 +74,13 @@ class CaptureController extends Controller
 
             throw $e;
         }
+
+        // Dispatched after the transaction, so the worker can't pick the job up
+        // before the rows it needs are visible. The controller's job ends here:
+        // the vision call happens inside the job, never in the request cycle —
+        // a phone on one bar of signal must not be holding a connection open
+        // while a model reads a photograph.
+        ReadSubmissionPhotos::dispatch($submission);
 
         session()->flash('status', "Submission #{$submission->id} queued — photos uploaded.");
 

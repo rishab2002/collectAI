@@ -1,0 +1,69 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://collectai.club/schemas/ocr_output/v1.json",
+    "title": "OCR Agent output, version 1",
+    "description": "What the OCR Agent read off a package, exactly as printed. This file is sent to the model verbatim as a structured-output schema AND is the contract for what lands in submissions.ocr_output — one file, so the two cannot drift. Two consequences of being the request schema: it stays inside the API's supported JSON Schema subset (no minimum/maximum, no minLength, no recursion, additionalProperties false on every object), so the 0-to-1 bound on confidence is stated in prose and enforced in PHP rather than by the schema; and every field is required, with null as the way to say 'not readable', because an omitted key and an unreadable field are different claims. Nothing here is normalized — resolving 'HW' to 'Hot Wheels' is the Metadata Agent's job, and it can only do it if this layer reports what the card actually says.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema_version",
+        "brand",
+        "year",
+        "series",
+        "casting_name",
+        "collector_number",
+        "toy_number",
+        "confidence"
+    ],
+    "properties": {
+        "schema_version": {
+            "const": 1,
+            "description": "Version of this schema. Stored alongside the output so a later reader can tell which shape it is looking at without guessing from the keys."
+        },
+        "brand": {
+            "type": ["string", "null"],
+            "description": "The toy manufacturer's brand printed on the packaging — Hot Wheels, Matchbox, Tomica. NOT the real car's manufacturer: a Hot Wheels Honda Civic has brand 'Hot Wheels', not 'Honda'."
+        },
+        "year": {
+            "type": ["integer", "null"],
+            "description": "The model year printed on the packaging, as a four-digit number. Not the copyright year in the small print, which is often different."
+        },
+        "series": {
+            "type": ["string", "null"],
+            "description": "The named release wave printed on the card, such as 'Night Burnerz' or 'HW Exotics'. Null if the packaging names no series."
+        },
+        "casting_name": {
+            "type": ["string", "null"],
+            "description": "The model's name as printed, including any leading year abbreviation and punctuation — \"'92 Honda Prelude\", not \"1992 Honda Prelude\"."
+        },
+        "collector_number": {
+            "type": ["string", "null"],
+            "description": "The collector number as printed, keeping the separator — '160/244'. A string, not a number, because the printed form carries the series size."
+        },
+        "toy_number": {
+            "type": ["string", "null"],
+            "description": "The manufacturer's alphanumeric product code from the small print, usually on the back — e.g. 'T9765'."
+        },
+        "confidence": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Per-field certainty that the reported value matches the printed text, each between 0 and 1 inclusive. Per-field rather than one score for the whole read, because a card can have a crisp brand logo and an illegible toy number, and the Review Agent needs to tell those apart. A field reported as null scores 0.",
+            "required": [
+                "brand",
+                "year",
+                "series",
+                "casting_name",
+                "collector_number",
+                "toy_number"
+            ],
+            "properties": {
+                "brand": { "type": "number" },
+                "year": { "type": "number" },
+                "series": { "type": "number" },
+                "casting_name": { "type": "number" },
+                "collector_number": { "type": "number" },
+                "toy_number": { "type": "number" }
+            }
+        }
+    }
+}

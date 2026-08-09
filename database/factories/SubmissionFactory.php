@@ -47,19 +47,30 @@ class SubmissionFactory extends Factory
     }
 
     /**
-     * A finished pipeline run, with OCR output shaped the way the real agent's
-     * JSON schema will produce it.
+     * A finished pipeline run, shaped by app/AI/schemas/ocr_output.json — the
+     * schema the OcrAgent holds the model to, so this fixture and real output
+     * cannot drift.
      */
     public function completed(): static
     {
         return $this->state([
             'state' => Submission::STATE_COMPLETED,
             'ocr_output' => [
+                'schema_version' => 1,
                 'brand' => 'Hot Wheels',
                 'year' => 2011,
                 'series' => 'Night Burnerz',
                 'casting_name' => "'11 Honda Civic",
                 'collector_number' => '112/244',
+                'toy_number' => 'T9765',
+                'confidence' => [
+                    'brand' => 0.99,
+                    'year' => 0.96,
+                    'series' => 0.94,
+                    'casting_name' => 0.92,
+                    'collector_number' => 0.71,
+                    'toy_number' => 0.58,
+                ],
             ],
             'processed_at' => now(),
         ]);

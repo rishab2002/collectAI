@@ -83,6 +83,66 @@ trait HasApprovalStatus
     }
 
     /**
+     * The not-yet-live ancestors that publishing this record would publish with
+     * it, nearest parent first.
+     *
+     * The same walk promoteWithDependencies() performs, collected instead of
+     * carried out, so the review screen can tell an admin what one click
+     * actually makes public. Keyed while collecting because a submission's
+     * proposals can share ancestors, and naming one twice would overstate what
+     * is about to happen.
+     *
+     * @return list<Model>
+     */
+    public function pendingDependencies(): array
+    {
+        $pending = [];
+
+        foreach ($this->approvalDependencies() as $dependency) {
+            if ($dependency === null || $dependency->isLive()) {
+                continue;
+            }
+
+            foreach ([$dependency, ...$dependency->pendingDependencies()] as $record) {
+                $pending[$record->getMorphClass().':'.$record->getKey()] = $record;
+            }
+        }
+
+        return array_values($pending);
+    }
+
+    /**
+     * Why this record must not go live yet, or null if nothing stands in its way.
+     *
+     * Overridden by the models that carry a "the pipeline produced something
+     * incoherent" state. Distinct from an unapproved parent, which the walk
+     * fixes by promoting it — a blocker is something no amount of approving can
+     * resolve, and needs a human to correct the record first.
+     */
+    public function approvalBlocker(): ?string
+    {
+        return null;
+    }
+
+    /**
+     * Blockers on this record and on every ancestor promoting it would publish.
+     *
+     * @return list<string>
+     */
+    public function approvalBlockers(): array
+    {
+        $blockers = [];
+
+        foreach ([$this, ...$this->pendingDependencies()] as $record) {
+            if (($blocker = $record->approvalBlocker()) !== null) {
+                $blockers[] = $blocker;
+            }
+        }
+
+        return $blockers;
+    }
+
+    /**
      * Publishes this record, promoting any not-yet-live ancestors first so the
      * catalog never holds a live record hanging off an invisible parent.
      *

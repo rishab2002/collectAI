@@ -86,4 +86,20 @@ class Casting extends Model
     {
         return [$this->model];
     }
+
+    /**
+     * A real casting whose model nobody has identified is not publishable. Going
+     * live would put a car in the catalog that can't be found by make or model
+     * and can't be told apart from a fantasy casting — and once it's live,
+     * nothing flags it for a second look.
+     *
+     * The fix is a human one either way: identify the model, or say it's
+     * fantasy. Neither is something approving can decide.
+     */
+    public function approvalBlocker(): ?string
+    {
+        return $this->isUnidentified()
+            ? "Casting “{$this->name}” has no vehicle model. Identify the real make and model, or mark it as a fantasy casting, before approving."
+            : null;
+    }
 }

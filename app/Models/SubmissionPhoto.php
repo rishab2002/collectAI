@@ -2,11 +2,11 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\ResolvesStoredUrl;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * A photo as captured, before anything in the catalog exists to attach it to.
@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Storage;
 #[Fillable(['submission_id', 'disk', 'path', 'type'])]
 class SubmissionPhoto extends Model
 {
-    use HasFactory;
+    use HasFactory, ResolvesStoredUrl;
 
     public const TYPE_CARD_FRONT = 'card_front';
 
@@ -26,11 +26,6 @@ class SubmissionPhoto extends Model
     public function submission(): BelongsTo
     {
         return $this->belongsTo(Submission::class);
-    }
-
-    public function url(): string
-    {
-        return Storage::disk($this->disk)->url($this->path);
     }
 
     /**

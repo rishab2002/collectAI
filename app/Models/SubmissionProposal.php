@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Exceptions\ApprovalBlockedException;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
@@ -68,17 +69,42 @@ class SubmissionProposal extends Model
      *
      * Wrapped in a transaction so a failure part-way up the chain doesn't leave
      * exactly that half-published state behind.
+     *
+     * @throws ApprovalBlockedException if this record or one of the ancestors
+     *                                  it would promote isn't publishable.
      */
     public function approve(?User $admin = null): void
     {
+        $blockers = $this->proposable->approvalBlockers();
+
+        if ($blockers !== []) {
+            throw new ApprovalBlockedException($blockers);
+        }
+
         DB::transaction(function () use ($admin): void {
+            // Read before the walk, which is the only moment these are still
+            // identifiable — afterwards they're indistinguishable from records
+            // that were already live.
+            $promoted = $this->proposable->pendingDependencies();
+
             $this->proposable->promoteWithDependencies();
 
-            $this->forceFill([
+            $decision = [
                 'decision' => self::DECISION_APPROVED,
                 'decided_by' => $admin?->getKey(),
                 'decided_at' => now(),
-            ])->save();
+            ];
+
+            // An ancestor the walk published has been approved in every sense
+            // that matters: it is live, by this admin, at this moment. Leaving
+            // its own proposal pending would keep the submission sitting in the
+            // review queue asking for a ruling that has already been made, and
+            // offering an admin buttons for a record that is already public.
+            foreach ($promoted as $record) {
+                $record->proposal()->undecided()->update($decision);
+            }
+
+            $this->forceFill($decision)->save();
         });
     }
 
@@ -111,6 +137,11 @@ class SubmissionProposal extends Model
      * A null score is treated as "needs review" rather than as a zero, so a
      * pipeline bug that drops the score can never widen what auto-approves.
      */
+    public function isDecided(): bool
+    {
+        return $this->decision !== self::DECISION_PENDING;
+    }
+
     public function requiresManualReview(?float $threshold = null): bool
     {
         $threshold ??= config('catalog.review.auto_approve_threshold');

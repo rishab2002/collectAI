@@ -14,6 +14,149 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-08-09 — The OCR agent, and the first real pipeline output
+
+`php artisan test` green: **92 tests, 267 assertions**. `migrate:fresh --seed`
+clean against both databases. Note it rotates the admin password whenever
+`ADMIN_PASSWORD` is blank, because `AdminUserSeeder` generates and prints one —
+set it in `.env` if you'd rather a reseed didn't.
+
+The first agent exists. `app/AI/schemas/ocr_output.json` defines what a reading
+is, `App\Services\AI\OcrAgent` performs the vision call, and
+`App\Jobs\ReadSubmissionPhotos` runs it off the queue — the capture endpoint now
+dispatches that job, which is what CLAUDE.md always said the controller's job
+ended at. A capture goes queued → processing → completed with a reading the
+review screen renders. Nothing proposes catalog records yet: Metadata,
+Comparison and Insertion are still unwritten, so a completed submission has a
+reading and no proposals. That is a legible intermediate state — you can look at
+a photo and see what the model made of it before anything is built on top.
+
+**One schema file, used twice.** It's sent to the API verbatim as the
+structured-output schema *and* it's the contract for `submissions.ocr_output`.
+Keeping it as one file is what stops the prompt and the stored shape drifting
+apart, which is the failure CLAUDE.md called out when it asked for a versioned
+schema. Two consequences follow from being the request schema: it has to stay
+inside the API's supported JSON Schema subset, so the 0-to-1 bound on confidence
+is prose rather than `minimum`/`maximum`; and every field is required with
+`null` allowed, because an omitted key and an unreadable field are different
+claims and only one of them is information.
+
+**Per-field confidence, not one score.** A card can have a logo filling half of
+it and a toy number in four-point type. One number for the whole read tells a
+reviewer to check everything or nothing; six tell them which field to put their
+eyes on. The review screen renders each score beside the field it scores and
+flags anything under 80%.
+
+Four things worth knowing that only showed up while building it:
+
+- **HEIC photos are stored and cannot be read.** The capture screen accepts
+  HEIC/HEIF deliberately — iOS Safari usually transcodes to JPEG but "usually
+  isn't a validation strategy" — and Claude vision accepts only JPEG, PNG, WebP
+  and GIF. So the agent maps each stored photo's extension to a media type and
+  skips what it can't send, failing the submission with that reason if nothing
+  readable is left. Converting isn't an option: the container has no GD, which
+  is also why `CaptureTest` can't use `UploadedFile::fake()->image()`.
+- **The photo budget goes to card photos first.** Photos are base64-encoded into
+  the request body, and a capture can hold eight 12 MB images — sending all of
+  them is a ~130 MB request to read text that's legible in two. Loose photos
+  aren't excluded, though: a Hot Wheels base is printed with the casting name,
+  year and toy number, so a loose-only capture is still readable.
+- **The tests fake the PSR-18 transporter, not the SDK client.** A mocked client
+  would assert that `OcrAgent` called a method with the arguments it was written
+  to call — true by construction, and silent about whether `mediaType` reaches
+  the wire as `media_type`. Faking the transport means the SDK really serializes
+  the request, so `OcrAgentTest` asserts on the actual JSON body and the
+  parameter names are proven without an API key or a network call.
+- **The suite runs the `sync` queue driver.** Dispatching from the capture
+  controller therefore ran the OCR agent inline inside `CaptureTest` and reached
+  for the Anthropic API from a test about uploading files. `Queue::fake()` in
+  that test's `setUp` is not tidiness — without it the file-upload tests make
+  live API calls.
+
+**Model choice.** `claude-opus-5` at `high` effort, both configurable.
+`OCR_EFFORT` is the dial to sweep before touching the model: a misread here
+becomes a catalog row an admin has to notice is wrong, and the review time that
+costs dwarfs the token difference. Refusals are handled — a declined request is an
+HTTP 200 with empty content, so `stop_reason` is checked before `content` is
+touched — and the call opts into a server-side fallback.
+
+**`fallbacks: "default"`, not a pinned model.** The right substitute depends on
+why a request was declined, and naming one is a migration owed the day it's
+deprecated. The scalar form needs the beta namespace and the
+`server-side-fallback-2026-07-01` header specifically; the array form is gated
+by a *different*, earlier-dated header, and crossing them is a 400 — so those
+two constants must not be "tidied" into agreeing. It's switchable via
+`OCR_FALLBACKS` because the parameter is Claude-API-only and eligible
+substitutes are per-model, so a different `OCR_MODEL` may have none. The PHP
+binding came from reading the installed SDK (`fallbacks` is
+`string|array|null` on `beta->messages->create`), not from guessing at it.
+
+Also bumped `league/commonmark` 2.8.3 → 2.9.1, clearing six DoS advisories. It
+is a Laravel dependency and was already vulnerable before this session; the
+constraint allowed the fix without any other change.
+
+## 2026-08-09 — Review screen and the PWA shell
+
+The rest of the capture/review milestone. `php artisan test` green: **75 tests,
+208 assertions** (was 55/137).
+
+`/admin/submissions/{submission}` shows a submission's photos beside its
+proposals, each with its confidence, and approves or rejects through the
+existing `SubmissionProposal::approve()` / `reject()`. The controller
+deliberately does not walk the hierarchy itself — approving a leaf already
+promotes its ancestors, and a second copy of that walk in a controller is a
+second thing to keep in step with the first.
+
+Four things came out of building it that weren't obvious beforehand:
+
+- **Approving a leaf left its ancestors' own proposals pending.** The walk
+  publishes the parents, but only the leaf's proposal row was being marked
+  decided — so the seeded five-proposal submission would go live and still sit
+  in the queue reporting four things to rule on, each offering Approve buttons
+  for records that were already public. `approve()` now rules on the proposals
+  of everything it promoted, with the same admin and timestamp, because that is
+  what actually happened. Rejection still doesn't cascade.
+- **`castings.is_fantasy` was documented as blocking approval, and nothing
+  enforced it.** CLAUDE.md has said since 2026-08-02 that a real casting with no
+  identified model "must block approval rather than go live unattributed", but
+  the promotion walk skips a null `model_id` without comment — that was the
+  whole point of adding the flag, and the gate was never built. The review
+  screen is the first code that can actually publish anything, so the guard went
+  in at the domain level (`approvalBlocker()` on the trait, overridden by
+  `Casting`, raised as `ApprovalBlockedException` from `approve()`) rather than
+  only in the controller. A future bulk auto-approve inherits it; a screen that
+  forgets to check cannot bypass it.
+- **`SubmissionPhoto::url()` never worked on the local disk.** Laravel's
+  local-disk file server refuses unsigned requests for any disk not declared
+  `public`, and `url()` doesn't sign — so `CAPTURE_DISK=local`, which exists
+  specifically so capture can be exercised without R2, produced photos that
+  403'd on every render. Not noticed before because nothing displayed a photo
+  until now. Both photo models share `ResolvesStoredUrl`, which signs only for
+  private local disks: R2 must keep using its plain custom-domain URL, since a
+  presigned R2 link points at the S3 API endpoint, which isn't publicly
+  reachable at all.
+- **The layout wasn't a document.** It began at `<meta name="viewport">` with no
+  doctype, no `<html>`, no `<head>` — which meant every page rendered in quirks
+  mode, and `<link rel="manifest">` had nowhere to live. Tailwind's preflight was
+  hiding the box-model consequences. The shell is now a real document; verified
+  `document.compatMode === 'CSS1Compat'`.
+
+The **service worker caches almost nothing, on purpose.** Only content-hashed
+Vite output, the icons and one offline page. HTML is never cached: a stale
+review queue listing already-decided proposals invites ruling on the same record
+twice, and the second ruling fails with no explanation. Non-GET requests are
+passed through untouched — a worker that retried or buffered them would produce
+duplicate captures and approvals applied out of order, which is why there's a
+test asserting that guard rather than trusting review to catch its removal.
+
+Verified in a browser against the running stack: manifest and all three icons
+200, service worker active at scope `/`, signed local-disk photo loads, and the
+screen renders correctly at a 375px viewport.
+
+Not done: `/` is still the stock Laravel welcome page and doesn't use the app
+layout, so it carries no manifest link — installing works from `/login` or
+`/admin/*`. Worth fixing whenever the public catalog replaces that page.
+
 ## 2026-08-09 — R2 credentials live, uploads proven
 
 `collectai-photos` bucket created, scoped API token in `.env`. Added

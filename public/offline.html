@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Offline · collectAI</title>
+    <link rel="icon" href="/icons/favicon-32.png" sizes="32x32">
+
+    <!--
+        Standalone styles rather than the Vite bundle: this page is precached by
+        the service worker and has to render with no network at all, so it can't
+        depend on a stylesheet whose hashed filename changes every build.
+    -->
+    <style>
+        :root { color-scheme: light dark; }
+
+        body {
+            margin: 0;
+            min-height: 100dvh;
+            display: grid;
+            place-items: center;
+            padding: 1.5rem;
+            background: #fafafa;
+            color: #171717;
+            font: 1rem/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+            text-align: center;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            body { background: #0a0a0a; color: #f5f5f5; }
+        }
+
+        img { width: 72px; height: 72px; }
+        h1 { font-size: 1.125rem; margin: 1.25rem 0 0.5rem; }
+        p { margin: 0; max-width: 32ch; color: #737373; }
+    </style>
+</head>
+<body>
+    <main>
+        <img src="/icons/icon-192.png" alt="">
+        <h1>No connection</h1>
+        <p>
+            Photos you have already uploaded are safe. Anything still on this
+            phone needs a connection before it can be sent — reconnect and try
+            again.
+        </p>
+    </main>
+</body>
+</html>

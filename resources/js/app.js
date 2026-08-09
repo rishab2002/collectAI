@@ -1,4 +1,21 @@
 /**
+ * Service worker registration.
+ *
+ * Same posture as everything below: additive. What registration buys is the
+ * install prompt and an offline page instead of the browser's error screen —
+ * lose it and the app is still a server-rendered form that works. So the
+ * failure path is deliberately silent rather than a message telling an admin
+ * standing in a shop aisle about something they can't act on.
+ *
+ * Deferred to load so it never competes with the page's own requests.
+ */
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+    });
+}
+
+/**
  * Capture screen enhancements.
  *
  * The form is a working multipart POST without any of this — that path is what
