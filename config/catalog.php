@@ -108,4 +108,38 @@ return [
         'auto_approve_threshold' => (float) env('REVIEW_AUTO_APPROVE_THRESHOLD', 1.0),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Catalog Import
+    |--------------------------------------------------------------------------
+    |
+    | Bulk import from a public catalog source. A deliberately separate dial from
+    | review.auto_approve_threshold above, which stays 1.0: nothing a person
+    | photographed auto-publishes, and that invariant is not up for tuning here.
+    |
+    | The two paths carry different risk. A photographed car is one record an
+    | admin is already looking at, so waiting for them costs nothing. An import
+    | is tens of thousands of rows, and holding all of them for review would mean
+    | the catalog never becomes browsable — which also leaves the Comparison
+    | Agent with nothing to diff against, the reason the importer comes first.
+    |
+    | What this threshold governs is only the *inferred* part. Facts the wiki
+    | states — year, colour, wheel type, toy number — go live through the
+    | importer on the strength of their provenance. The Make/Model split and
+    | is_fantasy are not in the wiki and are an LLM inference, so they are scored
+    | and compared against this.
+    |
+    | 0.9 is a starting point, not a measured value; sweep it against the first
+    | `List of 2011 Hot Wheels` run. Err low rather than high: an inference below
+    | the bar leaves a casting pending with no model, which Casting's approval
+    | blocker already refuses to publish, so the cost is an invisible row in a
+    | backfill queue. Above the bar the cost is a wrong make and model on a live
+    | car that nothing will flag again.
+    |
+    */
+
+    'import' => [
+        'auto_approve_threshold' => (float) env('IMPORT_AUTO_APPROVE_THRESHOLD', 0.9),
+    ],
+
 ];

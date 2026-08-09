@@ -2,6 +2,7 @@
 
 namespace App\Models\Concerns;
 
+use App\Models\RecordSource;
 use App\Models\SubmissionProposal;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
@@ -63,6 +64,19 @@ trait HasApprovalStatus
     public function proposal(): MorphOne
     {
         return $this->morphOne(SubmissionProposal::class, 'proposable');
+    }
+
+    /**
+     * Where this record was imported from, if it was imported rather than
+     * photographed. Null for anything the capture pipeline or an admin created.
+     *
+     * Lives on this trait because the tables carrying the approval gate are
+     * exactly the tables a bulk import is allowed to write to — and because the
+     * public catalog has to be able to reach the attribution from any of them.
+     */
+    public function source(): MorphOne
+    {
+        return $this->morphOne(RecordSource::class, 'sourceable');
     }
 
     public function isLive(): bool

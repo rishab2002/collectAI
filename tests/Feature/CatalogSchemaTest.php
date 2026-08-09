@@ -6,6 +6,7 @@ use App\Models\Brand;
 use App\Models\Casting;
 use App\Models\CastingVersion;
 use App\Models\Make;
+use App\Models\RecordSource;
 use App\Models\Release;
 use App\Models\Series;
 use App\Models\Submission;
@@ -214,5 +215,54 @@ class CatalogSchemaTest extends TestCase
         $submission = Submission::factory()->completed()->create();
 
         $this->assertSame('Night Burnerz', $submission->fresh()->ocr_output['series']);
+    }
+
+    public function test_one_source_key_can_only_be_imported_once(): void
+    {
+        RecordSource::factory()->create(['source_key' => 'page:12345']);
+
+        // The whole basis of a re-runnable importer: a second pass over the same
+        // dump has to update this row, not insert a parallel catalog beside it.
+        $this->expectException(QueryException::class);
+
+        RecordSource::factory()->create(['source_key' => 'page:12345']);
+    }
+
+    public function test_the_same_key_under_a_different_source_is_a_different_record(): void
+    {
+        RecordSource::factory()->create(['source_key' => 'page:12345']);
+
+        $other = RecordSource::factory()->create([
+            'source' => 'matchbox_fandom',
+            'source_key' => 'page:12345',
+        ]);
+
+        // Page numbering is per-site. Scoping the constraint to the source is
+        // what stops a second wiki's page 12345 colliding with this one's.
+        $this->assertTrue($other->exists);
+    }
+
+    public function test_a_catalog_record_can_only_come_from_one_source(): void
+    {
+        $casting = Casting::factory()->create();
+
+        RecordSource::factory()->forSourceable($casting)->create();
+
+        // A record picking up facts from a second source is a merge, which is a
+        // human decision — not a second provenance row appearing quietly and
+        // leaving "where did this come from" with two answers.
+        $this->expectException(QueryException::class);
+
+        RecordSource::factory()->forSourceable($casting)->create();
+    }
+
+    public function test_an_imported_record_cannot_be_stored_without_attribution(): void
+    {
+        // NOT NULL alone wouldn't catch this, and a parser that failed to build
+        // a URL writes exactly this. The wiki is CC-BY-SA: a row that can't name
+        // its source can't legally be shown as imported.
+        $this->expectException(QueryException::class);
+
+        RecordSource::factory()->create(['source_url' => '   ']);
     }
 }
