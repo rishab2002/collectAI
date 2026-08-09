@@ -5,102 +5,166 @@ namespace Tests\Feature;
 use App\Models\Casting;
 use App\Models\RecordSource;
 use App\Models\Release;
-use App\Models\Variation;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Provenance behaviour the importer will lean on: reaching a record's origin
- * from the record, and working out what a re-import has to revisit.
+ * Guards the provenance invariants the catalog importer is built on. These live
+ * in the database rather than in the importer on purpose: "add only genuinely
+ * missing records" has to hold for every future importer, not just the first
+ * one written.
  */
 class RecordSourceTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_a_catalog_record_reaches_its_attribution(): void
+    public function test_one_source_key_can_only_describe_one_record(): void
+    {
+        RecordSource::factory()->fromSource(RecordSource::SOURCE_HOT_WHEELS_FANDOM, 'page:12345')->create();
+
+        // This is the constraint that makes re-import idempotent: a second run
+        // has to resolve the existing row by (source, source_key) and update it,
+        // rather than inserting a duplicate casting.
+        $this->expectException(QueryException::class);
+
+        RecordSource::factory()->fromSource(RecordSource::SOURCE_HOT_WHEELS_FANDOM, 'page:12345')->create();
+    }
+
+    public function test_the_same_key_in_a_different_source_is_accepted(): void
+    {
+        RecordSource::factory()->fromSource(RecordSource::SOURCE_HOT_WHEELS_FANDOM, 'page:12345')->create();
+        RecordSource::factory()->fromSource('matchbox_wiki', 'page:12345')->create();
+
+        // Page IDs are only unique within a wiki. Scoping the constraint to the
+        // pair is what lets a second source be onboarded without renumbering.
+        $this->assertSame(2, RecordSource::count());
+    }
+
+    public function test_a_record_can_only_have_one_provenance_row(): void
     {
         $casting = Casting::factory()->create();
 
-        RecordSource::factory()->forSourceable($casting)->create([
-            'source_url' => 'https://hotwheels.fandom.com/wiki/Twin_Mill',
-        ]);
+        RecordSource::factory()->forSourceable($casting)->create();
 
-        // The public catalog has to show this alongside an imported row, so the
-        // path from the row to the credit has to be one relation, not a lookup
-        // the browse screen has to remember to build.
-        $this->assertSame(
-            'https://hotwheels.fandom.com/wiki/Twin_Mill',
-            $casting->fresh()->source->source_url,
+        $this->expectException(QueryException::class);
+
+        RecordSource::factory()->forSourceable($casting)->fromSource('matchbox_wiki', 'page:999')->create();
+    }
+
+    public function test_a_casting_and_its_release_rows_get_distinct_keys(): void
+    {
+        // The trap the key convention exists to close: one article yields a
+        // casting and many releases, and keying them all to the page would make
+        // the releases collide with the casting and with each other.
+        $casting = RecordSource::pageKey(12345);
+        $release = RecordSource::releaseKey(12345, 2011, 'Nightburnerz');
+        $otherYear = RecordSource::releaseKey(12345, 2012, 'Nightburnerz');
+        $variation = RecordSource::variationKey(12345, 2011, 'Nightburnerz', 0);
+
+        $this->assertSame('page:12345', $casting);
+        $this->assertSame('page:12345:release:2011:Nightburnerz', $release);
+        $this->assertSame('page:12345:release:2011:Nightburnerz:variation:0', $variation);
+        $this->assertCount(4, array_unique([$casting, $release, $otherYear, $variation]));
+    }
+
+    public function test_release_keys_are_built_from_identity_not_row_position(): void
+    {
+        // A row inserted higher up a versions table shifts every row number
+        // below it, so positional keys would make the next import resolve each
+        // release to its neighbour. Year and series are what the release is.
+        $this->assertNotSame(
+            RecordSource::releaseKey(12345, 2011, 'Nightburnerz'),
+            RecordSource::releaseKey(12345, 2011, 'Muscle Mania'),
         );
     }
 
-    public function test_every_importable_table_can_carry_provenance(): void
+    public function test_series_differing_only_in_punctuation_get_distinct_keys(): void
     {
-        // One casting article yields a casting, its releases and their
-        // variations, so the relation has to exist on all of them and not just
-        // on the table the page is named after.
-        $variation = Variation::factory()->create();
+        // The bug this closes only appeared against the live wiki: the key
+        // builder used to slug, so "Monster Jam: Monster Duo" and "Monster Jam -
+        // Monster Duo" — two series the wiki lists separately — collapsed onto
+        // one key and the second import to reach them died on the unique
+        // constraint mid-run.
+        $keys = [
+            RecordSource::seriesKey('Monster Jam: Monster Duo'),
+            RecordSource::seriesKey('Monster Jam - Monster Duo'),
+            RecordSource::seriesKey('Monster Jam Monster Duo'),
+        ];
 
-        RecordSource::factory()->forSourceable($variation)->create();
-        RecordSource::factory()->forSourceable($variation->release)->create();
+        $this->assertCount(3, array_unique($keys));
 
-        $this->assertInstanceOf(RecordSource::class, $variation->fresh()->source);
-        $this->assertInstanceOf(RecordSource::class, $variation->release->fresh()->source);
-    }
-
-    public function test_a_page_and_its_rows_are_keyed_apart(): void
-    {
-        $page = RecordSource::pageKey(12345);
-
-        // A casting article is one page but many releases. Keying every row by
-        // the page alone would collide on the second one, so the row keys hang
-        // off the page key rather than being invented per call site.
-        $this->assertSame('page:12345', $page);
-        $this->assertSame('page:12345:row:7', RecordSource::rowKey($page, 7));
-    }
-
-    public function test_a_reimport_revisits_records_older_than_the_current_revision(): void
-    {
-        $stale = RecordSource::factory()->fromRevision(100)->create();
-        $current = RecordSource::factory()->fromRevision(200)->create();
-        $unversioned = RecordSource::factory()->unversioned()->create();
-
-        $revisit = RecordSource::query()
-            ->staleAgainst(RecordSource::SOURCE_HOT_WHEELS_FANDOM, 200)
-            ->pluck('id');
-
-        // Unversioned rows are revisited too: a source that can't say what
-        // revision it served can never be shown to be current, and re-reading is
-        // cheaper than assuming it hasn't moved.
-        $this->assertEqualsCanonicalizing([$stale->id, $unversioned->id], $revisit->all());
-        $this->assertNotContains($current->id, $revisit->all());
-    }
-
-    public function test_staleness_is_scoped_to_the_source_it_is_measured_against(): void
-    {
-        RecordSource::factory()->fromRevision(100)->create(['source' => 'matchbox_fandom']);
-
-        // Revision numbers are per-site. Comparing one wiki's against another's
-        // would mark rows stale on the strength of an unrelated counter.
+        // Only whitespace is normalised, so the same name written with a stray
+        // double space still resolves to the one record.
         $this->assertSame(
-            0,
-            RecordSource::query()
-                ->staleAgainst(RecordSource::SOURCE_HOT_WHEELS_FANDOM, 200)
-                ->count(),
+            RecordSource::seriesKey('Monster Jam: Monster Duo'),
+            RecordSource::seriesKey("Monster Jam:  Monster\tDuo "),
         );
     }
 
-    public function test_provenance_survives_the_record_being_published(): void
+    public function test_a_blank_source_key_is_rejected(): void
     {
-        $release = Release::factory()->pending()->create();
-        $source = RecordSource::factory()->forSourceable($release)->create();
+        // Postgres is happy to treat '' as a unique value, so the idempotency
+        // constraint above would pass while identifying nothing.
+        $this->expectException(QueryException::class);
 
-        $release->promoteWithDependencies();
+        RecordSource::factory()->fromSource(RecordSource::SOURCE_HOT_WHEELS_FANDOM, '   ')->create();
+    }
 
-        // Approval changes visibility, not origin — the attribution obligation
-        // outlives the pending state, and in fact only starts mattering once the
-        // row is public.
-        $this->assertTrue($release->fresh()->isLive());
-        $this->assertSame($source->id, $release->fresh()->source->id);
+    public function test_a_blank_source_url_is_rejected(): void
+    {
+        // The wiki is CC-BY-SA. A row the public catalog cannot attribute is one
+        // the importer must not be able to create.
+        $this->expectException(QueryException::class);
+
+        RecordSource::factory()->create(['source_url' => '']);
+    }
+
+    public function test_provenance_resolves_from_the_catalog_record(): void
+    {
+        $release = Release::factory()->create();
+
+        RecordSource::factory()
+            ->forSourceable($release)
+            ->fromSource(RecordSource::SOURCE_HOT_WHEELS_FANDOM, RecordSource::releaseKey(12345, 2011, 'Nightburnerz'))
+            ->create();
+
+        $release->refresh();
+
+        $this->assertTrue($release->isImported());
+        $this->assertSame('page:12345:release:2011:Nightburnerz', $release->source->source_key);
+        $this->assertTrue($release->source->sourceable->is($release));
+    }
+
+    public function test_a_record_nothing_imported_has_no_source(): void
+    {
+        $casting = Casting::factory()->create();
+
+        $this->assertFalse($casting->isImported());
+        $this->assertNull($casting->source);
+    }
+
+    public function test_a_refresh_run_can_find_what_it_has_not_read_lately(): void
+    {
+        $cutoff = now()->subDay();
+
+        $stale = RecordSource::factory()->importedAt(now()->subWeek())->create();
+        RecordSource::factory()->importedAt(now())->create();
+
+        $found = RecordSource::query()
+            ->fromSource(RecordSource::SOURCE_HOT_WHEELS_FANDOM)
+            ->staleSince($cutoff)
+            ->get();
+
+        $this->assertTrue($found->pluck('id')->contains($stale->id));
+        $this->assertCount(1, $found);
+    }
+
+    public function test_an_unversioned_source_is_allowed_to_have_no_revision(): void
+    {
+        // Not every source is versioned — a MediaWiki dump is, a CSV export isn't.
+        $source = RecordSource::factory()->atRevision(null)->create();
+
+        $this->assertNull($source->fresh()->source_revision_id);
     }
 }

@@ -2,41 +2,28 @@
 
 namespace App\Services\Import\HotWheelsWiki;
 
-use App\Services\Import\Wikitext\Wikitext;
-use App\Services\Import\Wikitext\WikitextTable;
+use App\Services\Import\WikitableParser;
+use App\Services\Import\Wikitext;
 
 /**
- * Reads a `List of YYYY Hot Wheels` page for the casting articles it names.
+ * Reads "List of YYYY Hot Wheels" for the casting pages that year touched.
  *
- * The index is a work list, not a source of facts. Its own columns repeat what
- * each casting page states in more detail — and states inconsistently, since a
- * car appears once per colour here with the colour only implied by a "(2nd
- * Color)" suffix. Importing from the index would mean reconciling two accounts
- * of the same release; importing the titles and reading each casting page means
- * one account, from the page the facts belong to.
+ * The index is used as a worklist, not as a source of records. Its tables carry
+ * only Toy #, Col #, model name, series and a photo — no colour, tampo, wheel
+ * or base data — so it cannot produce a variation, and importing releases from
+ * it would create rows the casting pages then duplicate with fuller detail. The
+ * casting page each row links to is the authority; this just says which ones to
+ * open.
  */
-final class YearIndexParser
+class YearIndexParser
 {
     /**
-     * Headers whose cells link to a casting article.
+     * Distinct casting page titles the year's tables link to, in first-seen
+     * order.
      *
-     * Restricted to this column on purpose: the Series column is full of links
-     * too, and following those would import "2011 New Models" as a casting.
-     */
-    private const CASTING_COLUMNS = ['model name', 'model', 'casting', 'casting name', 'car'];
-
-    /**
-     * Namespaced or fragment links that are never a casting article.
-     */
-    private const EXCLUDED = ['file:', 'image:', 'media:', 'category:', 'template:', 'help:', 'user:', 'list of'];
-
-    /**
-     * The casting articles this year's index names, de-duplicated and in
-     * document order.
-     *
-     * A casting appears once per colour in the index and once per section it was
-     * re-released in; the catalog wants the tool once, so the caller gets each
-     * title a single time.
+     * Deduplicated because a casting appears once per colour — the 2011 index
+     * lists the '07 Shelby GT-500 three times, as the release and its "(2nd
+     * Color)" and "(3rd Color)" siblings — and all three are the same article.
      *
      * @return list<string>
      */
@@ -44,21 +31,11 @@ final class YearIndexParser
     {
         $titles = [];
 
-        foreach (WikitextTable::allIn($wikitext) as $table) {
-            foreach ($table->keyedRows() as $row) {
-                foreach ($row as $header => $cell) {
-                    if (! in_array($this->normalize($header), self::CASTING_COLUMNS, true)) {
-                        continue;
-                    }
+        foreach ($this->rows($wikitext) as $row) {
+            $title = $this->castingTitle($row);
 
-                    foreach (array_keys(Wikitext::links($cell)) as $target) {
-                        $title = $this->title($target);
-
-                        if ($title !== null) {
-                            $titles[$title] = true;
-                        }
-                    }
-                }
+            if ($title !== null) {
+                $titles[$title] = true;
             }
         }
 
@@ -66,48 +43,71 @@ final class YearIndexParser
     }
 
     /**
-     * The year the page covers, read from its title.
+     * The series named in the year's section headings, which is the closest the
+     * wiki gets to a canonical list of that year's series.
+     *
+     * @return list<string>
      */
-    public static function yearFromTitle(string $title): ?int
+    public function seriesNames(string $wikitext): array
     {
-        if (preg_match('/\b(19|20)\d{2}\b/', $title, $matches) !== 1) {
-            return null;
+        $names = [];
+
+        if (preg_match_all('/^={2,}\s*(.+?)\s*={2,}\s*$/mu', $wikitext, $matches) === false) {
+            return [];
         }
 
-        return (int) $matches[0];
-    }
+        foreach ($matches[1] as $heading) {
+            $name = Wikitext::nullIfBlank(Wikitext::plain($heading));
 
-    public static function titleForYear(int $year): string
-    {
-        return "List of {$year} Hot Wheels";
-    }
-
-    /**
-     * A link target reduced to the article it points at, or null if it isn't one
-     * a casting could live at.
-     */
-    private function title(string $target): ?string
-    {
-        // A section link still points at the article that holds it.
-        $title = trim(explode('#', $target, 2)[0]);
-
-        if ($title === '') {
-            return null;
-        }
-
-        $lowered = mb_strtolower($title);
-
-        foreach (self::EXCLUDED as $prefix) {
-            if (str_starts_with($lowered, $prefix)) {
-                return null;
+            if ($name !== null) {
+                $names[$name] = true;
             }
         }
 
-        return $title;
+        return array_keys($names);
     }
 
-    private function normalize(string $header): string
+    /**
+     * The link target of the model-name cell.
+     *
+     * Taken from the target rather than the label because the label is written
+     * for the page it sits on — "[['07 Shelby GT-500|'07 Ford Shelby GT-500]]"
+     * renders a fuller name than the article it points at — and the target is
+     * what a second year's index will agree with. The "(2nd Color)" suffix sits
+     * outside the link, so it disappears with the label.
+     */
+    private function castingTitle(array $row): ?string
     {
-        return trim(str_replace(['.', '#'], '', mb_strtolower($header)));
+        foreach (['Model Name', 'Model', 'Casting', 'Name'] as $heading) {
+            foreach ($row as $key => $value) {
+                if (strcasecmp(trim($key), $heading) !== 0) {
+                    continue;
+                }
+
+                $target = Wikitext::linkTarget($value);
+
+                if ($target !== null) {
+                    return $target;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return list<array<string, string>>
+     */
+    private function rows(string $wikitext): array
+    {
+        $rows = [];
+
+        foreach (WikitableParser::parseAll($wikitext) as $table) {
+            foreach ($table as $row) {
+                $rows[] = $row;
+            }
+        }
+
+        return $rows;
     }
 }

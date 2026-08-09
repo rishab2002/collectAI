@@ -5,7 +5,7 @@ domain model, conventions and current state only have to be explained once.
 **Treat this file as the source of truth, not the conversation history** —
 update it whenever a convention changes.
 
-**Last edited:** 2026-08-09 (Hot Wheels Wiki importer built and run)
+**Last edited:** 2026-08-09 (Hot Wheels Wiki importer landed; 2011 imported)
 
 ## Start here
 
@@ -56,14 +56,8 @@ The five things most likely to trip you up, each expanded below:
 the fastest way for a new session to avoid assuming something exists.*
 
 **Running:** `docker compose up -d` brings up `app` (:8000), `db` (Postgres 16,
-:5432), `redis` (:6379), `meilisearch` (:7700). `php artisan test` → **153
-passed, 440 assertions**.
-
-**The catalog is populated.** `catalog:import-hot-wheels --year=2011` has been
-run for real against the live wiki: 241 castings, 4,284 releases, 6,295
-variations. All of it is `pending` — see
-[Settled decisions → Catalog import](#catalog-import-hot-wheels-wiki) for why,
-and don't read the empty public catalog as a sign the import failed.
+:5432), `redis` (:6379), `meilisearch` (:7700). `php artisan test` → **132
+passed, 492 assertions**.
 
 **A clean checkout has no `.env`** (it's gitignored), so the suite fails on
 `MissingAppKeyException` before it reaches anything real. `cp .env.example .env
@@ -148,14 +142,24 @@ and don't read the empty public catalog as a sign the import failed.
   (md5 match) with `content-type: image/jpeg` preserved. The bucket root returns
   404, so object listing isn't exposed. `php artisan capture:check-storage`
   re-runs the whole round trip — write, read, public fetch, delete.
-- **No Make/Model inference, so the imported catalog is invisible.** The
-  importer creates castings *unidentified* — the wiki never states which real
-  vehicle a casting is based on — and `Casting::approvalBlocker()` refuses to
-  publish one of those, so every imported release and variation is pending under
-  a pending casting. Resolving that is the next agent's job, and
-  `submission_proposals.submission_id` was made nullable to give it somewhere to
-  put its proposals. `catalog.import.auto_approve_threshold` (0.9) exists for it
-  and **is not read by anything yet**.
+- **The Hot Wheels Wiki importer** (`app/Services/Import/`,
+  `php artisan import:hot-wheels {year}`). `record_sources` +
+  `variations.toy_number` migrations, a rowspan-aware `WikitableParser`,
+  `CastingPageParser`, `YearIndexParser`, `WikiClient` and `CatalogImporter`.
+  **2011 is imported**: 242 castings, 366 releases, 650 variations, 79 series,
+  1,337 provenance rows. Re-import is idempotent — verified against the live
+  wiki, not just in tests. Fixtures under `tests/Fixtures/wiki/` are verbatim
+  live wikitext.
+  - **Almost all of it is `pending`, by design.** The wiki states no make or
+    model in a structured column, so imported castings are unidentified and
+    `Casting::approvalBlocker()` holds them — and their releases and variations
+    — back. Brands and series go live. `submission_proposals` is untouched: the
+    import does not create review items. Don't "fix" the pending rows by setting
+    `model_id` in the importer; that's the inference the split is meant to gate.
+  - **The dump reader is not built.** `WikiClient` uses the API, which is right
+    for one year (five batched requests, not 11,041) and wrong for the whole
+    wiki. See its docblock before assuming the settled dump decision was
+    reversed.
 - **No public catalog browsing, collections, wishlists, price charts, or
   barcode scanning.** The tables exist; nothing reads them.
 - Nothing creates a `CastingVersion` automatically alongside a `Casting`.
@@ -195,17 +199,23 @@ Comparison finally has a catalog to diff against.
   Cloudflare but nothing is deployed, so the capture screen has never run on a
   phone — which is the only place it's meant to run. The app is now installable
   the moment it's served over HTTPS.
-- **Import more years, and go wide via the dump.** `--year=` takes any year
-  1968–2027. The full run should use `--dump=` rather than the API: p7zip is in
-  the image and `DumpPageSource` streams it, but the dump has only ever been
-  read in tests, not against the real 16.5 MB archive.
+- **Import more years, then attribute what's imported.** The importer is done
+  and 2011 is in; `php artisan import:hot-wheels 2012` needs no new code. The
+  more interesting follow-on is the 242 pending castings: nothing yet turns "a
+  real car, not identified yet" into a Make/Model, and that inference is exactly
+  what `submission_proposals` is for. That is the natural first customer for the
+  Metadata Agent below.
 - **Then the rest of the AI pipeline.** The OCR Agent landed on 2026-08-09, so a
-  capture produces a reading. **Comparison** (deterministic `pg_trgm` lookup — no
-  LLM call) and **Insertion** (create pending records + `submission_proposals`)
-  turn that into proposals. Until those exist the review queue only fills from
-  `SubmissionSeeder`. Whoever writes Insertion must create `CastingVersion` 1
-  explicitly — nothing does it automatically, see below; `CatalogImporter` is
-  the worked example.
+  capture produces a reading. The next link turns a reading into proposals:
+  **Metadata** (normalise the read strings against known naming), then
+  **Comparison** (deterministic `pg_trgm` lookup — no LLM call) and **Insertion**
+  (create pending records + `submission_proposals`). Until those exist the review
+  queue only fills from `SubmissionSeeder`. Whoever writes Insertion must create
+  `CastingVersion` 1 explicitly — nothing does it automatically, see below.
+  Comparison now has a real catalog to diff against, which was the point of
+  doing the import first — and `variations.toy_number` is the match key to reach
+  for before fuzzy name matching, since it's what the OCR agent already reads
+  off the card.
 - **Prove the OCR agent against the live API.** It has never run for real —
   there's no `ANTHROPIC_API_KEY` set, and every test to date uses a faked PSR-18
   transport. The one genuinely unverified assumption is that the API's
@@ -682,63 +692,49 @@ against an empty table.
   imported `series.brand_id` is Hot Wheels. Other brands need other sources —
   and needing zero schema changes to add them is the point of the design.
 
-**Built and run on 2026-08-09.** The rules below came out of running it over
-real pages; the narrative is in the [session log](docs/session-log.md).
+**Rules learned building it** (2026-08-09). Each came from a bug that failed
+silently; all are now regression-tested against verbatim live wikitext under
+`tests/Fixtures/wiki/`:
 
-- **A year index is a work list of castings, not a filter on years.** Importing
-  `List of 2011 Hot Wheels` imports each casting's *whole* Versions table, 1968
-  onwards — which is why 241 castings produced 1,856 series. The casting page is
-  the unit of truth, and importing half of one would leave its provenance
-  claiming the page was done.
-- **Test the parser on captured wikitext, never on wikitext written to suit
-  it.** `tests/Fixtures/hotwheels-wiki/` holds real pages with their source URL,
-  page id, revision and licence in a header comment, prose sections stubbed out.
-  Writing fixtures by hand only exercises the shapes already known about; the
-  sixty-page sample that validated this found four separate classes of silently
-  dropped row.
-- **Duplicate variations are detected before the insert, never caught after
-  it.** Postgres aborts the whole transaction on a failed statement, so catching
-  the constraint violation and carrying on takes the rest of the page down with
-  it. Any future bulk writer owes the same.
-- **Provenance keys use raw titles, not `Str::slug()`.** Slugging collapses
-  "Muscle Mania (2012)" and "Muscle Mania 2012" into one key, and the importer
-  would overwrite one series with the other.
-- **Imported castings are unidentified, never fantasy.** The wiki has no
-  structured field for the real vehicle, and `is_fantasy` is a positive assertion
-  that there is no real car. So the import publishes brand and series and nothing
-  else — see [What to do next](#what-to-do-next).
+- **`rowspan` is the whole ballgame, and a rowspan block is a release.** Versions
+  tables write one release sold with four wheel types as a row carrying
+  `rowspan="4"` on every shared cell, then three rows holding only what differs
+  — three cells where the header has thirteen. A positional parser doesn't drop
+  data, it *misfiles* it, reading a wheel type as a collector number. Carrying
+  spans down is also what produces the grouping: block = release, row within it
+  = variation.
+- **Nothing about page layout is uniform.** A `|-` may or may not precede the
+  header row, and a page may carry **several** versions tables, not in year
+  order. Assuming otherwise cost 21 castings across two bugs, both failing the
+  same way: the page parsed to zero rows, which is indistinguishable from a
+  casting with no releases that year, so it was reported as an ordinary skip.
+  **If a parser change makes skips go up, treat it as a bug** — check that a car
+  you know is in the year index actually landed.
+- **Never lossily transform a source key.** Keys were slugged, folding case and
+  punctuation, so two series the wiki lists separately ("Monster Jam: Monster
+  Duo" and "Monster Jam - Monster Duo") collapsed onto one and the import died
+  mid-run on the unique constraint. A key identifies exactly one record, so any
+  transform that can map two records onto one key can only fail — loudly, or
+  silently by overwriting. Keys keep the name with whitespace normalised and
+  nothing else, which also keeps them in step with how a series is resolved (an
+  exact name match).
+- **A bulk writer must check `approvalBlockers()` itself.**
+  `promoteWithDependencies()` doesn't — only `SubmissionProposal::approve()`
+  did — so publishing directly would have released exactly what the
+  unidentified-casting rule exists to hold back.
+- **Toy number is a variation attribute, not a release one** — the 2011
+  Nightburnerz 350Z is one release carrying both T9819 and T9950. It's also the
+  best match key a card has, which is why `variations.toy_number` exists and
+  carries a trigram index.
 
-**Parsing notes** (verified 2026-08-09 against real pages): casting pages carry a
-`{{casting}}` infobox and a `==Versions==` wikitable with columns *Col # · Year ·
-Series · Color · Tampo · Base Color/Type · Window Color · Interior Color · Wheel
-Type · Toy # · Country · Notes · Photo*. Year indexes exist as
-`List of YYYY Hot Wheels`, 1968–2027. `Col #` arrives as `032/244` and Series as
-`[[2011 New Models]]<br>32/50` — both need splitting, and Series being a wiki-link
-means series identity is resolvable rather than a bare string. What the tables
-*also* do, all of it handled and all of it load-bearing:
-
-- **`rowspan`, heavily.** A row can carry five cells where the header declares
-  thirteen, inheriting the rest from above. Zipping cells against headers puts a
-  toy number in the colour column for exactly the interesting variants.
-- **Header names move** (`Notes` vs `Notes / Variations`, plus one-off columns
-  like `Clip Color`), so columns are matched by name and unrecognised ones are
-  dropped — which is also what keeps `Notes` and `Photo` out.
-- **A `|-` before the header row**, on ~9% of pages. Treating "before the first
-  row separator" as the header row leaves the table with no column names and
-  every field null.
-- **No `==Versions==` heading at all.** `'57 Chevy` uses "Closed Hood Versions"
-  and "Exposed Engine Versions" — two physical tools, so a `CastingVersion` each.
-  `[[Code 3]] Versions` is excluded: a third-party repaint is not a release.
-- **Redirects**, ~5% of index links, which parse as a page with no versions.
-- **Blank collector numbers are real data**, not a parse failure — 8% in 2011,
-  past 60% in later years.
-
-**The licence's real cost, worth knowing up front:** ~1.8% of rows are
-indistinguishable from another row using only the columns we're allowed to
-import. Some are genuine duplicate listings; others are real sub-variants whose
-only distinguishing fact is in the `Notes` prose ("short-run small Goodyear
-tampo on rear wheels"). The catalog records the car it can describe rather than
-inventing a distinction from a field it never read.
+**Parsing notes** (verified 2026-08-09): casting pages carry a `{{casting}}`
+infobox and a `==Versions==` wikitable with columns *Col # · Year · Series ·
+Color · Tampo · Base Color/Type · Window Color · Interior Color · Wheel Type ·
+Toy # · Country · Notes · Photo*, mapping almost 1:1 onto releases + variations.
+Year indexes exist as `List of YYYY Hot Wheels`, 1968–2027. Two gotchas: `Col #`
+arrives as `032/244`, and Series as `[[2011 New Models]]<br>32/50` — both need
+splitting, and Series being a wiki-link means series identity is resolvable
+rather than a bare string.
 
 ### Review
 

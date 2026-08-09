@@ -9,56 +9,67 @@ use App\Models\RecordSource;
 use App\Models\Release;
 use App\Models\Series;
 use App\Models\Variation;
-use App\Services\Import\ImportSummary;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Writes a parsed casting article into the catalog.
+ * Writes a parsed casting article into the catalog, once.
  *
- * Every record it creates gets a `record_sources` row keyed to the thing on the
- * page it came from, which is what makes a second run over the same dump update
- * the catalog rather than duplicate it — the key is the identity, not a name
- * match. It is also the CC-BY-SA attribution the public catalog owes back to the
- * page.
+ * Three rules shape everything here.
  *
- * What goes live and what waits is decided by what the wiki actually states.
- * Brand and Series it states outright, so those publish. A Casting it names but
- * cannot attribute to a real make and model, and `Casting::approvalBlocker()`
- * refuses to publish one of those — so castings, and everything hanging off
- * them, land pending. Resolving that attribution is an inference, and inferences
- * go through review.
+ * Idempotence is the first. Every record is resolved before it is created —
+ * first through record_sources on (source, source_key), then by its own natural
+ * key — so a second run over the same page updates rather than duplicates, and
+ * "add only genuinely missing records" holds even when the source has been
+ * reordered underneath us.
+ *
+ * The second is that this imports facts and nothing else. Year, series, colour,
+ * wheel type and toy number are printed in the wiki's structured columns, and go
+ * live through here. The real make and model behind a casting are not: the wiki
+ * states them only in prose, so deriving them is an inference and belongs behind
+ * submission_proposals. That is why nothing in this class ever sets model_id.
+ *
+ * The third follows from the second and is the one worth expecting. An imported
+ * casting has no model and isn't fantasy, so Casting::approvalBlocker() refuses
+ * to publish it — and since a release hangs off a casting version which hangs
+ * off that casting, the whole chain below it stays pending too. A year's import
+ * therefore lands as live brands and series over a backfill queue of pending
+ * castings, releases and variations. That is the settled intent: invisible rows
+ * awaiting attribution, rather than a catalog full of cars nobody can search by
+ * make or model.
  */
-final class CatalogImporter
+class CatalogImporter
 {
-    public function __construct(
-        private readonly string $source = RecordSource::SOURCE_HOT_WHEELS_FANDOM,
-    ) {}
+    public const BRAND = 'Hot Wheels';
+
+    public function __construct(private readonly ?float $threshold = null) {}
 
     /**
-     * Imports one casting article, in a transaction so a page either lands whole
-     * or not at all — a half-imported casting is worse than an absent one,
-     * because its provenance says it was done.
+     * Imports the releases a casting page lists for one year.
      */
-    public function import(CastingPage $page): ImportSummary
+    public function import(ParsedCasting $parsed, int $year, ?ImportSummary $summary = null): ImportSummary
     {
-        $summary = new ImportSummary;
+        $summary ??= new ImportSummary;
 
-        if ($page->importableVersions() === []) {
-            $summary->problem("{$page->title}: no importable version rows");
+        $releases = $parsed->releasesIn($year);
+
+        if ($releases === []) {
+            $summary->skip("{$parsed->title}: nothing listed for {$year}");
 
             return $summary;
         }
 
-        DB::transaction(function () use ($page, $summary): void {
-            $casting = $this->casting($page, $summary);
-            $versions = $this->castingVersions($page, $casting, $summary);
+        DB::transaction(function () use ($parsed, $releases, $summary): void {
+            $brand = $this->brand($summary);
+            $casting = $this->casting($parsed, $summary);
+            $version = $this->version($casting, $summary);
 
-            foreach ($this->groupIntoReleases($page) as $key => $rows) {
-                $release = $this->release($page, $rows, $versions, $key, $summary);
+            foreach ($releases as $parsedRelease) {
+                $series = $this->series($brand, $parsed, $parsedRelease, $summary);
+                $release = $this->release($parsed, $version, $series, $parsedRelease, $summary);
 
-                foreach ($rows as $row) {
-                    $this->variation($page, $row, $release, $summary);
+                foreach ($parsedRelease->variations as $position => $parsedVariation) {
+                    $this->variation($parsed, $release, $parsedRelease, $parsedVariation, $position, $summary);
                 }
             }
         });
@@ -67,349 +78,291 @@ final class CatalogImporter
     }
 
     /**
-     * The page's rows gathered into the releases they describe, keyed by release
-     * identity and in page order.
-     *
-     * Grouped up front rather than release-by-release as rows arrive, because a
-     * release takes its collector number from whichever of its rows states one —
-     * the wiki leaves the cell blank on some rows of a group and fills it on
-     * others, and taking the first row's would throw the number away whenever it
-     * happened to be one of the blanks.
-     *
-     * @return array<string, list<VersionRow>>
+     * The wiki is Hot Wheels only, so every series it yields belongs to this one
+     * brand. Other brands need other sources — that needing no schema change is
+     * the whole point of the design.
      */
-    private function groupIntoReleases(CastingPage $page): array
+    private function brand(ImportSummary $summary): Brand
     {
-        $groups = [];
+        $brand = Brand::firstOrNew(['name' => self::BRAND]);
 
-        foreach ($page->importableVersions() as $row) {
-            $groups[$this->releaseKey($page, $row)][] = $row;
+        if (! $brand->exists) {
+            $brand->fill(['parent_company' => 'Mattel'])->save();
+            $summary->created('brand');
+        } else {
+            $summary->unchanged('brand');
         }
 
-        return $groups;
-    }
-
-    /**
-     * The tool itself.
-     *
-     * Created unidentified — a real car whose VehicleModel nobody has matched —
-     * rather than fantasy. The wiki never states which real vehicle a casting is
-     * based on in a structured field, and `is_fantasy` is a positive assertion
-     * that there is no real car behind it. Guessing it here would publish
-     * "Danicar is a made-up vehicle" as a fact on the strength of a missing
-     * column.
-     */
-    private function casting(CastingPage $page, ImportSummary $summary): Casting
-    {
-        return $this->upsert(Casting::class, $page->sourceKey(), $page->sourceUrl(), [
-            'name' => $page->name,
-            'is_fantasy' => false,
-        ], $page->revisionId, $summary, 'castings');
-    }
-
-    /**
-     * One CastingVersion per tool the page describes, keyed by the label it
-     * describes them under.
-     *
-     * Nothing creates version 1 automatically, so this is where it happens. Most
-     * pages describe one tool and get one unlabelled version; a page filing its
-     * releases under "Closed Hood Versions" and "Exposed Engine Versions" is
-     * describing two physical tools and gets one each, in page order.
-     *
-     * @return array<string, CastingVersion>
-     */
-    private function castingVersions(CastingPage $page, Casting $casting, ImportSummary $summary): array
-    {
-        $versions = [];
-        $number = 0;
-
-        foreach ($page->toolingLabels() as $label) {
-            $number++;
-
-            // The first tool is not a retool, so it has no retool year. A later
-            // one first appears in the earliest year its rows state, which is a
-            // fact the page gives rather than a guess.
-            $retoolYear = null;
-
-            if ($number > 1) {
-                $years = array_map(
-                    static fn (VersionRow $row): int => (int) $row->year,
-                    array_filter(
-                        $page->importableVersions(),
-                        static fn (VersionRow $row): bool => $row->toolingLabel === $label,
-                    ),
-                );
-
-                $retoolYear = $years === [] ? null : min($years);
-            }
-
-            $versions[$label ?? ''] = $this->upsert(
-                CastingVersion::class,
-                "{$page->sourceKey()}:tooling:{$number}",
-                $page->sourceUrl(),
-                [
-                    'casting_id' => $casting->getKey(),
-                    'version_number' => $number,
-                    'retool_year' => $retoolYear,
-                    'notes' => $label,
-                ],
-                $page->revisionId,
-                $summary,
-                'casting_versions',
-            );
-        }
-
-        return $versions;
-    }
-
-    /**
-     * The series a row was sold under, shared across every casting that names it.
-     *
-     * Keyed by the series' own wiki article rather than by the page being
-     * imported: "2011 New Models" is one series that a hundred casting pages
-     * link to, and keying it per page would make a hundred of them. Where the
-     * cell is a bare string with no link, the name is the best identity
-     * available and is used as one.
-     */
-    private function series(VersionRow $row, Brand $brand, ImportSummary $summary): Series
-    {
-        $key = $row->seriesPage !== null
-            ? 'series:'.$this->keyPart($row->seriesPage)
-            : 'series:name:'.$this->keyPart((string) $row->seriesName);
-
-        $url = $row->seriesPage !== null
-            ? $this->articleUrl($row->seriesPage)
-            : 'https://hotwheels.fandom.com/wiki/Special:Search?query='.rawurlencode((string) $row->seriesName);
-
-        $series = $this->upsert(Series::class, $key, $url, [
-            'brand_id' => $brand->getKey(),
-            'name' => $row->seriesName,
-        ], null, $summary, 'series');
-
-        // Stated outright by the source, and its only parent is a brand that is
-        // already live, so there is nothing left to review.
-        if (! $series->isLive()) {
-            $series->markLive();
-        }
-
-        return $series;
-    }
-
-    /**
-     * A year this tooling was sold under a series. Several table rows collapse
-     * into one release — four colours of the same 2011 New Models car are four
-     * variations of a single release, not four releases.
-     */
-    /**
-     * @param  list<VersionRow>  $rows
-     * @param  array<string, CastingVersion>  $versions
-     */
-    private function release(
-        CastingPage $page,
-        array $rows,
-        array $versions,
-        string $key,
-        ImportSummary $summary,
-    ): Release {
-        $first = $rows[0];
-        $series = $this->series($first, $this->brand(), $summary);
-
-        // Whichever row states one. The wiki fills the cell on some rows of a
-        // release and leaves it blank on others, and they agree when they are
-        // both filled.
-        $collectorNumber = null;
-
-        foreach ($rows as $row) {
-            $collectorNumber ??= $row->collectorNumber;
-        }
-
-        return $this->upsert(Release::class, $key, $page->sourceUrl(), [
-            'casting_version_id' => $versions[$first->toolingLabel ?? '']->getKey(),
-            'series_id' => $series->getKey(),
-            'year' => $first->year,
-            'collector_number' => $collectorNumber,
-        ], $page->revisionId, $summary, 'releases');
-    }
-
-    /**
-     * The physical car. One per table row — this is the level the row's
-     * provenance key names.
-     *
-     * The duplicate check is done here rather than by letting the uniqueness
-     * index reject the insert. Postgres aborts the whole transaction on a failed
-     * statement, so catching the constraint violation and carrying on would take
-     * down the rest of the page with it — and the pages this happens on are
-     * ordinary ones, five rows in a 1,183-row sample, not broken ones.
-     */
-    private function variation(CastingPage $page, VersionRow $row, Release $release, ImportSummary $summary): void
-    {
-        $attributes = [
-            'release_id' => $release->getKey(),
-            ...$row->variationAttributes(),
-            'toy_number' => $row->toyNumber,
-            'country' => $row->country,
-        ];
-
-        $key = RecordSource::rowKey($page->sourceKey(), $row->line);
-
-        // A row this source already owns is an update, however it now reads.
-        // Only a row the importer has never seen can be a duplicate of one.
-        if ($this->recordFor($key) === null && $this->collidesWithSibling($release, $attributes)) {
-            // Worth wording carefully, because two different things end up here.
-            // Some pages genuinely list a car twice. Others describe a real
-            // sub-variant — Pass'n Gasser has nine — whose only distinguishing
-            // fact is written in the Notes column: "short-run small Goodyear
-            // tampo on rear wheels", identical in every structured column. Notes
-            // is the editors' prose and is not ours to import, so the catalog
-            // records the car it can describe and does not invent a distinction
-            // from a field it never read.
-            $summary->problem(
-                "{$page->title}: row {$row->line} is identical to a row already imported in every column this importer reads"
-            );
-
-            return;
-        }
-
-        $this->upsert(
-            Variation::class,
-            $key,
-            $page->sourceUrl(),
-            $attributes,
-            $page->revisionId,
-            $summary,
-            'variations',
-        );
-    }
-
-    /**
-     * Whether a variation identical on every distinguishing column is already
-     * stored against this release.
-     *
-     * Compared through `attributeSignature()`, which builds the same
-     * COALESCE(col, '') identity the database's unique index does — so this
-     * agrees with the constraint by construction rather than by both being
-     * maintained to match.
-     *
-     * @param  array<string, mixed>  $attributes
-     */
-    private function collidesWithSibling(Release $release, array $attributes): bool
-    {
-        $signature = (new Variation)->forceFill($attributes)->attributeSignature();
-
-        return $release->variations()
-            ->get()
-            ->contains(fn (Variation $existing): bool => $existing->attributeSignature() === $signature);
-    }
-
-    /**
-     * The release's identity within the page: this tool, this series, this year.
-     *
-     * Not the row number. Rows collapse into releases many-to-one, so keying a
-     * release by the first row that produced it would move the key whenever an
-     * editor reordered the table.
-     */
-    private function releaseKey(CastingPage $page, VersionRow $row): string
-    {
-        $series = $this->keyPart($row->seriesPage ?? (string) $row->seriesName);
-        $tooling = $this->keyPart($row->toolingLabel ?? 'main');
-
-        return "{$page->sourceKey()}:release:{$tooling}:{$series}:{$row->year}";
-    }
-
-    /**
-     * A title made safe to put in a key without making it ambiguous.
-     *
-     * Deliberately not `Str::slug()`: slugging drops the punctuation that tells
-     * "Muscle Mania (2012)" from "Muscle Mania 2012", and two series sharing a
-     * key would have the importer overwrite one with the other.
-     */
-    private function keyPart(string $title): string
-    {
-        return str_replace(' ', '_', trim($title));
-    }
-
-    /**
-     * Every series this source produces belongs to Hot Wheels — the wiki covers
-     * one brand, so the brand is a property of the source rather than something
-     * read off a page. It carries no provenance row for that reason: no
-     * particular article states it.
-     */
-    private function brand(): Brand
-    {
-        $brand = Brand::firstOrCreate(['name' => 'Hot Wheels'], ['parent_company' => 'Mattel']);
-
-        if (! $brand->isLive()) {
-            $brand->markLive();
-        }
+        $this->publish($brand, $summary, 'brand');
 
         return $brand;
     }
 
-    /**
-     * Creates the record or updates the one this key already produced, and
-     * stamps its provenance either way.
-     *
-     * The lookup is by source key, never by name. A casting renamed on the wiki
-     * has to update the row it already owns rather than create a second one
-     * beside it, and a name match would do exactly the wrong thing in both
-     * directions — missing the rename, and merging two castings that happen to
-     * share a name.
-     *
-     * @template TModel of Model
-     *
-     * @param  class-string<TModel>  $model
-     * @param  array<string, mixed>  $attributes
-     * @return TModel
-     */
-    private function upsert(
-        string $model,
-        string $sourceKey,
-        string $sourceUrl,
-        array $attributes,
-        ?int $revisionId,
-        ImportSummary $summary,
-        string $counter,
-    ): Model {
-        $record = $this->recordFor($sourceKey);
+    private function casting(ParsedCasting $parsed, ImportSummary $summary): Casting
+    {
+        $key = RecordSource::pageKey($parsed->pageId);
 
-        if ($record instanceof $model) {
-            // `status` is not fillable on any of these models, so an update can
-            // never republish a record an admin rejected.
-            $record->fill($attributes)->save();
-            $summary->record("{$counter}.updated");
+        $casting = $this->bySourceKey(Casting::class, $key)
+            ?? Casting::where('name', $parsed->name)->first();
+
+        if ($casting === null) {
+            // model_id is left null and is_fantasy false on purpose. Together
+            // those mean "a real car we haven't identified yet", which is
+            // exactly true of an article whose make and model are only stated in
+            // prose — and it is what keeps the row out of the public catalog
+            // until someone attributes it.
+            $casting = Casting::create(['name' => $parsed->name, 'is_fantasy' => false]);
+            $summary->created('casting');
         } else {
-            $record = $model::create($attributes);
-            $summary->record("{$counter}.created");
+            $summary->unchanged('casting');
         }
 
+        $this->recordSource($casting, $key, $parsed);
+        $this->publish($casting, $summary, 'casting');
+
+        return $casting;
+    }
+
+    /**
+     * Version 1, created explicitly because nothing creates one automatically —
+     * a model hook would collide with CastingVersionFactory, which builds the
+     * two separately. Releases point at a version rather than a casting, so
+     * without this there is nothing for a release to attach to.
+     *
+     * Retools are deliberately not inferred. The wiki notes them in prose, and
+     * reading "retooled in 2013" out of a Description would be exactly the kind
+     * of inference this importer doesn't make.
+     *
+     * Given no provenance on purpose: a record_sources row asserts that a source
+     * states this record, and the wiki states no such thing. Version 1 is a
+     * structural requirement of our own schema — releases point at a version —
+     * so attributing it to the wiki would be a false claim about where it came
+     * from. Its parent casting carries the attribution.
+     */
+    private function version(Casting $casting, ImportSummary $summary): CastingVersion
+    {
+        $version = $casting->versions()->firstOrNew(['version_number' => 1]);
+
+        if (! $version->exists) {
+            $version->save();
+            $summary->created('casting_version');
+        } else {
+            $summary->unchanged('casting_version');
+        }
+
+        $this->publish($version, $summary, 'casting_version');
+
+        return $version;
+    }
+
+    /**
+     * Series are resolved by name within the brand rather than by source key.
+     *
+     * They are shared across castings and years — every 2011 Nightburnerz car
+     * points at one Series row — so keying them to the casting page that
+     * happened to mention one first would make the second page create a
+     * duplicate. Their provenance is keyed by the series instead, and the URL
+     * recorded is whichever page introduced it: a series goes live, so it needs
+     * an attribution like anything else the public catalog shows.
+     */
+    private function series(Brand $brand, ParsedCasting $parsed, ParsedRelease $parsedRelease, ImportSummary $summary): Series
+    {
+        $key = RecordSource::seriesKey($parsedRelease->seriesName);
+
+        $series = Series::where('brand_id', $brand->getKey())
+            ->where('name', $parsedRelease->seriesName)
+            ->first();
+
+        if ($series === null) {
+            $series = Series::create([
+                'brand_id' => $brand->getKey(),
+                'name' => $parsedRelease->seriesName,
+            ]);
+            $summary->created('series');
+        } else {
+            $summary->unchanged('series');
+        }
+
+        if ($series->source === null) {
+            $this->recordSource($series, $key, $parsed);
+        }
+
+        $this->publish($series, $summary, 'series');
+
+        return $series;
+    }
+
+    private function release(
+        ParsedCasting $parsed,
+        CastingVersion $version,
+        Series $series,
+        ParsedRelease $parsedRelease,
+        ImportSummary $summary,
+    ): Release {
+        $key = RecordSource::releaseKey($parsed->pageId, $parsedRelease->year, $parsedRelease->seriesIdentity());
+
+        // The natural key is the table's own unique constraint, so resolving by
+        // it is what stops the second run colliding rather than duplicating.
+        $release = $this->bySourceKey(Release::class, $key) ?? Release::where([
+            'casting_version_id' => $version->getKey(),
+            'series_id' => $series->getKey(),
+            'year' => $parsedRelease->year,
+        ])->first();
+
+        if ($release === null) {
+            $release = Release::create([
+                'casting_version_id' => $version->getKey(),
+                'series_id' => $series->getKey(),
+                'year' => $parsedRelease->year,
+                'collector_number' => $parsedRelease->collectorNumber,
+            ]);
+            $summary->created('release');
+        } elseif ($release->collector_number !== $parsedRelease->collectorNumber && $parsedRelease->collectorNumber !== null) {
+            $release->update(['collector_number' => $parsedRelease->collectorNumber]);
+            $summary->updated('release');
+        } else {
+            $summary->unchanged('release');
+        }
+
+        $this->recordSource($release, $key, $parsed);
+        $this->publish($release, $summary, 'release');
+
+        return $release;
+    }
+
+    private function variation(
+        ParsedCasting $parsed,
+        Release $release,
+        ParsedRelease $parsedRelease,
+        ParsedVariation $parsedVariation,
+        int $position,
+        ImportSummary $summary,
+    ): Variation {
+        $key = RecordSource::variationKey(
+            $parsed->pageId,
+            $parsedRelease->year,
+            $parsedRelease->seriesIdentity(),
+            $position,
+        );
+
+        $attributes = $parsedVariation->attributes();
+
+        // Matched on the exact attribute set the uniqueness index covers, so a
+        // re-import can't propose a row the database is about to reject. Done
+        // before the source key is trusted because a page gaining a row shifts
+        // the positions below it, and the attributes are what the variation
+        // actually is.
+        $variation = $this->matchingVariation($release, $attributes)
+            ?? $this->bySourceKey(Variation::class, $key);
+
+        if ($variation === null) {
+            $variation = Variation::create(['release_id' => $release->getKey()] + $attributes);
+            $summary->created('variation');
+        } else {
+            $summary->unchanged('variation');
+        }
+
+        $this->recordSource($variation, $key, $parsed);
+        $this->publish($variation, $summary, 'variation');
+
+        return $variation;
+    }
+
+    /**
+     * @param  array<string, string|null>  $attributes
+     */
+    private function matchingVariation(Release $release, array $attributes): ?Variation
+    {
+        if (! $release->exists) {
+            return null;
+        }
+
+        $wanted = implode('|', array_map(strval(...), $attributes));
+
+        foreach ($release->variations as $variation) {
+            if ($variation->attributeSignature() === $wanted) {
+                return $variation;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  class-string<Model>  $type
+     */
+    private function bySourceKey(string $type, string $key): ?Model
+    {
+        $source = RecordSource::where('source', RecordSource::SOURCE_HOT_WHEELS_FANDOM)
+            ->where('source_key', $key)
+            ->where('sourceable_type', $type)
+            ->first();
+
+        return $source?->sourceable;
+    }
+
+    /**
+     * Writes or refreshes the provenance row.
+     *
+     * updateOrCreate on the sourceable is what makes a re-run move imported_at
+     * and the revision forward without a second row — and the table's unique
+     * constraint on the pair is what makes that a guarantee rather than a habit.
+     */
+    private function recordSource(Model $record, string $key, ParsedCasting $parsed): void
+    {
         RecordSource::updateOrCreate(
-            ['source' => $this->source, 'source_key' => $sourceKey],
             [
                 'sourceable_type' => $record->getMorphClass(),
                 'sourceable_id' => $record->getKey(),
-                'source_url' => $sourceUrl,
-                'source_revision_id' => $revisionId,
+            ],
+            [
+                'source' => RecordSource::SOURCE_HOT_WHEELS_FANDOM,
+                'source_key' => $key,
+                'source_url' => $parsed->url,
+                'source_revision_id' => $parsed->revisionId,
                 'imported_at' => now(),
             ],
         );
-
-        return $record;
     }
 
     /**
-     * The catalog record a previous run stored under this key, if any.
+     * Publishes a record if the import is trusted enough and nothing blocks it.
+     *
+     * The blocker check is the important half and is not a formality: it is what
+     * holds imported castings — and everything hanging off them — pending until
+     * a real make and model are attached. Checked rather than caught because
+     * promoteWithDependencies() doesn't test blockers itself; only the review
+     * path did, and a bulk writer that skipped the check would publish exactly
+     * what the rule exists to keep back.
      */
-    private function recordFor(string $sourceKey): ?Model
+    private function publish(Model $record, ImportSummary $summary, string $type): void
     {
-        return RecordSource::query()
-            ->where('source', $this->source)
-            ->where('source_key', $sourceKey)
-            ->first()
-            ?->sourceable;
+        if ($record->isLive() || $this->confidence() < $this->threshold()) {
+            return;
+        }
+
+        if ($record->approvalBlockers() !== []) {
+            return;
+        }
+
+        $record->promoteWithDependencies();
+        $summary->published($type);
     }
 
-    private function articleUrl(string $title): string
+    /**
+     * A structured column in a public catalog, read verbatim. There is no model
+     * in the loop to be uncertain — either the parser read the cell or it
+     * didn't — so anything short of 1.0 here would be theatre. The dial that
+     * matters is the threshold, which an operator can raise above 1.0 to import
+     * everything as pending.
+     */
+    private function confidence(): float
     {
-        return 'https://hotwheels.fandom.com/wiki/'.str_replace('%2F', '/', rawurlencode(str_replace(' ', '_', $title)));
+        return 1.0;
+    }
+
+    private function threshold(): float
+    {
+        return $this->threshold ?? (float) config('catalog.import.auto_approve_threshold', 1.0);
     }
 }

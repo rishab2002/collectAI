@@ -13,25 +13,28 @@ use Illuminate\Database\Eloquent\Model;
 class RecordSourceFactory extends Factory
 {
     /**
-     * Defaults to a casting imported from a wiki article, which is the shape the
-     * importer produces most of. The page id doubles as the source key so a
-     * factory-built row is self-consistent without the caller doing anything.
+     * Defaults to a live Casting imported from the Hot Wheels wiki — the shape
+     * the importer produces most of. Live rather than pending because provenance
+     * is the importer's gate: a row the wiki states goes live through it.
      */
     public function definition(): array
     {
-        $pageId = fake()->unique()->numberBetween(1000, 99999);
+        $pageId = fake()->unique()->numberBetween(1000, 999999);
 
         return [
             'sourceable_type' => Casting::class,
             'sourceable_id' => Casting::factory(),
             'source' => RecordSource::SOURCE_HOT_WHEELS_FANDOM,
             'source_key' => RecordSource::pageKey($pageId),
-            'source_url' => "https://hotwheels.fandom.com/wiki/?curid={$pageId}",
-            'source_revision_id' => fake()->numberBetween(100000, 999999),
+            'source_url' => "https://hotwheels.fandom.com/?curid={$pageId}",
+            'source_revision_id' => fake()->numberBetween(1, 2000000),
             'imported_at' => now(),
         ];
     }
 
+    /**
+     * Attach the provenance to a specific record instead of the default casting.
+     */
     public function forSourceable(Model $sourceable): static
     {
         return $this->state([
@@ -40,28 +43,21 @@ class RecordSourceFactory extends Factory
         ]);
     }
 
-    public function fromRevision(int $revisionId): static
+    public function fromSource(string $source, string $sourceKey): static
+    {
+        return $this->state([
+            'source' => $source,
+            'source_key' => $sourceKey,
+        ]);
+    }
+
+    public function atRevision(?int $revisionId): static
     {
         return $this->state(['source_revision_id' => $revisionId]);
     }
 
-    /**
-     * A source that doesn't version its content, so nothing can establish
-     * whether this row is still current. Its own state rather than
-     * fromRevision(null), because "no revision" is a fact about the source, not
-     * a missing argument.
-     */
-    public function unversioned(): static
+    public function importedAt(\DateTimeInterface $moment): static
     {
-        return $this->state(['source_revision_id' => null]);
-    }
-
-    /**
-     * One row of a multi-row page — a single line of a casting article's
-     * Versions table, keyed under the page it was read from.
-     */
-    public function row(string $pageKey, int $row): static
-    {
-        return $this->state(['source_key' => RecordSource::rowKey($pageKey, $row)]);
+        return $this->state(['imported_at' => $moment]);
     }
 }

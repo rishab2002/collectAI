@@ -25,7 +25,6 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'window_tint',
     'base_color',
     'toy_number',
-    'country',
     'notes',
 ])]
 class Variation extends Model
@@ -49,12 +48,10 @@ class Variation extends Model
         'interior_color',
         'window_tint',
         'base_color',
-        // The manufacturer's part number and the country of assembly are part
-        // of identity, not description: two cars alike on every other column
-        // but carrying different toy numbers are two variations, and without
-        // these here the second one collides and is lost on insert.
+        // The manufacturer's SKU. One release can carry several — the 2011
+        // Nightburnerz 350Z was sold as both T9819 and T9950 — so it genuinely
+        // distinguishes one unit from another rather than describing the release.
         'toy_number',
-        'country',
     ];
 
     public function release(): BelongsTo

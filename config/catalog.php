@@ -113,33 +113,47 @@ return [
     | Catalog Import
     |--------------------------------------------------------------------------
     |
-    | Bulk import from a public catalog source. A deliberately separate dial from
-    | review.auto_approve_threshold above, which stays 1.0: nothing a person
-    | photographed auto-publishes, and that invariant is not up for tuning here.
+    | Bulk import from public catalogs — currently hotwheels.fandom.com, whose
+    | structured tables are where the bulk of the catalog comes from. Photograph
+    | capture then adds what the wiki lacks.
     |
-    | The two paths carry different risk. A photographed car is one record an
-    | admin is already looking at, so waiting for them costs nothing. An import
-    | is tens of thousands of rows, and holding all of them for review would mean
-    | the catalog never becomes browsable — which also leaves the Comparison
-    | Agent with nothing to diff against, the reason the importer comes first.
+    | `auto_approve_threshold` is deliberately its own setting rather than a read
+    | of review.auto_approve_threshold, which stays at 1.0. The two paths have
+    | genuinely different risk profiles: a proposal from a photograph is one
+    | model's reading of one card, while an imported row is a value a public
+    | catalog states in a structured column and that a re-run will correct. What
+    | must not happen is the two drifting into one dial, where lowering this to
+    | get an import moving quietly starts auto-publishing captures.
     |
-    | What this threshold governs is only the *inferred* part. Facts the wiki
-    | states — year, colour, wheel type, toy number — go live through the
-    | importer on the strength of their provenance. The Make/Model split and
-    | is_fantasy are not in the wiki and are an LLM inference, so they are scored
-    | and compared against this.
+    | Note this threshold governs facts only. An inference layered on top of an
+    | imported row — the real make and model behind a casting, whether it's
+    | fantasy — is not something the wiki states, so it goes through
+    | submission_proposals like any other pipeline output regardless of what this
+    | is set to. In practice that means imported castings land pending: with no
+    | model_id and is_fantasy false, Casting::approvalBlocker() refuses to let
+    | them go live, and everything hanging off them stays pending too. That
+    | backfill queue is the intended outcome, not a bug to tune away.
     |
-    | 0.9 is a starting point, not a measured value; sweep it against the first
-    | `List of 2011 Hot Wheels` run. Err low rather than high: an inference below
-    | the bar leaves a casting pending with no model, which Casting's approval
-    | blocker already refuses to publish, so the cost is an invisible row in a
-    | backfill queue. Above the bar the cost is a wrong make and model on a live
-    | car that nothing will flag again.
+    | `user_agent` is sent on every request. Fandom's API asks for a real contact
+    | address, and an import that can't be identified is one they can only block.
     |
     */
 
     'import' => [
-        'auto_approve_threshold' => (float) env('IMPORT_AUTO_APPROVE_THRESHOLD', 0.9),
+        'auto_approve_threshold' => (float) env('IMPORT_AUTO_APPROVE_THRESHOLD', 1.0),
+
+        'hot_wheels_wiki' => [
+            'api' => env('HW_WIKI_API', 'https://hotwheels.fandom.com/api.php'),
+            'base_url' => env('HW_WIKI_BASE_URL', 'https://hotwheels.fandom.com'),
+            'user_agent' => env('HW_WIKI_USER_AGENT', 'collectAI-importer/0.1 (https://collectai.club)'),
+
+            // MediaWiki caps a titles query at 50 for unprivileged clients, and
+            // asking for more silently drops the remainder rather than erroring.
+            'batch_size' => (int) env('HW_WIKI_BATCH_SIZE', 50),
+
+            // Courtesy pause between batches, in milliseconds.
+            'delay_ms' => (int) env('HW_WIKI_DELAY_MS', 200),
+        ],
     ],
 
 ];
