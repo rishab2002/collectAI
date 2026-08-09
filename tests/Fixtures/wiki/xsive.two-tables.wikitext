@@ -1,0 +1,61 @@
+==Versions==
+{| class="wikitable sortable" style="font-size: 85%; text-align: left;" width="100%"
+! style="border-style: none none solid solid" |'''Col #'''
+! style="border-style: none none solid solid" |'''Year'''
+! style="border-style: none none solid solid" |'''Series'''
+! style="border-style: none none solid solid" |'''Color'''
+! style="border-style: none none solid solid" |'''Tampo'''
+! style="border-style: none none solid solid" |'''Base Color<br>/<br>Type'''
+! style="border-style: none none solid solid" |'''Window Color'''
+! style="border-style: none none solid solid" |'''Interior<br>/<br>Engine Color'''
+! style="border-style: none none solid solid" |'''Wheel Type'''
+! style="border-style: none none solid solid" |'''Toy #'''
+! style="border-style: none none solid solid" |'''Country'''
+! style="border-style: none none solid solid" |'''Notes'''
+! style="border-style: none none solid solid" |'''Photo'''
+|-
+|040
+|[[List of 2001 Hot Wheels|2001]]
+|[[2001 First Editions]]<br>28/36
+|Red
+|Yellow, Black, Green, Red, & White graphics w/'Rescue', HW logo, & 'Field & Forest' on side
+|[[ZAMAC|Unpainted<br>/<br>Metal]]
+|Black
+|Black<br>/<br>Chrome
+|[[ORSB]]
+|28767
+|Malaysia
+|''Only on one side graphics''<br>Playable in [[Hot Wheels: Burnin' Rubber|Burnin' Rubber]], [[Hot Wheels: Bash Arena|Hot Wheels Bash Arena]] and [[Hot Wheels: Velocity X|Velocity X]] (GBA)
+|[[Image:FE XS-IVE.jpg|75px]]
+|}
+
+==Other Versions==
+{| class="wikitable sortable" style="font-size: 85%; text-align: left;" width="100%"
+! style="border-style: none none solid solid" | '''Col #'''
+! style="border-style: none none solid solid" |'''Year'''
+! style="border-style: none none solid solid" |'''Series'''
+! style="border-style: none none solid solid" |'''Color''' 
+! style="border-style: none none solid solid" |'''Tampo'''
+! style="border-style: none none solid solid" |'''Base Color<br>/<br>Type'''
+! style="border-style: none none solid solid" |'''Window Color'''
+! style="border-style: none none solid solid" |'''Interior<br>/<br>Engine Color'''
+! style="border-style: none none solid solid" |'''Wheel Type'''
+! style="border-style: none none solid solid" |'''Toy #'''
+! style="border-style: none none solid solid" |'''Country'''
+! style="border-style: none none solid solid" |'''Notes'''
+! style="border-style: none none solid solid" |'''Photo'''
+|-
+|183/244
+|[[List of 2011 Hot Wheels|2011]]
+|[[Thrill Racers - Desert Series (2011)|Thrill Racers - Desert]]<br>3/6
+|Lime Green
+|Black White & Blue graphics with "105" & Sponsor logos
+|Unpainted<br>/<br>Metal
+|Smoke tint
+|Blue
+|Tan wheel, Blue [[OR5SP]]
+|T9890
+|Malaysia
+|''Also released on [[Green Lantern (movie)|Green Lantern]] promo card''<br>Base code(s): D14, D22
+|[[File:IMG_6876.jpg|75px]]
+|}

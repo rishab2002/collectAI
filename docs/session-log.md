@@ -14,6 +14,105 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-08-09 — The Hot Wheels Wiki importer landed
+
+The implementation half of the decisions settled earlier the same day, in the
+two parts they were planned in: the `record_sources` migration first, then the
+importer. **2011 is imported for real** — 242 castings, 366 releases, 650
+variations, 79 series, from the live wiki. Suite green at **132 tests, 492
+assertions** (was 92/267).
+
+Both gates were run for the schema work: `migrate:fresh --seed` clean,
+`migrate`/`rollback`/`re-migrate` clean, full suite green.
+
+**Two migrations, not one.** `record_sources` was expected.
+`variations.toy_number` was not, and it came out of the data rather than from
+design: the 2011 Nightburnerz Nissan 350Z is a single release by the natural key
+(casting version + series + year) and carries **two** toy numbers, T9819 and
+T9950, one per colour. So a toy number can't live on `releases` — it is
+literally "what distinguishes one unit of a release from another", which is the
+definition `variations` exists for. It also closed a hole nobody had noticed:
+the OCR agent already extracts a toy number as its own field, and it is the most
+reliable key a card carries, but there was nowhere to store one — so the
+Comparison Agent could only ever have fuzzy-matched on names. It is in the
+uniqueness expression index and has its own trigram index, for the same reason
+`releases.collector_number` does: OCR misreads 8 for B.
+
+**Three parsing bugs, all found by running it rather than by testing it.** Each
+is now a regression test with a fixture taken verbatim from the live wiki, and
+each failed *silently* — which is the part worth remembering:
+
+- **`rowspan` is load-bearing.** The versions tables lean on it constantly: a
+  release sold with four wheel types is one row carrying `rowspan="4"` on every
+  shared cell, then three rows holding only what differs. Row two has three
+  cells where the header has thirteen. A positional parser doesn't lose data, it
+  *misfiles* it — reading a wheel type as a collector number. Carrying spans
+  down is also what makes the grouping legible: a rowspan block is a release,
+  each row in it a variation.
+- **A `|-` before the header row.** The 350Z writes `{|` straight into `!Col #`;
+  the '07 Shelby GT-500 puts a separator between them. Treating the first block
+  as the header regardless parsed every page of the second kind to **zero rows**
+  — and a page with no rows is indistinguishable from a casting with no releases
+  that year, so it was reported as a routine skip. Cost 12 castings.
+- **Pages carry more than one versions table**, and they are not ordered by
+  year. The XS-IVE's 2011 release sits in its second table. Reading only the
+  first dropped it, again as a "skip". Cost another 9.
+
+Skips went 20 → 9 → **0** across those fixes. The lesson is in the failure mode
+rather than the bugs: every one of them looked exactly like an ordinary absence.
+A parser that reports "nothing for that year" is not obviously wrong, so the
+only thing that caught them was checking that a car known to be in the 2011 list
+actually landed.
+
+**A fourth bug appeared only against live data.** Source keys were slugged,
+which folded case and punctuation, so "Monster Jam: Monster Duo" and "Monster
+Jam - Monster Duo" — two series the wiki lists separately — produced one key,
+and the import died mid-run on the unique constraint. Keys now use the name with
+only whitespace normalised. The general rule, now a comment on the method: a
+source key exists to identify exactly one record, so any transform that can map
+two records onto one key can only ever fail — loudly there, or silently by
+overwriting. It also keeps the key in step with how a series is resolved, which
+is an exact match on the name.
+
+**The import lands almost entirely pending, and that is the point.** The wiki
+states no make or model in a structured column, so the importer never sets
+`model_id`; an imported casting is therefore "a real car, not identified yet",
+which `Casting::approvalBlocker()` refuses to publish — and since a release
+hangs off a casting version which hangs off that casting, the whole chain stays
+pending with it. What goes live is the brands and series. What is left is 242
+invisible castings waiting for attribution, exactly the backfill queue the
+settled decision predicted, instead of 11k review items or a catalog full of
+cars nobody can search by make. Worth stating plainly because it looks like a
+failed import: `submission_proposals` is untouched at 5, still only the
+seeder's.
+
+**The blocker check is in the importer, not inherited.** `SubmissionProposal::
+approve()` tests `approvalBlockers()`, but `promoteWithDependencies()` does not
+— so a bulk writer calling it directly would have published exactly what the
+rule exists to hold back. `CatalogImporter::publish()` checks before promoting.
+
+**Provenance, and what deliberately has none.** Castings, releases and
+variations key off the page; series key off the series name, because a series is
+shared across castings and keying it to whichever page mentioned it first would
+make the second page collide. `CastingVersion` 1 gets **no** provenance row on
+purpose: a `record_sources` row asserts that a source states this record, and
+the wiki states no such thing — version 1 is a requirement of our schema, and
+attributing it to the wiki would be a false claim about where it came from. Its
+parent casting carries the attribution.
+
+**The API, not the dump — for now, and not in contradiction.** The settled "use
+the dump, not a crawler" decision is about importing the whole wiki: 11,041
+articles one request at a time, against one 16.5 MB download. A single year is a
+different shape — the 2011 index names 242 distinct castings, and batched 50
+titles per request that is five calls. The dump reader is what the full-wiki run
+needs and is **genuinely not built**; `WikiClient` says so in its docblock so
+the next session doesn't mistake its absence for the decision having been
+reversed.
+
+Re-import is idempotent, verified against the live wiki rather than only in
+tests: a second full run created nothing and reported all 1,858 records
+unchanged.
+
 ## 2026-08-09 — Catalog import decisions (no code)
 
 A decisions-only session, per the separate-sessions convention: the importer

@@ -2,6 +2,7 @@
 
 namespace App\Models\Concerns;
 
+use App\Models\RecordSource;
 use App\Models\SubmissionProposal;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
@@ -63,6 +64,27 @@ trait HasApprovalStatus
     public function proposal(): MorphOne
     {
         return $this->morphOne(SubmissionProposal::class, 'proposable');
+    }
+
+    /**
+     * Where this record was imported from, if it was imported rather than
+     * proposed from a photograph. Null for anything the pipeline or an admin
+     * created.
+     *
+     * These two relations are the two ways a row can arrive, and they answer
+     * different questions: proposal() is "who vouched for this", source() is
+     * "who stated it". A record can have both — an importer-created casting
+     * whose model_id an LLM later inferred carries a source for the row and a
+     * proposal for the inference.
+     */
+    public function source(): MorphOne
+    {
+        return $this->morphOne(RecordSource::class, 'sourceable');
+    }
+
+    public function isImported(): bool
+    {
+        return $this->source()->exists();
     }
 
     public function isLive(): bool
