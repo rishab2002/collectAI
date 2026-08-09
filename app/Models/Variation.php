@@ -24,6 +24,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'interior_color',
     'window_tint',
     'base_color',
+    'toy_number',
+    'country',
     'notes',
 ])]
 class Variation extends Model
@@ -47,6 +49,12 @@ class Variation extends Model
         'interior_color',
         'window_tint',
         'base_color',
+        // The manufacturer's part number and the country of assembly are part
+        // of identity, not description: two cars alike on every other column
+        // but carrying different toy numbers are two variations, and without
+        // these here the second one collides and is lost on insert.
+        'toy_number',
+        'country',
     ];
 
     public function release(): BelongsTo
