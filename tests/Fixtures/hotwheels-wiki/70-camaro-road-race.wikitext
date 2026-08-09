@@ -1,0 +1,6 @@
+<!-- Fixture captured https://hotwheels.fandom.com/wiki/'70_Camaro_Road_Race
+     page 167325, revision 625901, retrieved 2026-08-09.
+     Content from hotwheels.fandom.com, licensed CC-BY-SA 3.0.
+     Prose sections are stubbed out: the importer never reads them. -->
+#REDIRECT [['70 Camaro]]
+[[Category:Redirects]]

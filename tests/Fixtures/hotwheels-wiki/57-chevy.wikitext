@@ -1,0 +1,2490 @@
+<!-- Fixture captured https://hotwheels.fandom.com/wiki/'57_Chevy
+     page 6012, revision 794655, retrieved 2026-08-09.
+     Content from hotwheels.fandom.com, licensed CC-BY-SA 3.0.
+     Prose sections are stubbed out: the importer never reads them. -->
+{{casting|name='57 Chevy|series=[[Hot Wheels Flying Colors|Flying Colors]]|number=9638|years=[[1977]] - Present|designer=[[Larry Wood]]|image=57_chevy_wiki_big.jpg}}
+
+==Description==
+(prose omitted from this fixture)
+
+==Closed Hood Versions==
+
+The '''<nowiki/>'57 Chevy''' has come out in the following 1/64 scale versions:
+{| class="wikitable sortable" style="font-size: 85%; text-align: left;" width="100%"
+! style="border-style: none none solid solid" |'''Col #'''
+! style="border-style: none none solid solid" |'''Year'''
+! style="border-style: none none solid solid" |'''Series'''
+! style="border-style: none none solid solid" |'''Color'''
+! style="border-style: none none solid solid" |'''Tampo'''
+! style="border-style: none none solid solid" |'''Base Color<br>/<br>Type'''
+! style="border-style: none none solid solid" |'''Window Color'''
+! style="border-style: none none solid solid" |'''Interior Color'''
+! style="border-style: none none solid solid" |'''Wheel Type'''
+! style="border-style: none none solid solid" |'''Toy #'''
+! style="border-style: none none solid solid" |'''Country'''
+! style="border-style: none none solid solid" |'''Notes'''
+! style="border-style: none none solid solid" |'''Photo'''
+|-
+|rowspan="2" |
+|rowspan="2" |[[List of 1977 Hot Wheels|1977]]
+|rowspan="2" |[[Hot Wheels Flying Colors|Flying Colors]]
+|rowspan="2" |Red
+|rowspan="2" |White & Yellow "57 Chevy"
+|rowspan="2" |Chrome<br>/<br>Plastic
+|rowspan="2" |Tinted (Blue)
+|rowspan="2" |Blue tint
+|[[RL]]
+|rowspan="2" |9638
+|rowspan="2" |Hong Kong
+|''Also Found in Italian "Mebetoys Flying Colors"''
+|[[File:57_chevy_wiki_big.jpg|75px]]
+|-
+|[[BW]]
+|''Also Found in Italian 'Mebetoys Flying Colors' & Japan Red Box''
+|[[Image:57_Chevy_RedBW.JPG|75px]]
+|-
+|
+|[[List of 1978 Hot Wheels|1978]]
+|[[Oldies But Goodies]]
+|Red
+|White & Yellow "57 Chevy"
+|Chrome<br>/<br>Plastic
+|Tinted (Blue)
+|Blue tint
+|[[BW]]
+|9638
+|Hong Kong
+|
+|[[Image:57_Chevy_RedBW.JPG|75px]]
+|-
+|
+|[[List of 1978 Hot Wheels|1978]]
+|[[List of 1978 Hot Wheels|Mainline]]
+|Black
+|White & Yellow "57 Chevy"
+|Chrome<br>/<br>Plastic
+|Tinted (Blue) 
+|Blue tint
+|[[BW]]
+|9638
+|Hong Kong
+|
+|[[Image:57_Chevy_BlkBW.JPG|75px]]
+|-
+|
+|[[List of 1979 Hot Wheels|1979]]
+|[[List of 1979 Hot Wheels|Mainline]]
+|Black
+|White & Yellow "57 Chevy"
+|Chrome<br>/<br>Plastic
+|Tinted (Blue)
+|Blue tint
+|[[BW]]
+|9638
+|Hong Kong
+|
+|[[Image:57_Chevy_BlkBW.JPG|75px]]
+|-
+|
+|[[List of 1982 Hot Wheels|1982]]
+|[[The Hot Ones (1981)|The Hot Ones]]
+|Black
+|White & Yellow "57 Chevy" 
+|Chrome<br>/<br>Plastic
+|Tinted (Blue) 
+|Blue tint
+|[[GHO]]
+|9638
+|Hong Kong
+|
+|[[Image:57_Chevy_BlkGW.JPG|75px]]
+|-
+|rowspan="2" |
+|rowspan="2" |[[List of 1983 Hot Wheels|1983]]
+|rowspan="2" |[[The Hot Ones (1981)|The Hot Ones]]
+|rowspan="2" |Metalflake Red
+|rowspan="2" |White & Yellow "57 Chevy"
+|rowspan="2" |Chrome<br>/<br>Plastic
+|rowspan="2" |Tinted (Blue)
+|rowspan="2" |Blue tint
+|rowspan="2" |[[GHO]]
+|rowspan="2" |9638
+|Hong Kong
+|rowspan="2" |
+|rowspan="2" |[[Image:57_Chevy_RedGW.JPG|75px]]
+|-
+|Malaysia
+|-
+|
+|[[1992]]
+|Fireball Roberts - Part I
+|White
+|#22 on Sides, Blues stripes
+|Chrome<br>/<br>Plastic
+|Tinted (Black)
+|Black
+|[[RR]]
+|1256
+|Malaysia 
+|
+|[[File:1992-01a.jpg|75px]]
+|-
+|
+|[[1995]]
+|[[Color FX#1995 - Super Stampers|Color FX: Super Stampers]]
+|Orange/Red
+|None
+|Chrome<br>/<br>Plastic 
+|Tinted (Black)
+|Tinted (Black)
+|[[UH]]
+|12206
+|Malaysia
+|
+|[[Image:0000a001aaaya4a89 026.jpg|75px]]<br>[[Image:Color FX 57 Chevy loose.JPG|75px]]
+|-
+| rowspan="3" |
+| rowspan="3" |[[1996 5-Packs|1996]]
+| rowspan="3" |[['50's Favorites 5-Pack]]
+| rowspan="3" |Yellow
+| rowspan="3" |Black & grey side molding 
+| rowspan="3" |Chrome<br>/<br>Plastic
+| rowspan="3" |Tinted (Brown)
+| rowspan="3" |Brown
+|[[5SP]]
+|15080
+| rowspan="3" |Malaysia
+|''This issue is unique because it has both plastic body & base''
+| rowspan="3" |[[Image:57_Chevy_Yel5spPlsk.JPG|75px]]
+|-
+|[[5SP]]
+|15068
+|Metal body
+|-
+|SB
+|15068
+|Metal body
+|-
+|
+|[[1997]]
+|[[Target Cruisin' America 6 car set|Cruisin' America 6-car set]]
+|Aqua
+|Silver, Gold & Black Tampo, Headlights, Tailights & Main St, Gold Hot Wheels logo in rear window
+|Polished<br>/<br>Metal
+|Tinted (Light Blue)
+|Light Blue Opaque
+|Gold [[5SP]]
+|17263
+|China
+|''Target exclusive''
+|[[File:1997-6pk Cruisin' America target or-1d.jpg|75px]]
+|-
+| rowspan="4" |
+| rowspan="4" | [[1997]]
+| rowspan="4" |[[40th Anniversary '57 Chevy 4-Car Set]]
+|Black & Gold
+|#3 & SMOKEY'S 'Best Darn Garage In Town'
+| Chrome<br>/<br>Plastic
+|Clear
+|Black
+|Gold [[RR]]
+| rowspan="4" |17401
+| rowspan="4" |China
+|''Named '57 Chevy Stocker''
+|[[File:1997-01a.jpg|75px]]
+|-
+|Red
+|Yellow, white & orange flames on front. Yellow painted front bumper. Detailed lights.
+|Chrome<br>/<br>Plastic
+|Smoke tint
+|Black 
+|[[PC5]]
+|''Named '57 Chevy Custom''
+|[[File:1997-02.jpg|74px]]
+|-
+|Yellow
+|Silver window trim & side trim. Silver "Fuel Injection" on front fenders. "1957" & crossed flags on doors. Detailed lights.
+|Chrome<br>/<br>Plastic
+|Blue tint
+|Black
+|[[RR]]
+|''Named 283/283 Fuelie''
+|[[File:1997-03.jpg|75px]]
+|-
+|Metalflake Blue
+|White roof. Silver & black Bel Air trim on sides. Detailed lights & emblems. Black Dagmars on front bumper.
+|Chrome<br>/<br>Plastic
+|Clear
+|Blue
+|[[RR]]
+|''Named Two-tone Bel Air''
+| [[File:1997-04.jpg|75px]]
+|-
+|
+|[[1998]]
+|[[FAO Schwarz Cruisin' the '50s Car Set]]
+|Metalflake Blue
+|Yellow & red flames
+|[[ZAMAC|Unpanted<br>/<br>Metal]]
+|Clear
+|Blue
+|[[5SP]]
+|19758
+|China
+|
+|[[File:'57 Chevy-1998 FAO '50's Set.jpg|75px]]
+|-
+|
+|[[1998]]
+|[[FAO Schwarz History of Hot Wheels Racing III]]
+|Black & Red
+|#07, 283 cu.in, Sunoco, Daytona Beach, FLA. Sunoco Special, & Jack "Flash" on both sides
+|Unpainted<br>/<br>Metal
+|Clear
+|Red
+|Chrome Red [[BW]]
+|17138
+|China
+|
+|[[File:'57 Chevy Sunoco 07.JPG|75px]]
+|-
+|
+|[[1998]]
+|[[Hot Wheels 30th Anniversary]]
+|Red
+|White & Yellow "57 Chevy"
+|Chrome<br>/<br>Plastic
+|Blue tint
+|Blue tint
+|[[RL]]
+|9638
+|China
+|Base code(s):
+|[[File:2011-05.jpg|75px]]
+|-
+|
+|[[2000]]
+|[[Editor's Choice]]<br>7/16
+|Metalflake Purple 
+|Pink & dark blue flames on sides & hood, Hot Wheels logo on sides, Editor's choice logo on trunk, detailed headlights & taillights
+|Unpainted<br>/<br>Metal
+|Light blue tint
+|White
+|[[DDRR]]
+|28018
+|Thailand
+|''Target exclusive''
+|[[Image:57_Chevy_PrpRR.JPG|75px]]
+|-
+|
+|[[2001]]
+|[[JC Whitney|JC Whitney Promo]]
+|Black
+|Yellow & Orange Flames
+|Unpainted<br>/<br>Metal
+|Yellow tint
+|Black
+|[[RR|GYRR]]
+|28366
+|Thailand
+|
+|[[File:2001-01.jpg|75px]]
+|-
+|
+|[[2001]]
+|[[JC Whitney|JC Whitney Promo]]
+|Red
+|Black & silver side graphics. Bel-Air tampo. JC Whitney on trunk
+|Unpainted<br>/<br>Metal
+|Smoke tint
+|Black
+|[[RR|GYRR]]
+|28397
+|Thailand
+|
+|[[File:RCG57+2001-02.jpg|75px]]
+|-
+|
+|[[2002]]
+|[[2002 Pro Racing#.2757 Chevy|Hot Wheels Racing: '57 Chevy]]<br>1/4
+|Orange & Blue
+|"#5" & "Frosted Flakes" tampos
+|Unpainted<br>/<br>Metal
+|Yellow tint
+|Black
+|[[DDRR|GYCDDRR]]
+|54809
+|Thailand
+|
+|[[Image:57_Chevy_-_02_HW_Racing.jpg|75px]]
+|-
+|
+|[[2002]]
+|[[2002 Pro Racing#.2757 Chevy|Hot Wheels Racing: '57 Chevy]]<br>2/4
+|Black, Red & Yellow
+|"#25" & "UAW-Delphi" tampos
+|Unpainted<br>/<br>Metal
+|Blue tint
+|Black
+|[[DDRR|GYCDDRR]]
+|54810
+|Thailand
+|
+|[[File:01a.jpg|75px]]
+|-
+|
+|[[2002]]
+|[[2002 Pro Racing#.2757 Chevy|Hot Wheels Racing: '57 Chevy]]<br>3/4
+|Yellow
+|"#55" & "Square D" tampos
+|Unpainted<br>/<br>Metal
+|Yellow tint
+|Black
+|[[DDRR|GYCDDRR]]
+|54809
+|Thailand
+|
+|[[File:84b.jpg|75px]]
+|-
+|
+|[[2002]]
+|[[2002 Pro Racing#.2757 Chevy|Hot Wheels Racing: '57 Chevy]]<br>4/4
+|Yellow
+|"#4" & "Kodak" tampos
+|Unpainted<br>/<br>Metal
+|Red tint
+|Gray
+|[[DDRR|GYRDDRR]]
+|57426
+|Thailand
+|''Very Rare!''
+|[[Image:57 kodak.jpg|75px]]
+|-
+|
+|[[2002]]
+|[[Cruisin' America Series (2002)|Cruisin' America: Cruisers]]
+|Metalflake green w/white roof
+|Yellow, green & white flames on sides & hood
+|Unpainted<br>/<br>Metal
+|Clear
+|White
+|[[RR|DDRRGY]]
+|56492
+|Thailand
+|
+|[[File:100 9114.JPG|75px]]
+|-
+|
+|[[2003]]
+|[[Hall of Fame#Greatest Rides|Hall of Fame: Greatest Rides]]
+|Metallic Plum
+|White & Yellow Flames Down Sides
+|Unpainted<br>/<br>Metal
+|Purple tint
+|Purple
+|[[RLRR]]
+|B0927
+|Malaysia
+|
+|[[File:100 0347.JPG|75px]]
+|-
+|
+|[[2003]]
+|[[Target Decades Set]]
+|Metalflake Red
+|Yellow, Orange & Blue flames
+|Chrome<br>/<br>Metal
+|Clear
+|White
+|[[5SP]]
+|56313
+|Thailand
+|
+|[[Image:57_Chevy_dkRdFlms.JPG|75px]]
+|-
+|rowspan="3" |125
+|rowspan="3" |[[List of 2004 Hot Wheels|2004]]
+|rowspan="3" |[[Star Spangled Series 2 (2004)|Star Spangled 2]]<br>3/5
+|rowspan="3" |Satin Blue
+|rowspan="3" |Red, White & Blue Stars & Stripes tampos
+|rowspan="2" |Unpainted<br>/<br>Metal
+|rowspan="3" |Tinted (Red)
+|rowspan="3" |Red tint
+|[[3SP]]
+|rowspan="3" |B3846
+|rowspan="3" |Malaysia
+|rowspan="2" |Named '''Chevy 1957'''
+|[[File:57_Chevy_USA.JPG|75px]]
+|-
+|rowspan="2" |[[5SP]]
+|[[Image:57Chevy star 5SP.JPG|75px]]
+|-
+|Metalflake Silver<br>/<br>Metal
+|''Found in [[Master Case]]''
+|[[File:Image Not Available.jpg|75px]]
+|-
+|
+|[[2004]]
+|[[Snap-On Tools Promotions|Snap-On Tools]]<br>2/6
+|Red
+|White Stripes with "Snap-On" Logos
+|[[ZAMAC]]
+|Smoke tint
+|Black
+|[[5SP]]
+|H3432
+|Thailand
+|
+|[[File:57chevy SnapOn.JPG|75px]]
+|-
+|
+|[[2004]]
+|[[4th Annual Hot Wheels Collectors Nationals]]<br>1/3
+|Pearl White
+|4th Nationals logo on matte black roof; white, yellow, orange, & black flames on sides, hood, & trunk; "NATNLS", "APRIL", "2004", & "DALLAS" on rear orange license plate; painted taillights
+|[[ZAMAC]]
+|Yellow tint
+|Yellow tint
+|[[DDRR|WLDDRR]]
+|G5551
+|Malaysia
+|''4,000 produced''
+|[[File:92e.jpg|75px]]
+|-
+|
+|[[2006]]
+|[[HotWheelsCollectors.com Series 5|HWC.com 5: Neo-Classics]]<br>4/6
+|[[Spectraflame]] Purple
+|Light purple & light yellow flames on sides, "HW NED" on rear license plate, painted headlights & taillights
+|Chrome<br>/<br>Metal
+|Clear
+|Beige
+|[[NCRL]]
+|K3378
+|China
+|''11,000 produced''<br>''Opening hood''
+|[[Image:Chevy57NeoRF.jpg|75px]]
+|-
+|
+|[[2007]]
+|[[Hot Wheels Classics#Hot Wheels Classics Series 3|Classics (Series 3)]]<br>20/30
+|[[Spectraflame]] Green
+|Green flames on sides
+|Unpainted<br>/<br>Metal
+|Clear
+|Black
+|[[RL5SP]]
+|L0748
+|Thailand
+|
+|[[Image:1957_Chevy_Green_Classics_3.jpg|75px]]
+|-
+|
+|[[2007]]
+|[[Hot Wheels Classics#Hot Wheels Classics Series 3|Classics (Series 3)]]<br>20/30
+|[[Spectraflame]] Red
+|Red flames on sides
+|Unpainted<br>/<br>Metal
+|Clear
+|Black
+|[[RL5SP]]
+|L0748
+|Thailand
+|
+|[[File:2007-02.jpg|75px]]
+|-
+|
+|[[2007]]
+|[[Hot Wheels Classics#Hot Wheels Classics Series 3|Classics (Series 3)]]<br>20/30
+|[[Spectraflame]] Blue
+|Blue flames on sides
+|Unpainted<br>/<br>Metal
+|Clear
+|Black
+|[[RL5SP]]
+|L0748
+|Thailand
+|
+|[[File:57chevy.blue.jpg|75px]]
+|-
+|
+|[[2007]]
+|[[Hot Wheels Classics#Hot Wheels Classics Series 3|Classics (Series 3)]]<br>20/30
+|[[Spectraflame]] Gold
+|White flames on sides
+|Unpainted<br>/<br>Metal
+|Clear
+|Black
+|[[RL5SP]]
+|L0748
+|Thailand
+|''Darker color''
+|[[Image:Classics 57 Chevy Gold.jpg|75px]]
+|-
+|
+|[[2007]]
+|[[Hot Wheels Classics#Hot Wheels Classics Series 3|Classics (Series 3)]]<br>20/30
+|[[Spectraflame]] Yellow
+|White flames on sides
+|Unpainted<br>/<br>Metal
+|Clear
+|Black
+|[[RL5SP]]
+|L0748
+|Thailand
+|''Lighter color''
+|[[Image:Classics 57 Chevy Yellow.jpg|75px]]
+|-
+|
+|[[2007]]
+|[[Since '68 Series#Since .2768: Collector Top 40 Set|Since '68: Top 40]]<br>11/40
+|Blue
+|Light Blue & Silver tampos on sides & hood
+|Unpainted<br>/<br>Metal
+|Tinted (Light Blue)
+|White Base
+|[[WW]]
+|L2838
+|Thailand
+|
+|[[Image:Since_68_57_chevy_blue_Top_40.jpg|75px]]
+|-
+|
+|[[2007]]
+|[[Since '68 Series#Since .2768: Collector Top 40 Set|Since '68: Top 40]]<br>11/40
+|Red
+|Light Red & Silver tampos on sides & hood
+|Unpainted<br>/<br>Metal
+|Tinted (Light Blue)
+|White Base
+|[[WW]]
+|L2838
+|Thailand
+|
+|[[File:2007-04.jpg|75px]]
+|-
+|
+|[[2007]]
+|[[O'Reilly Auto Parts|O'Reilly Auto Parts Promo]]
+|Red
+|Black, White & Green trunk tampo
+|Chrome<br>/<br>Plastic
+|Clear
+|White
+|[[5SP]]
+|M1342
+|Thailand
+|
+|[[File:IMG 20180306 024659--++.jpg|75px]]
+|-
+|
+|[[2008]]
+|[[Since '68 Series|Since '68: Hot Rods]]<br>3/10
+|Black & Pearl White
+|Silver & Black tampos w/ '40' & racing deco on sides
+|Unpainted<br>/<br>Metal
+|Clear
+|Black
+|[[WW]]
+|M1571
+|Thailand
+|
+|[[Image:Since_68_57_Chevy_Blk_and_White.jpg|75px]]
+|-
+|
+|[[2008]]
+|[[Since '68 Series#Since .2768: Hot Rods 4-Car Tin Set|Since '68: Hot Rods 4 Car Tin Set]]
+|Yellow
+|Black stripes on sides
+|[[ZAMAC]]
+|Tinted
+|Black
+|[[BW]]
+|L8807
+|China
+|
+|[[File:HW-'57_Chevy-Since_'68_Series-Hot_Rods_4-Car_Tin_Set.JPG|75px]]
+|-
+|
+|[[2008]]
+|[[22nd Annual Hot Wheels Collectors Convention]]
+|Light Blue Satin & Pearl White
+|Ghost blue flames and silver accents on sides, light blue flames on roof, 22nd Annual Collectors Convention logo on trunk, Make•A•Wish logo on rear, Bel Air logos on sides & grille, "HWCC08" on rear California license plate, detailed headlights & taillights
+|[[ZAMAC]]
+|Clear
+|Black
+|[[RR5SP]]
+|L8741
+|Thailand
+|''Charity Car''<br>''3,000 produced''
+|[[File:57-chevy-2008-22nd-convention-carded.jpg|75px]]
+|-
+|052/244
+|[[List of 2011 Hot Wheels|2011]]
+|[[2011 Treasure Hunts Series|Treasure Hunts]]<br>2/15
+|Dark Blue
+|Orange "Hot Wheels", Yellow "68", misc White tampos on sides, Yellow "68" roof w/ treasure hunt, 283 h.p. on hood.
+|Chrome<br>/<br>Plastic
+|Clear
+|Black
+|Good Year, White Line [[5SP]]
+|T9722
+|Malaysia
+|[[Base codes|Base code(s)]]: C30, C31, C33
+|[[File:57Chevy 11THReg.JPG|75px]]
+|-
+|052/244
+|[[List of 2011 Hot Wheels|2011]]
+|[[2011 Treasure Hunts Series|Trea$ure Hunt$]]<br>2/15
+|[[Spectraflame]] Blue
+|Orange "Hot Wheels", Yellow "68", misc White tampos on sides, Yellow "68" roof w/ treasure hunt, 283 h.p. on hood.
+|Chrome<br>/<br>Plastic
+|Clear
+|Black
+|Good Year, White [[DDRR]]
+|T9737
+|Malaysia
+|''Super Trea$ure Hunt$''<br>Base code(s):
+|[[File:Görüntü467.jpg|75px]]
+|-
+|
+|[[2011]]
+|[[Color Shifters|Color Shifters: Metallics]]
+|Red, Orange
+|Red & Yellow flames on sides
+|Unpainted<br>/<br>Metal
+|Clear
+|Black
+|[[5SP]]
+|V0609
+|Thailand
+|Base code(s): D26
+|[[File:`57_Chevy.JPG|75px]]
+|-
+|rowspan="2" |
+|rowspan="2" |[[2011]]
+|rowspan="2" |[[The Hot Ones (2011)|The Hot Ones]]
+|rowspan="2" |Metallic Dark Red
+|rowspan="2" |Yellow, Blue & Orange Stripes, "'57 Chevy"
+|rowspan="2" |Unpainted<br>/<br>Metal
+|rowspan="2" |Smoke tint
+|rowspan="2" |Black
+|[[BW]]
+|rowspan="2" |W1555
+|rowspan="2" |Thailand
+|Base code(s): D18
+|[[File:57Chevy HotOnes Red.JPG|75px]]
+|-
+|[[BW|RLBW]]
+|''Chase''<br>Base code(s): D18
+|[[File:'57ChevyChaseBH.jpg|75px]]
+|-
+|
+|[[2011]]
+|[[11th Annual Hot Wheels Collectors Nationals]]<br>3/4
+|Red 
+|White & blue flames on sides & hood, "CINCINNATI Special" & various sponsor logos on sides, 11th Annual Collectors Nationals logo on white roof, "2011 NATS" on rear Ohio license plate, detailed headlights & taillights
+|Unpainted<br>/<br>Metal
+|Clear
+|Pearl White
+|GYRR5SP
+|V0510 
+|Thailand
+|''2,000 produced''<br>Base code(s): D09
+|[[Image:Collectors Nationals 11th 2011 '57 Chevy Thailand V0510.jpg|75px]]
+|-
+|196/250
+|[[List of 2013 Hot Wheels|2013]]
+|[[HW Garage Series (2013)|HW Showroom: HW Garage]]
+|Metallic Purple
+|Light Yellow stripes on top & flames on sides
+|Chrome<br>/<br>Plastic
+|Yellow tint
+|Yellow
+|Chrome Rim [[MC5]]
+|X1859
+|Malaysia
+|''Variation or Error: Dark Yellow flames''<br>Base code(s): F13
+|[[File:'57 Chevy-2013 196.jpg|75px]]
+|-
+|196/250
+|[[List of 2013 Hot Wheels|2013]]
+|[[HW Garage Series (2013)|HW Showroom: HW Garage]]
+|Red enamel
+|Dark Yellow stripes on top & flames on sides
+|Chrome<br>/<br>Plastic
+|Smoke tint 
+|Black
+|Chrome Rim [[MC5]]
+|X2002
+|Malaysia
+|Base code(s): F23, F27
+|[[File:'57 Chevy-2013 196 Red.jpg|75px]]
+|-
+|
+|[[2014]]
+|[[HW Road Trippin' Series (2014)|HW Road Trippin']]<br>9/32
+|Black
+|Yellow & purple stripes on sides, hood, & trunk, 'Main Street of America' & Route 66 shields on both rear fenders.
+|Chrome<br>/<br>Plastic
+|Clear
+|Clear
+|[[5SP]]
+|BDK69
+|Malaysia
+|Base Code: F43
+|[[File:HW-Road_Trippin’-2104-09-’57_Chevy..jpg|75px]]
+|-
+|100/365
+|[[List of 2018 Hot Wheels|2018]]
+|[[Holiday Racers Mini Collection (2018)|Holiday Racers]]<br>4/6
+|White
+|"Valentines" & "2018" decals on side, red striping running down length of car
+|Chrome<br>/<br>Plastic
+|Red tint
+|Translucent red
+|[[5SP]]
+|FJW21
+|Malaysia
+|Base code(s): K41, K45, K48
+|[[File:'57ChevyValentines.jpg|75px]]
+|-
+|009/250
+|[[List of 2019 Hot Wheels|2019]]
+|[[HW Flames Mini Collection (2019)|HW Flames]]<br>6/10
+|Dark Blue 
+|Orange & yellow flames on sides & hood
+|Chrome<br>/<br>Plastic
+|Blue tint
+|White
+|Chrome<br>[[AeroDisc]]
+|FYC41
+|Malaysia
+|''Updated tooling''<br>Base code(s): L32, L33, L34, L36
+|[[File:2019_57_Chevy_flames.jpg|75px]]
+|-
+|009/250
+|[[List of 2019 Hot Wheels|2019]]
+|[[HW Flames Mini Collection (2019)|HW Flames]]<br>6/10
+|Black
+|Yellow and gold flames on sides, hood, & roof, Hot Wheels logo on sides
+|Chrome<br>/<br>Plastic
+|Yellow tint
+|White
+|[[5SP|GT5SP]]
+|FYF17
+|Malaysia
+|Base code(s): L48, L49, L50, L51
+|[[File:57 Chevy. Black w Flames. 2019.jpg|75px]]
+|-
+|009/250
+|[[List of 2019 Hot Wheels|2019]]
+|[[Red Edition Mini Collection (2019)|Red Edition]]<br>1/12
+|Matte White
+|Red flames on side & hood
+|Chrome<br>/<br>Plastic
+|Red tint
+|Black
+|Chrome Red [[5SP]]
+|FYG62
+|Malaysia
+|''[[Red Edition#2019|Target Exclusive]]''<br>Base code(s): L37
+|[[File:57 Chevy Red Edition (1).jpg|75px]]
+|-
+|180/250
+|[[List of 2020 Hot Wheels|2020]]
+|[[Rod Squad Mini Collection (2020)|Rod Squad]]<br>10/10
+|Pink
+|Rust Details, Black Stripes, J-Liu Auto Supply, Rod Squad, HW logo
+|Chrome<br>/<br>Plastic
+|Smoke tint 
+|Black
+|Gold rim, Black [[DD8]]
+|GHD26
+|Malaysia
+|Base code(s): N08, H10
+|[[File:Gs8dfh3odqe1zf443t6f2twk.jpg|75px]]
+|-
+|180/250
+|[[List of 2020 Hot Wheels|2020]]
+|[[Rod Squad Mini Collection (2020)|Rod Squad]]<br>10/10 
+|Spectraflame Pink
+|Rust Details, Black Stripes, J-Liu Auto Supply, Rod Squad, HW logo, 25TH
+|Chrome<br>/<br>Plastic
+|Smoke tint 
+|Black
+|Chrome Lip, yellow[[RRS]]
+|GHG19
+|Malaysia
+|[[2020 Treasure Hunts Series#Super Treasure Hunts|''Super Treasure Hunts'']]<br>Base code(s):
+|[[File:Chevybelair2020st.jpg|75px]]
+|-
+|044/250
+|[[List of 2022 Hot Wheels|2022]]
+|[[Chevy Bel Air Mini Collection (2022)|Chevy Bel Air]]<br>3/5
+|Matte Red
+|White & Silver Stripes
+|Chrome<br>/<br>Plastic
+|Clear
+|Black
+|[[5SP|WW5SP]]
+|HCV07
+|Malaysia
+|Base code(s): P38, P41, P42, P43
+|[[File:'57 Chevy rojo.jpg|75px]]
+|-
+|044/250
+|[[List of 2022 Hot Wheels|2022]]
+|[[Chevy Bel Air Mini Collection (2022)|Chevy Bel Air]]<br>3/5
+|Frost Gold
+|White & Silver Stripes
+|Chrome<br>/<br>Plastic
+|Clear
+|Black
+|Black [[5SP]] with White Rim, White wall
+|HCX92
+|Malaysia
+|Base code(s): R07, R08, R09, R13, R14
+|[[File:HCX92-LOOSE.jpg|75px]]
+|-
+|
+|[[2023]]
+|''[[X-Men Series (2023)|X-Men]]''<br>3/5
+|Yellow 
+|Cyclops graphics, "CYCLOPS" on sides
+|Blue<br>/<br>Plastic
+|Red tint
+|Blue
+|Red [[5SP]]
+|HLK37 
+|Malaysia
+|Base code(s): S08
+|[[File:X-Men 2023 '57 Chevy Yellow Malaysia HLK37.jpg|75px]]
+|-
+|121/250
+|[[List of 2024 Hot Wheels|2024]]
+|[[HW Art Cars Mini Collection (2024)|HW Art Cars]]<br>6/10
+|Black
+|White Letter grid puzzle-styled tampos around the body, featuring the words "CHEVY BEL AIR", "HOT WHEELS", "CARS", numbers "57", "68", "24", with the highlighted letter "T", and the Hot Wheels logo
+|Chrome<br>/<br>Plastic
+|Clear
+|White
+|Whitewall, White and Black [[5SP]]
+|HTB75 
+|Malaysia 
+|Base code(s): S48, S50, S51
+|[[File:Mainline 2024 '57 Chevy Black Malaysia HTB75.jpg|75px]]
+|-
+|121/250
+|[[List of 2024 Hot Wheels|2024]]
+|[[HW Art Cars Mini Collection (2024)|HW Art Cars]]<br>6/10 
+|Metalflake Light Green
+|Black Letter grid puzzle-styled tampos around the body, featuring the words "CHEVY BEL AIR", "HOT WHEELS", "CARS", numbers "57", "68", "24", with the highlighted letter "T", and the Hot Wheels logo
+|Chrome<br>/<br>Plastic
+|Clear 
+|Teal
+|Whitewall, White and Black [[5SP]]
+|HTD56
+|Malaysia
+|Base code(s): T19, T20, T22, T25, T21
+|[[File:HTD56.jpg|75px]]
+|-
+|
+|[[2026 5-Packs|2026]]
+|[[HW Hot Rods 5-Pack (2026)|HW Hot Rods 5-Pack]]
+|
+|
+|
+|
+|
+|
+|JKG11
+|Indonesia
+|Base code(s): U41I, U42I, U43I, U51I
+|[[File:57-Chevy-HW-Hot-Rods-2026.jpg|75px]]
+|}
+
+==Exposed Engine Versions==
+
+The '''<nowiki/>'57 Chevy''' with exposed engine casting has come out in the following 1/64 scale versions:
+{| class="wikitable sortable" style="font-size: 85%; text-align: left;" width="100%"
+! style="border-style: none none solid solid" |'''Col #'''
+! style="border-style: none none solid solid" |'''Year'''
+! style="border-style: none none solid solid" |'''Series'''
+! style="border-style: none none solid solid" |'''Color'''
+! style="border-style: none none solid solid" |'''Tampo'''
+! style="border-style: none none solid solid" |'''Base Color<br>/<br>Type'''
+! style="border-style: none none solid solid" |'''Window Color'''
+! style="border-style: none none solid solid" |'''Interior Color'''
+! style="border-style: none none solid solid" |'''Wheel Type'''
+! style="border-style: none none solid solid" |'''Toy #'''
+! style="border-style: none none solid solid" |'''Country'''
+! style="border-style: none none solid solid" |'''Notes'''
+! style="border-style: none none solid solid" |'''Photo'''
+|-
+|
+|[[1984]]
+|[[The Hot Ones (1981)|The Hot Ones]]
+|Yellow
+|White & Red flames
+|Chrome<br>/<br>Plastic
+|Blue tint
+|Blue tint
+|[[GHO]]
+|9638
+|Malaysia
+|
+|[[Image:57_Chevy_YelGoldWls.JPG|75px]]
+|-
+|
+|[[1984]]
+|[[1984 Hot Wheels|Mainline]]
+|Yellow
+|White & Red flames
+|Chrome<br>/<br>Plastic
+|Blue tint
+|Blue tint
+|[[BW]]
+|9638
+|Malaysia
+|
+|[[Image:57_Chevy_YelBW.JPG|75px]]
+|-
+|
+|[[List of 1987 Hot Wheels|1987]]
+|[[Speed Fleet]]
+|Metalflake Blue
+|Black & White lines, Yellow panel,  "57 Chevy" on sides
+|Chrome<br>/<br>Plastic
+|Blue tint
+|Blue tint
+|[[GHO]]
+|1538
+|Malaysia
+|
+|[[Image:57_Chevy_BluGWw.JPG|75px]]
+|-
+|
+|[[List of 1987 Hot Wheels|1987]]
+|[[Classics]]
+|Metalflake Blue
+|Black & White lines, Yellow panel,  "57 Chevy" on sides
+|Chrome<br>/<br>Plastic
+|Blue tint
+|Blue tint
+|[[GHO]]
+|1538
+|Malaysia
+|
+|[[Image:57_Chevy_BluGWw.JPG|75px]]
+|-
+|
+|[[List of 1987 Hot Wheels|1987]]
+|[[Classics]]
+|Metalflake Blue
+|Black & White lines, Yellow panel
+|Chrome<br>/<br>Plastic
+|Blue tint
+|Blue tint
+|[[GHO]]
+|1538
+|Malaysia
+|
+|[[Image:57_Chevy_BluGWwo.JPG|75px]]
+|-
+|
+|[[List of 1989 Hot Wheels|1989]]
+|[[Classics]]
+|Turquoise
+|Black & Yellow lines, red panel, "57 Chevy" on sides
+|Chrome<br>/<br>Plastic
+|Blue tint
+|Blue tint
+|[[GHO]]
+|9638
+|Malaysia
+|
+|[[Image:57_Chevy_TurqWtampo.JPG|75px]]
+|-
+|
+|[[List of 1989 Hot Wheels|1989]]
+|[[Classics]]
+|Turquoise
+|Black & Yellow lines, red panel
+|Chrome<br>/<br>Plastic
+|Blue tint
+|Blue tint
+|[[GHO]]
+|9638
+|Malaysia
+|
+|[[Image:57_Chevy_TrqGWwo.JPG|75px]]
+|-
+|
+|[[1989]]
+|[[Park 'N Plates]]
+|Metalflake Red 
+|Black & white lines, yellow panel, yellow "57 Chevy" with bow tie and stripe
+|Chrome<br>/<br>Plastic
+|Yellow tint
+|Yellow tint
+|[[GHO]]
+|2178
+|Malaysia
+|
+|[[Image:57_Chevy_metredwLogo.JPG|75px]]
+|-
+|
+|[[1989]]
+|[[Park 'N Plates]]
+|Metalflake Crimson Red
+|Black & white lines, yellow panel 
+|Chrome<br>/<br>Plastic
+|Yellow tint
+|Yellow tint
+|[[GHO]]
+|2178
+|Malaysia
+|
+|[[Image:57_Chevy_DkRdgwo.JPG|75px]]
+|-
+|
+|[[1989]]
+|[[Color Changers|Automagic III]] 3 Pack
+|Pink to blue
+|Pink, Blue, Purple Stripes
+|
+|
+|
+|
+|
+|7286
+|
+|[[File:Automagics 3 7286.jpg|75px]]
+|-
+|
+|[[1989]]
+|[[Employee Holiday Releases]]
+|Chrome Gold
+|Red "Happy Holidays", Green "Hot Wheels 1989" on sides. Holly and festive decals on sides
+|Gold Chrome<br>/<br>Plastic
+|Yellow tint
+|Yellow tint
+|[[GHO]]
+|
+|
+|
+|[[File:89hholiday1.JPG|75px]]
+|-
+|
+|[[1989]]
+|[[Employee Holiday Releases]]
+|Chrome
+|Red "Happy Holidays", Green "Hot Wheels 1989" on sides. Holly and festive decals on sides
+|Chrome<br>/<br>Plastic
+|Red tint
+|Red tint
+|[[BW]]
+|
+|
+|
+|[[File:Employee 99 Chevy Newsletter.jpg|75px]]
+|-
+|47
+|[[1990]]
+|[[List of 1990 Hot Wheels|Mainline]]
+|Turquoise
+|Black & Yellow lines, red panel
+|Chrome<br>/<br>Plastic
+|Blue tint
+|Blue tint
+|[[GHO]]
+|9638
+|Malaysia
+|
+|[[Image:Image Not Available.jpg|75px]]
+|-
+|47
+|[[1990]]
+|[[List of 1990 Hot Wheels|Mainline]]
+|Turquoise
+|Black & Yellow lines, red panel 
+|Chrome<br>/<br>Plastic
+|Blue tint
+|Blue tint
+|[[UH]]
+|9638
+|Malaysia
+|
+|[[Image:Image Not Available.jpg|75px]]
+|-
+|
+|[[1990]]
+|[[Power Command Racers]]
+|Red
+|Number '43' in blue, white BF Goodrich logos
+|[[ZAMAC]]
+|Black opaque
+|None
+|[[PCW|PCOM]]
+|4171 
+|Malaysia
+|''Modified Casting''
+|[[File:M1990-02.jpg|75px]]
+|-
+|
+|[[1990]]
+|[[Power Command Racers]]
+|Turquoise
+|Number '67' in red, Champion & Goodyear logos
+|Unpainted<br>/<br>Metal
+|Black opaque
+|None
+|[[PCW]]
+|4175
+|Malaysia
+|''Modified Casting''
+|[[File:57_chevy_turquoise_(courtesy_of_Mark_F.).jpg|75px]]
+|-
+|
+|[[1990]]
+|[[California Customs]]
+|Bright Orange
+|Pink, Blue & Silver "'57" tampos, Black "California Customs" on roof
+|Chrome<br>/<br>Plastic
+|Blue tint
+|Blue tint
+|[[RR]]
+|1297
+|Malaysia
+|
+|[[File:1297 California Custom '57 Chevy RR o4.jpg|75px]]
+|-
+|
+|[[1990]]
+|[[California Customs]]
+|Bright Orange
+|Pink, Blue & Silver "'57" tampos, Blue "California Customs" on roof
+|Chrome<br>/<br>Plastic 
+|Blue tint
+|Blue tint 
+|[[RR]]
+|1297
+|Malaysia
+|
+|[[File:INA.jpg|75px]]
+|-
+|
+|[[1991]]
+|[[California Customs]]
+|Bright Orange
+|Pink, Blue & Silver "'57" tampos, Black "California Customs" on roof
+|Chrome<br>/<br>Plastic
+|Blue tint
+|Blue tint
+|[[TW]]
+|1297
+|Malaysia
+|
+|[[File:57_Chevy_CalCustTW.JPG|75px]]
+|-
+|
+|[[1991]]
+|[[California Customs]]
+|Bright Orange
+|Pink, Blue & Silver "'57" tampos, Blue "California Customs" on roof
+|Chrome<br>/<br>Plastic
+|Blue tint
+|Blue tint
+|[[TW]]
+|1297
+|Malaysia
+|
+|[[File:Image Not Available.jpg|75px]]
+|-
+|157
+|[[1991]]
+|[[1991 Hot Wheels|Mainline]]
+|Yellow
+|White & Red flames
+|Chrome<br>/<br>Plastic
+|Blue tint
+|Blue tint 
+|[[UH]]
+|4697
+|Malaysia
+|''Appears in a 1992 Classics 5-Pack''
+|[[Image:57_Chevy_YelUH.JPG|75px]]
+|-
+|157
+|[[1992]]
+|[[1991 Hot Wheels|Mainline]]
+|Yellow
+|White & Red flames
+|Chrome<br>/<br>Plastic
+|Blue tint
+|Blue tint
+|[[GHO|HO]]
+|4697
+|Malaysia
+|
+|[[File:Blue Card 157 '57 Chevy Yellow HO Malaysia 4697.jpg|75px]]
+|-
+|213
+|[[1993]]
+|[[1993 Hot Wheels|Mainline]]
+|Teal
+|Yellow, Purple & Orange tampos, stripes on sides<br> Yellow HW logo in right door only
+|Chrome<br>/<br>Plastic
+|Blue tint 
+|Blue tint
+|[[5SP]]
+|4311
+|Malaysia
+|
+|[[File:M1992-01.jpg|75px]]
+|-
+|213
+|[[1993]]
+|[[1993 Hot Wheels|Mainline]]
+|Teal
+|Yellow, Purple & Orange tampos, stripes on sides & '''NO''' yellow squiggly with orange & purple chevrolet logo on sides
+|Chrome<br>/<br>Plastic
+|Blue tint
+|Blue tint
+|[[UH]]
+|4311 
+|Malaysia
+|
+|[[File:M1992-02a.jpg|75px]]
+|-
+|213
+|[[1993]]
+|[[1993 Hot Wheels|Mainline]]
+|Teal
+|Yellow, Purple & Orange tampos, stripe on wing & yellow squiggly with orange & purple chevrolet logo on sides
+|Chrome<br>/<br>Plastic
+|Blue tint
+|Blue tint
+|[[UH]]
+|9638
+|Malaysia
+|
+|[[Image:57_Chevy_TrqUHw.JPG|75px]]
+|-
+|
+|[[1993 5-Packs|1993]]
+|[[25th Anniversary Chevy 5-Pack]]
+|Light Purple
+|White, Purple & Pink tampos, stripe on wing, plus squiggle on sides
+|Chrome<br>/<br>Plastic
+|Tinted (Black)
+|Black tint
+|[[UH]]
+|9638
+|Malaysia
+|
+|[[Image:57_Chevy_LtPrp.JPG|75px]]
+|-
+|213
+|[[1994]]
+|[[1994 Hot Wheels|Mainline]]
+|Teal
+|Yellow, Purple & Orange tampos, stripe on wing, without squiggle on sides
+|Chrome<br>/<br>Plastic
+|Tinted (Blue)
+|Blue tint
+|[[UH]]
+|9638
+|Malaysia
+|
+|[[Image:57_Chevy_TrqUHwo.JPG|75px]]
+|-
+|213
+|[[1994]]
+|[[1994 Hot Wheels|Mainline]]
+|Teal
+|Yellow, Purple & Orange tampos, stripe on wing, without squiggle on sides
+|Chrome<br>/<br>Plastic
+|Tinted (Blue)
+|Blue tint
+|[[5SP]]
+|13586
+|Malaysia
+|
+|[[Image:57_Chevy_Trq5spwo.JPG|75px]]
+|-
+|213
+|[[1994]]
+|[[Gold Medal Speed]]
+|Teal
+|Yellow, Purple & Orange tampos, stripe on wing, without squiggle on sides
+|Chrome<br>/<br>Plastic
+|Tinted (Blue)
+|Blue tint
+|Gold [[UH]]
+|13586
+|Malaysia
+|
+|[[Image:57_Chevy_TrqUHGwo.JPG|75px]]
+|-
+|
+|[[1994 5-Packs|1994]]
+|[[World Cup 5-Pack]]
+|Red
+|White World Cup, USA logo on sides, mascot on roof
+|Chrome<br>/<br>Plastic
+|Clear
+|Clear
+|[[UH]]
+|12498
+|Malaysia 
+|
+|[[Image:57_Chevy_Soccr.JPG|75px]]
+|-
+| rowspan="4" |
+| rowspan="4" |[[1995 5-Packs|1995]]
+| rowspan="4" |[[Chevrolet 5-Pack]]
+| rowspan="4" |Black
+| rowspan="4" |White Stripe on side, Yellow on rear
+| rowspan="4" |Chrome<br>/<br>Plastic 
+| rowspan="4" |Tinted (Yellow)
+| rowspan="4" |Yellow tint
+|'''[[UH]]'''
+| rowspan="4" |9638
+| rowspan="4" |Malaysia
+|
+|[[Image:57_Chevy_BlkUH.JPG|75px]] 
+|-
+|'''[[5SP]]'''
+|
+|[[Image:57_Chevy_Blk5sp.JPG|75px]]
+|-
+|'''[[7SP]]'''
+|
+|[[Image:57_Chevy_Blk7sp.JPG|75px]]
+|-
+|'''[[BW]]'''
+|
+|[[File:INA.jpg|75px]]
+|-
+| rowspan="3" |290
+| rowspan="3" |[[List of 1995 Hot Wheels#Steel Stamp Series|1995]]
+| rowspan="3" |[[Steel Stamp Series (1995)|Steel Stamp]]<br>4/4
+| rowspan="3" |Metalflake Dark Blue
+| rowspan="3" |Pink, Blue & Silver "'57" tampos
+| rowspan="3" |Chrome<br>/<br>Plastic 
+| rowspan="3" |Tinted (Blue)
+| rowspan="3" |Blue tint
+|'''[[UH]]'''
+| rowspan="3" |13277
+| rowspan="3" |Malaysia
+| rowspan="3" |
+|[[Image:57_Chevy_SSuh.JPG|75px]]
+|-
+|'''[[7SP]]'''
+|[[Image:57_Chevy_SS7sp.JPG|75px]]
+|-
+|'''[[5SP]]'''
+|[[Image:57_Chevy_SS5sp.JPG|75px]]
+|-
+|290
+|[[1995]]
+|[[Steel Stamp Series (1995)|Steel Stamp Series]]
+|Metalflake Dark Blue
+|Pink, Blue & Silver "57" tampos
+|Chrome<br>/<br>Plastic
+|Tinted (Blue)
+|'''Black'''
+|[[5SP]]
+|13277
+| Malaysia
+|
+|[[Image:Image Not Available.jpg|75px]]
+|-
+|
+|[[1995]]
+|[[Steel Stamp Series 2-Pack]]
+|Metalflake Dark Blue
+|Pink, Blue & Silver "57" tampos
+|Chrome<br>/<br>Plastic
+|Tinted (Blue)
+|Clear Blue
+|[[UH]]
+|13752 
+|Malaysia
+|Same as 13277<br> possible black interior variation.
+|[[File:steel passion_57 chevy 2pack.jpg|75px]]
+|-
+|
+|[[1995]]
+|[[Service Merchandise Classic American Car Collection]]
+|Chrome
+|No tampos
+|Chrome<br>/<br>Plastic
+|Tinted (Blue)
+|Blue tint
+|[[RL]]
+|14021
+|Malaysia 
+|''Limited to 5000''
+|[[Image:Service57ChevyJPG.jpg|75px]]
+|-
+|
+|[[1995]]
+|[[Malt-O-Meal|Malt-O-Meal Limited Edition]]
+| Teal
+|Yellow, Black & White "Malt-O-Meal" tampos
+|Chrome<br>/<br>Plastic
+|Tinted (Blue)
+|Blue tint
+|[[5SP]]
+|13636
+|Malaysia
+| ''Available only through mail-in offer''
+|[[Image:Image Not Available.jpg|75px]]
+|-
+| rowspan="6" |
+| rowspan="6" |[[5-Packs#1996|1996]]
+| rowspan="6" |[['50's Favorites 5-Pack]]
+| rowspan="6" |Yellow
+| rowspan="6" |Black & gray side molding, Hot Wheels logo on passenger side
+|'''Chrome<br>/<br>Plastic'''
+| rowspan="6" |Smoke tint
+| rowspan="6" |Brown tint
+|[[5SP]]
+| rowspan="6" |15068
+| rowspan="6" |Malaysia
+|
+|[[Image:57_Chevy_Yel5spCrm.JPG|75px]]
+|-
+|Grey<br>/<br>Plastic
+|[[5SP]]
+|
+|[[File:Image Not Available.jpg|75px]]
+|-
+|Grey<br>/<br>Plastic 
+|[[SB]]
+|
+|[[Image:57_Chevy_YelSB.JPG|75px]]
+|-
+|'''Chrome<br>/<br>Plastic'''
+|[[SB]]
+|
+|[[File:5057uc.jpg|75px]]
+|-
+|Grey<br>/<br>Plastic
+|[[3SP]]
+|
+|[[File:Image Not Available.jpg|75px]]
+|-
+|'''Chrome<br>/<br>Plastic'''
+|[[3SP]]
+|
+|[[File:Image Not Available.jpg|75px]]
+|-
+|
+|[[List of 1996 Hot Wheels|1996]]
+|[[Hot Wheels Race Team 5-Pack]]
+| rowspan="2" |Metalflake Blue 
+| rowspan="2" |White, Red & Yellow tampos with "Hot Wheeels" logo on sides & trunk
+| rowspan="2" |Chrome<br>/<br>Plastic
+| rowspan="2" |Tinted (Blue)
+| rowspan="2" |Blue tint
+| rowspan="2" |[[5SP]]
+|'''13506'''
+| rowspan="2" |Malaysia
+|
+| rowspan="2" |[[Image:'57_Chevy_-_96_Race_Team_II.jpg|75px]]
+|-
+|394 
+|[[List of 1996 Hot Wheels|1996]]
+|[[Race Team Series II (1996)|Race Team II]]<br>3/4
+| '''15235'''
+|
+|-
+|422
+|[[List of 1996 Hot Wheels#Silver Series II|1996]]
+|[[Silver Series II (1996)|Silver II]]<br>3/4
+|Chrome
+|Black "Hot Wheels" logo on rear window
+|Unpainted<br>/<br>Metal
+|Tinted (Orange)
+|Black
+|[[5SP]]
+|15270
+|Malaysia
+|
+|[[File:T-Bird ('57 Chevy) -1996 Silver Series II-.jpg|75px]]
+|-
+|
+|[[1996]]
+|[[Bloomingdale's Fabulous '57s]]
+|Dark yellow
+|Black roof, black & silver trim on sides, Hot Wheels logo on rear window, painted headlights
+|Chrome<br>/<br>Plastic
+|Clear
+|Clear
+|[[DDRR|WLDDRR]]
+|15720
+|Malaysia
+|''Bloomingdale's Exclusive''<br>''5,000 produced''
+|[[File:Bloomingdale's Fabulous '57s 1996 Malaysia No Toy Number '57 Chevy.jpg|75px]]
+|-
+|
+|[[1996]]
+|[[Bloomingdale's Fabulous '57s]]
+|Dark yellow
+|Black roof, black & silver trim on sides, Hot Wheels logo on rear window, headlights NOT painted
+|Chrome<br>/<br>Plastic
+|Clear
+|Clear
+|[[DDRR|WLDDRR]]
+|15720
+|Malaysia
+|
+|[[FIle:blmg57chevynohlight.jpg|75px]]
+|-
+|
+|[[List of 1996 Hot Wheels|1996]]
+|[[1996 Treasure Hunts Series|Treasure Hunts]]<br>7/12
+|Metalflake Purple
+|Gold HW logo on windshield
+|Chrome<br>/<br>Plastic
+|Tinted (Purple)
+|
+|Goodyear [[DDRR]]
+|15080
+|Malaysia 
+|
+|[[File:07 Trea$ure Hunt 1996 - 57 Chevy.jpg|75px]]
+|-
+|
+|[[1997]]
+|[[Malt-O-Meal|Malt-O-Meal Limited Edition]]
+|Teal
+|Yellow, Black & White "Malt-O-Meal" tampos
+|Chrome<br>/<br>Plastic
+|Tinted (Blue)
+|Blue tint
+|[[7SP]]
+|13636
+|Malaysia
+|''Available only through mail-in offer''
+|[[Image:57_Chevy_TrqMltml.JPG|75px]]
+|-
+|213 
+|[[1997]]
+|[[List of 1997 Hot Wheels|Mainline]]
+|Teal
+|Yellow, Purple & Orange tampos, stripe on wing, without squiggle on sides
+|Chrome<br>/<br>Plastic
+|Tinted (Blue)
+|Blue tint
+|[[5SP]]
+|4311
+|Malaysia
+|''<nowiki/>'57 Chevy on base''
+|[[Image:Image Not Available.jpg|75px]]
+|-
+|213
+|[[1997]]
+|[[List of 1997 Hot Wheels|Mainline]]
+|Teal
+|Yellow, Purple & Orange tampos, stripe on wing, without squiggle on sides
+|Chrome<br>/<br>Plastic
+|Tinted (Blue)
+|Blue tint
+|[[5SP]]
+|4311
+|Malaysia
+|''No '57 Chevy on base''
+|[[Image:Image Not Available.jpg|75px]]
+|-
+|213
+|[[1997]]
+|[[List of 1997 Hot Wheels|Mainline]]
+|Teal
+|Yellow, Purple & Orange tampos, stripe on wing, without squiggle on sides
+|Chrome<br>/<br>Plastic
+|Dark Tinted
+|Blue tint
+|[[5SP]]
+|4311
+|Malaysia
+|
+|[[Image:Image Not Available.jpg|75px]]
+|-
+|
+|[[1998]]
+|Norwalk Raceway Park
+|Red
+|Yellow, white & red flames. Norwalk text on roof
+|Unpainted<br>/<br>Metal
+|Clear
+|Blue
+|[[5SP|R]]R 
+|19758
+|China
+|
+|[[File:86c.jpg|75px]]
+|-
+|730
+
+|[[List of 1998 Hot Wheels#Artistic License Series|1998]]
+|[[Artistic License Series (1998)|Artistic License]]<br>2/4
+|Gray
+|Orange, Black & Red face on sides
+|Unpainted<br>/<br>Metal
+|Tinted (Black)
+|Black
+|[[SB]]
+|18796
+|Malaysia
+|''Plastic body''
+|[[Image:57_Chevy_Gry.JPG|75px]]
+|-
+|758 
+|[[List of 1998 Hot Wheels|1998]]
+|[[1998 Treasure Hunts Series|Treasure Hunts]]<br>10/12
+|Metalflake Dark Green
+|Black, Silver, Gold checkered pattern
+|Gold<br>/<br>Plastic
+|Tinted (Yellow)
+|Yellow
+|[[3SP]]
+|18824
+|Thailand 
+|
+|[[File:57chevyrussell.jpg|75px]]
+|-
+|787
+|[[1998]]
+|[[List of 1998 Hot Wheels|Mainline]]
+|Metalflake Purple
+|Black, Red & White "'57 Chevy" tampos
+|Chrome<br>/<br>Plastic
+|Tinted (Black)
+|Black tint
+|[[SB]]
+|19956
+|Thailand
+|
+|[[File:'57 Chevy -1998 Mainline-.jpg|75px]]
+|-
+|787
+|[[1998]]
+|[[12th Annual Hot Wheels Collectors Convention#ZAMAC Vehicles|12th Annual Hot Wheels Collectors Convention]]
+|[[ZAMAC|Unpainted]]
+|Black Hot Wheels Logo on Rear Fender
+|Chrome<br>/<br>Plastic
+|Tinted (Black)
+|
+|[[SB]]
+|19956
+|
+|''Convention Exclusive<br>QTY 500''
+|[[Image:Hot Wheels 12th Collectors Convention 57 Chevy.jpg|75px]]
+|-
+|
+|[[1998]]
+|[[Long Haulers]]
+|Metalflake Blue
+|White, Red & Yellow tampos with "Hot Wheeels" logo on sides & trunk
+|Chrome<br>/<br>Plastic
+|Tinted (Blue)
+|Blue tint
+|Chrome [[5SP]]
+|65867
+|
+|''Same model as the 1996 Race Team II''
+|[[File:Long Haulers '57 Chevy Blue.jpg|75px]]
+|-
+|
+|[[1998]]
+|[[Airwalk|Airwalk Special Edition]]
+|Black
+|Yellow, Red, and Orange flames
+|Chrome<br>/<br>Plastic
+|Tinted
+|Tinted
+|[[5SP]]
+|19997
+|Malaysia
+|
+|[[file:20210228 110719.jpg|75px]]
+|-
+|
+|[[1998]]
+|[[Norwalk Raceway Park|Norwalk Raceway Park Special Edition]]
+|Red
+|Orange, Yellow, White, & Blue flame on sides, 'Norwalk Raceway Park' on roof, 'Norwalk Express' on trunk
+|Chrome / Plastic
+|Tinted (Blue)
+|Tinted 
+|[[RR|GYRR]]
+|20837
+|Thailand
+|Named ''Norwalk Express''
+|[[File:Norwalk Raceway Park Norwalk Express Red Thailand 20837.jpg|75px]]
+|-
+|
+|[[1998]]
+|[[Hot Wheels World|Deluxe Train Set]]
+|Red
+|Yellow HW Logo on Rear 
+|Chrome / Plastic
+|Tinted (Blue)
+|
+|[[5SP]]
+|65631
+|
+|
+|[[File:1998 Deluxe Train set 57 Chevy.JPG|75px]]
+|-
+|
+|[[1998]]
+|KB Deluxe Highway Set
+|Green
+|
+|
+|
+|
+|[[5SP]]
+|
+|
+|
+|[[Image:Image Not Available.jpg|75px]]
+|-
+|
+|[[1999]]
+|[[Cop Rods Series (1999)#Series 1|Cop Rods (Series 1)]]
+|Black & White
+|Blue & Red stripes, Cop Tampos.
+|Chrome<br>/<br>Plastic
+|Smoke tint
+|Black
+|[[RR]]
+|23445
+|Thailand
+|''K-B Toys Exclusive''
+|[[File:57chevy.cop.jpg|75px]]
+|-
+| rowspan="2" |
+| rowspan="2" |[[1999 5-Packs|1999]]
+| rowspan="2" |[['50s Cruisers 5-Pack]]
+| rowspan="2" |Metalflake Blue 
+| rowspan="2" |Gold & White scallops & flames
+| rowspan="2" |Chrome<br>/<br>Plastic
+| rowspan="2" |Tinted (Blue)
+| rowspan="2" |Blue tint
+|Gold [[3SP]]
+| rowspan="2" |21076
+| rowspan="2" |Thailand
+| rowspan="2" |
+|[[Image:57_Chevy_Blu3sp.JPG|75px]]
+|-
+|Gold [[5SP]]
+|[[Image:57_Chevy_Blu5sp.JPG|75px]]
+|-
+|
+|
+[[1999 5-Packs|1999]]
+|[['50s Cruisers 5-Pack]]
+|Metalflake Blue
+|Gold & White scallops & flames
+|Chrome<br>/<br>Plastic
+|Tinted (Blue)
+|Blue tint
+|Gold [[3SP]]
+|21076
+|'''Malaysia'''
+|
+|[[Image:Image Not Available.jpg|75px]]
+|-
+|
+|[[1999 5-Packs|1999]]
+|1999 SEMA
+|Metalflake Blue
+|Gold & White scallops & flames, "Big Kids Toys" & "SEMA 99" on roof
+|Chrome<br>/<br>Plastic
+|Tinted (Blue) 
+|Blue tint
+|Gold [[3SP]]
+|21076
+|
+|''Found in baggies only''
+|[[Image:57sema1.JPG|75px]]
+|-
+|1077
+|[[List of 1999 Hot Wheels|1999]]
+|[[List of 1999 Hot Wheels|Mainline]]
+|Red
+|Gold & White scallops & flames
+|Chrome<br>/<br>Plastic
+|Tinted (Black)
+|Black
+|Gold [[LW]]
+|24091
+|Malaysia
+|
+|[[Image:57_Chevy_RedLW.JPG|75px]]
+|-
+|
+|[[List of 1999 Hot Wheels|1999]]
+|[[Hot Wheels Hot Nights Drive-In 4-Pack]]
+|Yellow
+|Orange flames outlined in black on sides and top, "Flamin '57" on sides, detailed front end
+|Chrome<br>/<br>Plastic
+|Tinted (Smoke)
+|Black
+|[[SB]]
+|26622
+|Malaysia
+|Target exclusive 
+|[[File:57chevy.jpg|75px]]
+|-
+|
+|[[1999]]
+|[[Shell Gas Station Playset]]
+|Purple
+|Silver "Hot Wheels" logo on hood
+|Chrome<br>/<br>Plastic
+|Tinted (Black)
+|Black
+|[[5SP]]
+|65789 
+|China
+|
+|[[File:57ChevyARCO99Purple.jpg|75px]]
+|-
+|
+|[[1999]]
+|[[Long Haulers]] 4-pack
+|Pink
+|Yellow "Hot Wheels" logo on trunk 
+|Chrome<br>/<br>Plastic 
+|Tinted (Black)
+|Black
+|[[5SP]]
+|65715
+|China
+|''Long Haulers 2-Pack manufactured for Arcotoys''
+|[[Image:57_Chevy_Pnk.JPG|75px]]
+|-
+|
+|[[1999]]
+|[[Pavement Pounders]]
+|Yellow
+|Blue "Hot Wheels" logo on trunk
+|Black<br>/<br>Plastic
+|Tinted (Blue)
+|Black
+|[[5SP]]
+|65867-83
+|China
+|
+|[[File:1999-PPArcotoys 65867-83 '57 Yel o1.jpg|75px]]
+|-
+|
+|[[1999]]
+|Christmas Employee Car
+|White
+|Green Stripes and Holly, Red "Happy Holidays"
+|Chrome<br>/<br>Plastic
+|Tinted (Red)
+|Black
+|[[BW]]
+|
+|
+|
+|[[Image:Employee 99 Chevy Newsletter.jpg|75px]]
+|-
+|105
+|[[2000]]
+|[[List of 2000 Hot Wheels|Mainline]]
+|Turquoise
+|Orange, Black & Red face on sides
+|Unpainted<br>/<br>Metal
+|Tinted (Black)
+|Black
+|[[5DOT]]
+|27072
+|Malaysia
+|''Plastic body''
+|[[File:57_Chevy_TurqWface.JPG|75px]]
+|-
+|105
+|[[2000]]
+|[[2000 Hot Wheels|Mainline]]
+|Turquoise
+|Gold & White tampos on sides & roof
+|Unpainted<br>/<br>Metal
+|Tinted (Black)
+|Black
+|[[5DOT]]
+|27072
+|Malaysia
+|
+|[[Image:1957 Chevy 2000 Hot Wheels.JPG|75px]]
+|-
+|105
+|[[2000]]
+|[[2000 Hot Wheels|Mainline]]
+|Turquoise
+|Gold & White tampos on sides & roof
+|'''Chrome<br>/<br>Plastic'''
+|Tinted (Black)
+|Black
+|[[5DOT]]
+|27072 
+|Malaysia
+|
+|[[Image:Image Not Available.jpg|75px]]
+|-
+| 228
+|[[List of 2000 Hot Wheels|2000]]
+|[[List of 2000 Hot Wheels|Mainline]]
+|Metalflake Orange
+|White, Black & Purple, "Pro Speed"
+|Chrome<br>/<br>Plastic
+|Tinted 
+|Black
+|[[5SP]]
+|29284
+|Malaysia
+|
+|[[Image:57_Chevy_Org.JPG|75px]]
+|-
+|
+|[[2000]]
+|[[Wild Race Teams]]
+|Blue
+|White Hot Wheels logo on trunk
+|
+|
+|
+|[[5SP]]
+|68993
+|China
+|
+|[[File:Wild Race Teams '58 Corvette & '57 Chevy 68993.jpg|75px]]
+|-
+|
+|[[2000]]
+|Kool Toys Racing Pack
+|Red
+|Yellow Hot Wheels logo on trunk
+|Chrome<br>/<br>Plastic
+|Tinted (Dark Grey)
+|Black
+|SSP
+|
+|China
+|This car is not from 2007
+|[[File:M2007-01.jpg|75px]]
+|-
+|
+|[[2000]]
+|[[Draggin' Drive-Thru (Hot Rod Magazine)]]
+|Metalflake Blue
+|Gold & White scallops & flames
+|Chrome<br>/<br>Plastic
+|Tinted (Blue)
+|Blue tint
+|Gold [[5SP]]
+|89855
+|
+|Similar to [['50s Cruisers 5-Pack]]
+|[[File:89855 Draggin' Drive-Thru '57Chevy r57.jpg|75px]]  
+|-
+|
+|[[2000]]
+|[[Fire Rods Series (2000)|Fire Rods]]<br>6/12
+|Red & White
+|Phoenix Fire Dept. Tampos
+|Chrome<br>/<br>Plastic
+|Clear
+|White
+|[[DDRR]]
+|28635
+|Thailand
+|
+|[[File:M2000-02.jpg|75px]]
+|-
+|053
+|[[List of 2001 Hot Wheels|2001]]
+|[[Turbo Taxi Series (2001)|Turbo Taxi]]<br>1/4
+|Black
+|White, Gold & Black, Taxi tampos
+|Chrome<br>/<br>Plastic
+|Tinted (Smoke)
+|Black
+|[[3SP]]
+|50088
+|Malaysia
+|
+|[[File:57chevy.black.jpg|75px]]
+|-
+|
+|[[2001]]
+|[[Pavement Pounders]]
+|Yellow
+|Red Flames
+|Unpainted<br>/<br>Metal
+|Tinted (Black)
+|
+|[[5SP]]
+|89311
+|
+|''Came with [[Cabover Truck]]''
+|[[File:Yellow.png|75px]]
+|-
+|
+|[[2001]]
+|Power Launcher 
+|Yellow
+|Red & Black flames, Black Line & "57" on Side
+|Chrome<br>/<br>Plastic
+|Clear
+|Chrome
+|[[5SP]]
+|65868
+|
+|
+|[[File:'57 Chevy from 2000 Power Launcher.jpg|75px]]
+|-
+|
+|[[2001]]
+|Power Launcher 2 Pack
+|Yellow
+|'''Purple''' & Black flames, Black Line & "57" on Side
+|Chrome<br>/<br>Plastic
+|Clear
+|Chrome
+|[[5SP]]
+|89382
+|
+|
+|[[File:57-Chevy-2001-Purple-Flames.jpg|75px]]
+|-
+|
+|[[2002 5-Packs|2002]]
+|[[Sci-Fi Monsters 5-Pack]]
+|Red & Gold
+|"I was a teenage freak from outerspace!"
+|Gold Chrome<br>/<br>Plastic
+|Tinted (Black) 
+|Black
+|Red [[5SP]]
+|54423
+|Malaysia
+|
+|[[Image:'57 Chevy Sci-Fi - 2462ff.jpg|75px]]
+|-
+|225
+|[[List of 2002 Hot Wheels|2002]]
+|[[List of 2002 Hot Wheels|Mainline]]
+|Red & Gold
+|"I was a teenage freak from outerspace!"
+|Gold Chrome<br>/<br>Plastic
+|Tinted (Black)
+|Black
+|Red [[5SP]]
+|54525
+|Thailand
+|
+|[[Image:IMG 0833 1.jpg|75px]]
+|-
+|
+|[[List of 2002 Hot Wheels|2002]]
+|Downtown Roadway & Ultimate Service Center?
+|Yellow
+|Black & grey side molding
+|
+|
+|
+|[[5SP]]
+|89388 & 47084
+|
+|Similar to [['50's Favorites 5-Pack]]
+|[[Image:Image Not Available.jpg|75px]]
+|-
+|
+|[[List of 2002 Hot Wheels|2002]]
+|[[Pavement Pounders]]
+|Brown
+|Yellow & Black tampos
+|Chrome<br>/<br>Plastic
+|Tinted
+|Black
+|[[5SP]]
+|89344
+|China
+|
+|[[Image:Pavement Pounder 89344 Car.jpg|75px]]
+|-
+|
+|[[2003 5-Packs|2003]]
+|[[Robo Zoo 5-Pack]]
+|Black
+|Green stripe, binary numbers, a zebra & "robo zoo" on sides
+|Chrome<br>/<br>Plastic
+|Smoke tint
+|Black
+|[[5SP]]
+|57036 
+|Malaysia or China
+|
+|[[File:'57_Chevy_CIMG1462.JPG|75px]]
+|-
+|
+|[[2003]]
+|[[3rd Annual Hot Wheels Collectors Nationals]]
+|Red
+|White roof, red, orange, yellow, & white flames on sides, Ronald McDonald House Charities logo on white roof, "RONALD MCDONALD HOUSE CHARITIES" wording on sides & roof, 3rd Annual Collectors Nationals logo on trunk
+|Chrome<br>/<br>Plastic
+|Yellow tint
+|Yellow tint
+|White line [[DDRR]]
+|B9608
+|Malaysia
+|''4,000 produced''
+|[[File:M2003-01.jpg|75px]]
+|-
+|
+|[[2003]]
+|[[3rd Annual Hot Wheels Collectors Nationals]]
+|Pink
+|Ghost flames on sides & roof, 'Hot Wheelin' 57' on sides, convention logo on roof
+|Chrome<br>/<br>Plastic 
+|Smoke tint
+|Smoke tint
+|Red line [[DDRR]]
+|B8530
+|Malaysia
+|''Charity Car''
+|[[File:2003_-_3rd_Annual_Nationals_%2757_Chevy_Charity_Car.jpg|75px]]
+|-
+|
+|[[2004]]
+|[[Hall of Fame#Hall of Fame Tin Set|Hall of Fame Tin Set]]
+|Metallic Purple & Pearl White
+|BelAir
+|Chrome<br>/<br>Plastic
+|Clear
+|White
+|[[5SP]]
+|3638
+|China
+|
+|[[File:100 0777.JPG|75px]]
+|-
+|124
+|[[List of 2005 Hot Wheels|2005]]
+|[[2005 Treasure Hunts Series|Treasure Hunts]]<br>4/12
+|Flat Black
+|Flames, "Hot Wheels," "Al & Matt Mackay-Smith Racing" & "743" on sides
+|Chrome<br>/<br>Plastic
+|Clear
+|Black
+|[[CDDRR]]
+|G6739
+|Malaysia
+|
+|[[File:57 Chevy - 05TH.jpg|75px]]
+|-
+|124
+|[[List of 2005 Hot Wheels|2005]]
+|[[2005 Treasure Hunts Series|Treasure Hunts]]<br>4/12
+|Flat Black
+|Flames, "Hot Wheels," "Al & Matt Mackay-Smith Racing" & "743" on sides
+|Chrome<br>/<br>Plastic
+|Clear
+|Black
+|[[CDDRR]] Black
+|G6739
+|Malaysia
+|
+|[[File:M2005-02.jpg|75px]]
+|-
+|
+|[[2005 5-Packs|2005]]
+|[[Shiners 5-Pack]]
+|Gold
+|No tampos
+|[[ZAMAC]]
+|Tinted (Black)
+|G6917
+|[[5SP]]
+|G6917
+|China
+|
+|[[File:'57_Chevy_CIMG1472.JPG|75px]]
+|-
+|
+|[[2005 5-Packs|2005]]
+|Classic Stunt Action Set
+|Dark Yellow
+|Flames
+|Unpainted<br>/<br>Metal
+|Clear
+|
+|Redline [[5SP]]
+|J3968
+|
+|
+|[[Image:Classic Stunt Action Set.jpg|75px]]
+|-
+|118
+|[[List of 2006 Hot Wheels|2006]]
+|[[Track Aces Series (2006)|Track Aces]]<br>8/12
+|Pearl White
+|Red, Silver Tampos on side, " Track Aces" on side
+|Unpainted<br>/<br>Metal
+|Tinted (Black)
+|N/A
+|[[5SP]]
+|J3492
+|Malaysia
+|
+|[[File:57_Chevy_-_06_Track_Aces.jpg|75px]]
+|-
+|118
+|[[List of 2006 Hot Wheels|2006]]
+|[[Track Aces Series (2006)|Track Aces]]<br>8/12
+|Pearl White
+|Red, Silver Tampos on side. "Track Aces" on side
+|Unpainted<br>/<br>Metal
+|Tinted (Black)
+|N/A
+|[[10SP]]
+|J3492
+|Malaysia
+|
+|[[File:57chevy.white.jpg|75px]]
+|-
+|
+|[[2006]]
+|[[Holiday Hotrods Series (2006)|Holiday Hotrods]]
+|Satin Blue
+|No tampos
+|Unpainted<br>/<br>Metal
+|Tinted (Light Blue)
+|Blue
+|Gold [[5SP]]
+|L1189
+|Malaysia
+|''[[Wal-Mart]] Exclusive''
+|[[Image:2006_Holiday_Hot_Rods_57_Chevy.jpg|75px]]
+|-
+|
+|[[2006]]
+|Hot Curves Race Action Set
+|Black
+|Red & Yellow Flames
+|Unpainted<br>/<br>Metal
+|Tinted (Yellow)
+|None
+|[[5SP]]
+|J6654
+|Malaysia
+|
+|[[File:57chevy2006.jpg|75px]]
+|-
+|
+|[[2008]]
+|[[Fourth of July Series (2008)|Fourth of July]]
+|Pearl White
+|Red & Blue flames on sides & roof, "Spirit of 76" on rear quarter panel
+|Chrome<br>/<br>Plastic
+|Tinted (Red)
+|Chrome
+|[[5SP]]
+|N1150
+|Malaysia
+|''[[Wal-Mart]] Exclusive''<br>Base code(s):
+|[[Image:57Chevy4thofJuly2008.jpg|75px]]
+|-
+|
+|[[2009]]
+|[[Color Shifters]]
+|'''Cold:''' Orange,<br>'''Warm:''' White 
+|Orange, Yellow & White flames on sides, hood & trunk
+|Unpainted<br>/<br>Metal
+|Clear
+|
+|[[5SP]]
+|N4425
+|Thailand
+|[[Base codes|Base code(s):]]
+|[[File:57_Chevy_Color_Shifter_Cold_Orange.jpg|75px]]<br>[[File:57_Chevy_Color_Shifter_Hot_White.jpg|75px]]
+|-
+|
+|[[2009]]
+|[[Color Shifters]]
+|'''Cold:''' Dark Blue,<br>'''Warm:''' Sky Blue
+|White speed lines on sides & hood
+|Unpainted<br>/<br>Metal
+|Tinted (Smoke)
+|Chrome 
+|[[5SP]]
+|N4438
+|Thailand
+|Base code(s):
+|[[File:100_2484.jpg|75px]]
+|-
+|
+|[[2009]]
+|[[Color Shifters]]
+|'''Cold:''' Blue,<br>'''Warm:''' White
+|American Flag Flames
+|Unpainted<br>/<br>Metal
+|Clear
+|Gray 
+|[[5SP]]
+|
+|
+|Base code(s):
+|[[File:57_Chevy_-_09_Colorshifters.jpg|75px]]
+|-
+|
+|[[2009]]
+|[[Connect Cars]]<br>25/50
+|Black
+|Red, White & Blue "Arkansas", "25", "The Natural State" tampos, Arkansas state flag deco
+|Chrome<br>/<br>Plastic
+|Clear
+|Clear
+|[[5SP]]
+|N4196
+|Malaysia
+|''Representing Arkansas''<br>Base code(s):
+|[[File:57 Chevy - Connect Cars.JPG|75px]]
+|-
+|
+|[[2009]]
+|[[Hot Wheels 10-Pack Exclusive#2009 All 10 Cars Exclusive 10-Pack|10-Pack Exclusive]]
+|Flat Brown
+|Beige, Black & Red tampos "Wayne's Fix-It-Fast Garage Since 1971" inside of Red Oval, Hot Wheels logo
+|Chrome<br>/<br>Plastic
+|Tinted
+|Black
+|[[5SP]]
+|54866
+|Malaysia 
+|Base code(s): B13
+|[[Image:57_Chevy_-_09_10-Pack.jpg|75px]]
+|-
+|
+|[[2010]]
+|[[Monster Duo|Monster Jam: Monster Duo]]
+|Bright Green
+|Full color "Avenger" monster truck deco
+|Chrome<br>/<br>Plastic
+|Clear
+|Clear
+|[[5SP]]
+|T1485
+|Thailand
+|Base code(s):
+|[[Image:57Chevy MonsterDuo.JPG|75px]]
+|-
+|
+|[[2010]]
+|[[Color Shifters Creatures]]
+|Yellow to Orange to Brown
+|Black Spider on side with "Exterminator" underneath
+|Unpainted<br>/<br>Metal
+|Clear
+|
+|[[5SP]]
+|R1175
+|
+|Base code(s):
+
+|[[File:2010colorshifters-57_Chevy.jpg|75px]]
+|-
+|
+|[[2010]]
+|[[Color Shifters Creatures]]
+|Yellow to Purple
+|Scorpion on sides
+|Unpainted<br>/<br>Metal
+|Clear 
+|
+|[[5SP]]
+|R7792
+|
+|Base code(s):
+|[[Image:Image Not Available.jpg|75px]]
+|-
+|160/244 
+|[[List of 2011 Hot Wheels|2011]]
+|[[HW Racing Series (2011)|HW Racing]]<br>10/10
+|Metallic Blue
+|White, Red & Yellow [[Hot Wheels Race Team]] deco, "7" 
+|Chrome<br>/<br>Plastic
+|Tinted (Blue)
+|Clear Blue
+|[[5SP]]
+|T9867 
+|Malaysia
+|''Also released on [[Green Lantern (movie)|Green Lantern]] promo card''<br>Base code(s): D08, D18 
+|[[File:57Chevy Racing Blue.JPG|75px]]
+|-
+|160/244
+|[[List of 2011 Hot Wheels|2011]]
+|[[HW Racing Series (2011)|HW Racing]]<br>10/10
+|Pearl White
+|Red & Blue [[Hot Wheels Race Team]] deco, "7"
+|Chrome<br>/<br>Plastic
+|Tinted (Blue)
+|Clear Blue 
+|[[5SP]]
+|V0061
+|Malaysia
+|''Also released on [[Team Hot Wheels Top Rides Series (2012)|Team Hot Wheels Top Rides]] card''<br>Base code(s): D30
+|[[File:2011-160-HWR10-57Chevy-White.jpg|75px]]
+|-
+|
+|[[:Category:2012 Hot Wheels|2012]]
+|[[Cars of the Decades Series|Cars of the Decades]]<br>12/32
+|Yellow
+|Black lower sides, Red '57' on doors, Black '57' on roof. Chevrolet logo on trunk.
+|Chrome<br>/<br>Plastic
+|Clear
+|Golden ?or? Tan 
+|[[5SP]]
+|W3987
+|Malaysia
+|Base code(s): E27
+|[[File:Cars of the Decades 2012 '57 Chevy Yellow Malaysia W3987.jpg|75px]]
+|-
+|
+|[[2014]]
+|[[Color Shifters]]<br>34/48
+|'''Cold:''' White,<br>'''Warm:''' Black
+|Police 68
+|Unpainted<br>/<br>Metal
+|Tinted (Blue)
+|
+|[[5SP]]
+|BHR41 
+|Thailand 
+|Base code(s): F46, G15
+|[[File:'57 Chevy-2014 Color Shifters(Warm).jpg|75px]]
+|}
+
+==2006 card==
+(prose omitted from this fixture)
+
+==Gallery==
+(prose omitted from this fixture)
+
+==[[Code 3]] ==
+(prose omitted from this fixture)
+
+==External links==
+(prose omitted from this fixture)
+

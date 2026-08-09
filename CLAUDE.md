@@ -13,9 +13,12 @@ A brand-agnostic diecast catalog (Hot Wheels, Matchbox, Tomica, Mini GT, …) on
 Laravel + Postgres, whose catalog grows from photographs of packaging via an AI
 pipeline, gated behind admin approval.
 
-**The data layer is complete and tested. The product is not started.** Read
+**The data layer is complete and tested, and the catalog now has 241 real
+castings in it. The public product is not started.** Read
 [Current state](#current-state) before assuming any feature exists — several
 plausible-sounding ones don't, including some the commit history implies.
+In particular: everything imported is `pending` and therefore invisible, on
+purpose.
 
 The five things most likely to trip you up, each expanded below:
 
@@ -30,7 +33,9 @@ The five things most likely to trip you up, each expanded below:
    brand that sold it is a fact about the release. See
    [Settled decisions → Schema](#schema).
 5. **Nothing auto-publishes.** Catalog rows default to `pending`, `status` is
-   not fillable anywhere, and approval promotes the whole ancestor chain.
+   not fillable anywhere, and approval promotes the whole ancestor chain. The
+   6,295 imported variations are all pending because their castings have no
+   identified model — that's the blocker doing its job, not a bug.
 
 ## Index
 
@@ -75,8 +80,16 @@ passed, 492 assertions**.
 **Built and tested:**
 
 - All 12 catalog tables + `submissions`, `submission_photos`,
-  `submission_proposals`. Migrations verified from zero (`migrate`, `rollback`,
-  `re-migrate`, `migrate:fresh --seed` all clean).
+  `submission_proposals`, `record_sources`. Migrations verified from zero
+  (`migrate`, `rollback`, `re-migrate`, `migrate:fresh --seed` all clean).
+- **The Hot Wheels Wiki importer** — the whole path, end to end:
+  `app/Services/Import/Wikitext/` (a rowspan-aware wikitable parser),
+  `app/Services/Import/HotWheelsWiki/` (`CastingPageParser`, `YearIndexParser`,
+  `CatalogImporter`, `ApiPageSource`, `DumpPageSource`) and
+  `catalog:import-hot-wheels`. Parser tests run on wikitext captured verbatim
+  from the wiki in `tests/Fixtures/hotwheels-wiki/`, not on wikitext written to
+  suit the parser — that distinction found four separate classes of dropped row
+  and is worth preserving.
 - Eloquent models for every table, factories for every model, three seeders
   (`AdminUserSeeder`, `CatalogSeeder`, `SubmissionSeeder`).
 - `pg_trgm` enabled with GIN trigram indexes.
@@ -113,6 +126,11 @@ passed, 492 assertions**.
   completed submission has a reading and **no proposals**. Nothing populates the
   review queue automatically yet — `SubmissionSeeder` is still what puts
   proposals in it.
+- **The dump has never been read for real.** `DumpPageSource` is tested against
+  an archive built by the same 7-Zip binary, but every real run so far has gone
+  through `ApiPageSource`. Going wide (11,041 pages) should use `--dump=` and is
+  the first thing that will exercise it at size.
+
 - **No Meilisearch integration.** The container runs, but `laravel/scout` is not
   in `composer.json`, so nothing is indexed and cross-brand search doesn't work
   end to end. Note `pg_trgm` and Meilisearch are not substitutes: trigram
@@ -145,10 +163,10 @@ passed, 492 assertions**.
 - **No public catalog browsing, collections, wishlists, price charts, or
   barcode scanning.** The tables exist; nothing reads them.
 - Nothing creates a `CastingVersion` automatically alongside a `Casting`.
-  `CatalogSeeder::casting()` does it explicitly. This is deliberate: a model
-  `created` hook would collide with `CastingVersionFactory`, which builds a
-  casting and its version separately. Whoever writes the Insertion Agent must
-  create version 1 explicitly.
+  `CatalogSeeder::casting()` and `CatalogImporter::castingVersions()` both do it
+  explicitly. This is deliberate: a model `created` hook would collide with
+  `CastingVersionFactory`, which builds a casting and its version separately.
+  Whoever writes the Insertion Agent must create version 1 explicitly.
 
 ## What to do next
 
@@ -163,8 +181,20 @@ what the pipeline proposed, watch it go live. Nothing produces proposals
 automatically yet, so `SubmissionSeeder` is still what puts anything in the
 queue.
 
-**The two obvious next moves, in either order:**
+**The importer landed on 2026-08-09** and 2011 has been imported for real, so
+Comparison finally has a catalog to diff against.
 
+**The obvious next moves:**
+
+- **Make/Model inference — the one thing blocking everything imported.** 241
+  castings are sitting `pending` and unidentified, and each one blocks its own
+  releases and variations from ever going live. This is the Metadata Agent's
+  work: read `'72 Ford Gran Torino Sport` and produce Make: Ford, Model: Gran
+  Torino Sport, with a confidence. Above `catalog.import.auto_approve_threshold`
+  it attaches; below it, the casting stays pending as a backfill queue. The
+  plumbing is in place — `submission_proposals.submission_id` is nullable now —
+  but nothing reads that threshold yet, and there is no review screen for a
+  proposal with no submission behind it.
 - **Deploy to the apex.** `collectai.club` is registered and delegated to
   Cloudflare but nothing is deployed, so the capture screen has never run on a
   phone — which is the only place it's meant to run. The app is now installable
@@ -242,6 +272,10 @@ and `/admin/*`. Worth folding in whenever the public catalog replaces it.
   indexes, the `COALESCE` expression index, `jsonb` and partial indexes don't
   exist in SQLite. `docker/postgres/init-test-db.sh` creates `diecast_testing`
   on first volume creation; an existing environment needs it made by hand.
+
+- **`p7zip` is in the Dockerfile for the wiki dump.** `DumpPageSource` shells out
+  to `7z` and streams the archive; there is no usable pure-PHP 7-Zip reader. If
+  the image is ever slimmed, this is not a stray dependency.
 
 - **The app container has no GD**, so `UploadedFile::fake()->image()` throws.
   `CaptureTest` fakes photos with `->create($name, $kb, 'image/jpeg')` instead,
@@ -435,6 +469,21 @@ The rationale for each is in the [session log](docs/session-log.md).*
   and every distinguishing attribute is optional, so NULL collisions would be
   the common case. Enforced via an expression unique index wrapping each column
   in `COALESCE(col, '')` (see `2026_08_02_100008_create_variations_table.php`).
+  **`toy_number` and `country` are part of that identity**, not description:
+  measured against 1,183 real wiki rows, 11 collided without them and 5 with.
+  Keep `Variation::DISTINGUISHING_ATTRIBUTES` and the index in step — the model's
+  `attributeSignature()` is what application-side duplicate checks compare, and
+  if the two drift a check passes and the insert then fails.
+- **`variations.tampo` is `text`, not `varchar`.** Describing printed graphics
+  is prose-shaped in a way the other attributes aren't — a convention car runs to
+  328 characters. Truncating it would not just lose text: tampo is in the
+  uniqueness index, so a cut-off description changes which cars count as the same
+  car.
+- **`submission_proposals.submission_id` is nullable.** A proposal is a record
+  the pipeline produced; a capture session behind it is optional, because the
+  importer's inferences have none. Don't "fix" it back — the alternative was a
+  synthetic photo-less Submission per import run, which makes `submissions` mean
+  two things and puts rows in the capture app's list that nobody captured.
 - **Hard-unique vs. fuzzy-only**: `makes.name` and `brands.name` are small,
   admin-controlled vocabularies — hard `UNIQUE`, a duplicate there is always a
   data-entry error. `models.name`, `castings.name`, `series.name` are populated
@@ -486,6 +535,8 @@ The rationale for each is in the [session log](docs/session-log.md).*
 - **`config/catalog.php`** holds the admin identity and
   `review.auto_approve_threshold`, which starts at **1.0** — nothing
   auto-approves until there's real pipeline output to justify lowering it.
+  `import.auto_approve_threshold` is a separate dial at **0.9**, governing only
+  the importer's inferences; the 1.0 above is not up for tuning with it.
 
 ### Capture
 

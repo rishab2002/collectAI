@@ -6,7 +6,6 @@ use App\Models\Submission;
 use App\Models\SubmissionPhoto;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use App\Jobs\ReadSubmissionPhotos;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;

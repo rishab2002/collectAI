@@ -1,0 +1,83 @@
+<!-- Fixture captured https://hotwheels.fandom.com/wiki/Danicar
+     page 21620, revision 762778, retrieved 2026-08-09.
+     Content from hotwheels.fandom.com, licensed CC-BY-SA 3.0.
+     Prose sections are stubbed out: the importer never reads them, and
+     vendoring article text is the part of the licence that would bite. -->
+{{casting|name = Danicar|series = [[2011 New Models]]|years = [[2011]] &ndash; [[2012]]|designer = [[Jun Imai]] and [[Guest Designers#Danica Patrick|Danica Patrick]]|number = T9671|image = Danicar Sketch.webp}}
+
+==Description==
+(prose omitted from this fixture)
+
+==Versions==
+
+The '''Danicar''' has come out in the following 1/64 scale versions:
+{| class="wikitable sortable" style="font-size: 85%; text-align: left;" width="100%"
+! style="border-style: none none solid solid; |'''Col #'''
+! style="border-style: none none solid solid; |'''Year'''
+! style="border-style: none none solid solid; |'''Series'''
+! style="border-style: none none solid solid; |'''Color'''
+! style="border-style: none none solid solid; |'''Tampo'''
+! style="border-style: none none solid solid; |'''Base Color<br>/<br>Type'''
+! style="border-style: none none solid solid; |'''Window Color'''
+! style="border-style: none none solid solid; |'''Interior Color'''
+! style="border-style: none none solid solid; |'''Wheel Type'''
+! style="border-style: none none solid solid; |'''Toy #'''
+! style="border-style: none none solid solid; |'''Country'''
+! style="border-style: none none solid solid; |'''Notes<br>/<br>Variations'''
+! style="border-style: none none solid solid; |'''Photo'''
+|-
+|001/244
+|[[List of 2011 Hot Wheels|2011]]
+|[[2011 New Models]]<br>1/50
+|Metallic Yellow
+|Red & Gold flames
+|Black<br>/<br>Plastic
+|Tinted (Blue)
+|Black
+|Red Rim, Black [[OH5]]
+|T9671
+|Malaysia
+|[[Date Codes|Base Code(s):]] C34
+|[[Image:Danicar Yellow.JPG|75px]]
+|-
+|001/244
+|[[List of 2011 Hot Wheels|2011]]
+|[[2011 New Models]]<br>1/50
+| rowspan="2" |Red
+| rowspan="2" |Red, Yellow & White tampos on sides & across top
+| rowspan="2" |Black<br>/<br>Plastic
+| rowspan="2" |Tinted (Orange)
+| rowspan="2" |Black
+| rowspan="2" |Gold & Black [[OH5]]
+|T9671
+| rowspan="2" |Malaysia
+|''Walmart card release includes License Plate sticker''<br>Base Code(s):
+| rowspan="2" |[[File:Danicar thumb.jpg|75px]]
+|-
+|
+|[[2011]]
+|[[2011 Mystery Models|Circuit Champions]]<br>9/20
+|T9944
+|''Only in Europe, same as above''<br>Base code(s): D31
+|-
+|
+|[[2012]]
+|''[[Sonic & All-Stars Racing Transformed]]''
+|White
+|Lime Green
+|Black<br>/<br>Plastic
+|Tinted (Green)
+|Black
+|Green Rim, Black [[OH5]]
+|BBL44
+|Malaysia
+|''GameStop Exclusive'', ''Packaged with some versions of the videogame''<br>Base Code(s): E40
+|[[File:Danica-patrick-sasrt.jpg|75px]]
+|}
+
+==2011 card==
+(prose omitted from this fixture)
+
+==Gallery==
+(prose omitted from this fixture)
+

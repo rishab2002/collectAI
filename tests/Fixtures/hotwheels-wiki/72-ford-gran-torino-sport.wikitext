@@ -1,0 +1,504 @@
+<!-- Fixture captured https://hotwheels.fandom.com/wiki/'72_Ford_Gran_Torino_Sport
+     page 21739, revision 790239, retrieved 2026-08-09.
+     Content from hotwheels.fandom.com, licensed CC-BY-SA 3.0.
+     Prose sections are stubbed out: the importer never reads them, and
+     vendoring article text is the part of the licence that would bite. -->
+{{casting|name='72 Ford Gran Torino Sport|series=[[2011 New Models]]|years=[[2011]] - Present|designer=[[Brendon Vetuskey]]|image=72GranTorino Green.JPG|number = T9672}}
+
+==Description==
+(prose omitted from this fixture)
+
+==Versions==
+
+The '''<nowiki/>'72 Ford Gran Torino Sport''' has come out in the following 1/64 scale versions:
+{| class="wikitable sortable" style="font-size: 85%; text-align: left;" width="100%"
+! style="border-style: none none solid solid" |'''Col #'''
+! style="border-style: none none solid solid" |'''Year'''
+! style="border-style: none none solid solid" |'''Series'''
+! style="border-style: none none solid solid" |'''Color'''
+! style="border-style: none none solid solid" |'''Tampo'''
+! style="border-style: none none solid solid" |'''Base Color<br>/<br>Type'''
+! style="border-style: none none solid solid" |'''Window Color'''
+! style="border-style: none none solid solid" |'''Interior Color'''
+! style="border-style: none none solid solid" |'''Wheel Type'''
+! style="border-style: none none solid solid" |'''Toy #'''
+! style="border-style: none none solid solid" |'''Country'''
+! style="border-style: none none solid solid" |'''Notes'''
+! style="border-style: none none solid solid" |'''Photo'''
+|-
+|002/244
+|[[List of 2011 Hot Wheels|2011]]
+|[[2011 New Models]]<br>2/50
+|Metallic Green
+|Green stripes
+|Green<br>/<br>Plastic
+|Clear
+|Chrome
+|[[5SP]]
+|T9672
+|Malaysia
+|[[Date Codes|Base code(s):]] C30, C34, C35, C38
+|[[Image:72GranTorino Green.JPG|75px]]
+|-
+|002/244
+|[[List of 2011 Hot Wheels|2011]]
+|[[2011 New Models]]<br>2/50
+|Red
+|Yellow stripes, "Gran Torino Sport"
+|Red<br>/<br>Plastic
+|Clear
+|Chrome
+|[[5SP]]
+|T9930
+|Malaysia
+|Base code(s): C50, C51, D01, D02, D03 
+|[[File:FORD_'72_GRAN_TORINO_SPORT_RED.jpg|75px]]
+|-
+|002/244 
+|[[List of 2011 Hot Wheels|2011]]
+|[[2011 New Models]]<br>2/50
+|Blue
+|Light Blue stripes
+|Blue<br>/<br>Plastic
+|Clear
+|Chrome
+|[[5SP]]
+|T9672
+|Malaysia
+|''Also released on [[Green Lantern (movie)|Green Lantern]] promo card''<br>''Target card release includes 2 Car Bands''<br>Base code(s): D07, D16, D17
+|[[File:'72 GRAN TORINO SPORT BLUE.jpg|75px]]
+|-
+|002/244
+|[[List of 2011 Hot Wheels|2011]]
+|[[2011 New Models]]<br>2/50
+|Blue
+|Light Blue stripes
+|Blue<br>/<br>Plastic
+|Clear with Windshield Banner
+|Chrome
+|[[5SP]]
+|T9979
+|Malaysia
+|''[[Wal-Mart Exclusives#2011|Walmart Exclusive]]''<br>Base code(s):
+|[[File:72GranTorino BlueWM.JPG|75px]]
+|-
+|rowspan="2" |117/247
+|rowspan="2" |[[List of 2012 Hot Wheels|2012]]
+|rowspan="2" |[[Muscle Mania - Ford Series (2012)|Muscle Mania: Ford]]<br>7/10 
+|rowspan="2" |Green
+|rowspan="2" |Black stripes "Gran Torino Sport" "351"
+|rowspan="2" |Black<br>/<br>Plastic
+|rowspan="2" |Clear
+|rowspan="2" |Chrome
+|White [[MC5]]
+|rowspan="2" |V5420
+|rowspan="2" |Malaysia
+|Base code(s): D47
+|[[File:2012-72FordGranTorinoSport-Green.jpg|75px]]
+|-
+|White rim, Black [[MC5 (muscle)|MC5]]
+|Base code(s): D34, D36, D41, D44, D45, D50
+|[[File:72 Gran Torino Sport (V5420) (MC5).jpg|75px]]
+|-
+|117/247
+|[[List of 2012 Hot Wheels|2012]]
+|[[Muscle Mania - Ford Series (2012)|Muscle Mania: Ford]]<br>7/10 
+|Orange
+|Yellow stripes
+|Yellow<br>/<br>Plastic
+|Clear
+|Chrome
+|[[OH5]]
+|V5699
+|Malaysia
+|''[[Wal-Mart Exclusives#2012|Walmart Exclusive]]''<br>Base code(s):
+|[[File:5642595.jpg|75px]]
+|-
+|117/247
+|[[List of 2012 Hot Wheels|2012]]
+|[[Muscle Mania - Ford Series (2012)|Muscle Mania: Ford]]<br>7/10 
+|Yellow
+|Black stripes
+|Black<br>/<br>Plastic
+|Clear
+|Black
+|Yellow-rim, Black [[J5]]
+|V5586
+|Malaysia
+|''Also released on [[Team Hot Wheels Top Rides Series (2012)|Team Hot Wheels Top Rides]] card''<br>Base code(s): E02, E10, E11, E13, E16
+|[[File:'72 Ford Gran Torino Sport.117 2012.jpg|75px]]
+|-
+|
+|[[2012]]
+|[[Super Speeders]]<br>5/12
+|Light Blue Pearl metallic
+|Light Blue stripes
+|Blue pearl<br>/<br>Plastic
+|Clear
+|Chrome
+|[[5SP]]
+|Y2611
+|Malaysia
+|''Kroger Exclusive''<br>Base Codes(s): E23, E26,
+|[[File:72 Ford Grand Torino Sport 2012 Super Speeders.JPG|75px]]
+|-
+|242/250
+|[[List of 2013 Hot Wheels|2013]]
+|[[HW Performance Series (2013)|HW Showroom: HW Performance]]
+|Blue
+|K&N logo, Black, Orange & Red stripes
+|Black<br>/<br>Plastic
+|Clear
+|Black Chrome
+|Chrome Lip [[MC5 (muscle)|MC5]]
+|X1809
+|Malaysia
+|Base Codes(s): E30, E33, E35, E37
+|[[File:'72 Ford Gran Torino Sport-2013 242 Performance.jpg|75px]]
+|-
+|242/250
+|[[List of 2013 Hot Wheels|2013]]
+|[[HW Performance Series (2013)|HW Showroom: HW Performance]]
+|Spectraflame Blue
+|K&N logo, Black, Orange & Red stripes
+|Black<br>/<br>Plastic
+|Clear
+|Black
+|Chrome Rim [[RR5SP]]
+|X2011
+|Malaysia
+|''[[2013 Treasure Hunts Series|Super Treasure Hunt]]''<br>Base code(s): E27
+|[[File:0af50-img_7548.jpg|75px]]
+|-
+|242/250
+|[[List of 2013 Hot Wheels|2013]]
+|[[HW Performance Series (2013)|HW Showroom: HW Performance]]
+|Pearl White
+|K&N logo, Black, Orange & Red stripes on sides
+|Black<br>/<br>Plastic
+|Clear
+|Black
+|Chrome Lip [[MC5 (muscle)|MC5]]
+|X1966
+|Malaysia
+|Base Code: E45, E48, E49, E52 
+|[[File:2013 X1966 72 Ford Gran Torino Sport.jpg|75px]]
+|-
+|
+|[[2013]]
+|[[2013 HotWheelsCollectors.com Special Editions|HWC Special Edition]]
+|[[Spectraflame]] Navy Blue
+|Light blue stripes on sides; silver trim; painted headlights, front turn signals, side marker lights, & taillights
+|Chrome<br>/<br>Metal
+|Light smoke tint
+|Light blue
+|Red line [[RR10SP]]
+|Y0448
+|China
+|''3,500 produced''<br>''First time w/opening hood''
+|[[File:72-Ford-Gran-Torino-Sport-k.jpg|75px]]
+|-
+|248/250
+|[[List of 2014 Hot Wheels|2014]]
+|[[HW Performance Series (2014)|HW Workshop: HW Performance]]
+|Metalflake Navy Blue
+|"Milodon INC.", white stripes on sides and trunk
+|Yellow<br>/<br>Plastic
+|Clear
+|Chrome
+|[[MC5 (muscle)|MC5]]
+|BFF24
+|Malaysia 
+|Base code(s): F49, F50, F52, G01, G02
+|[[File:1972 Ford Torino Sport 2014 Milodon blue.jpeg|75px]]
+|-
+|248/250
+|[[List of 2014 Hot Wheels|2014]]
+|[[HW Performance Series (2014)|HW Workshop: HW Performance]]
+|White
+|"Milodon INC.", Blue stripes on sides and trunk
+|Gray<br>/<br>plastic
+|Blue tint
+|Chrome
+|[[MC5 (muscle)|MC5]]
+|BFG07
+|Malaysia
+|Base code(s): G11, G12, G13, G16
+|[[File:'72 Ford Gran Torino Sport-2014 248 Recolor.jpg|75px]]
+|-
+|
+|[[2014]]
+|[[Fast & Furious Series (2014)|''Fast &amp; Furious'']]<br>5/8
+|Metalflake Green
+|White Line w/ Blinkers & Universal Studios Decals
+|Green<br>/<br>Plastic
+|Clear
+|Chrome 
+|[[J5]]
+|CDR62
+|Malaysia
+|Base code(s): G21, G28, N48
+|[[Image:2014 CDR62 72 Ford Gran Torino Sport F&F.jpg|75px]]
+|-
+|
+|[[2015]]
+|[[2015 Multi-Pack Exclusives|Multipack Exclusive]]
+|Metalflake Gold
+|Black Stripes
+|Black<br>/<br>Plastic
+|Clear
+|Chrome
+|Gold rim [[MC5 (muscle)|MC5]]
+|X6999
+|Malaysia
+|Base Code:
+|[[File:72-ford-gran-torino-sport-2015-multipack.jpg|75px]]
+|-
+|
+|[[2015]]
+|[[2015 Multi-Pack Exclusives|Multipack Exclusive]]
+|Purple
+|White Stripes on sides and top. White Hot Wheels logo on back side
+|Black<br>/<br>Plastic
+|Clear
+|Chrome
+|Chrome rim [[PR5]]
+|X6999
+|Malaysia
+|Base Code: G51
+|[[File:1972 Ford Gran Torino Sport Purple.jpg|75px]]
+|-
+|
+|[[2015]]
+|[[2015 Multi-Pack Exclusives|Multipack Exclusive]]
+|Metalflake Blue
+|Light Blue Stripes On Sides And Top. Light Blue HW Logo On Back Side
+|Black<br>/<br>Plastic
+|Clear
+|Chrome
+|Chrome rim, Black [[MC5 (muscle)|MC5]]
+|X6999
+|Malaysia
+|Base Code: H11
+|[[File:Mltipk72Torino.jpg|75px]]
+|-
+|
+|[[2015]]
+|[[Fast & Furious Series (2015)|''Fast &amp; Furious'']]<br>4/8
+|Metalflake Green
+|White Line w/ Blinkers & Universal Studios Decals
+|Green<br>/<br>Plastic
+|Clear
+|Chrome
+|[[PR5]]
+|CJL33
+|Thailand
+|Base code(s): G49, H03, H05, H11, H34, H36, H37
+|[[File:DSC_5528.jpg|75px]]
+|-
+|122/250
+|[[List of 2016 Hot Wheels|2016]]
+|[[Muscle Mania Mini Collection (2016)|Muscle Mania]]<br>2/10
+|Orange
+|Black & Yellow stripes on sides & hood, Yellow HW logo on trunk
+|Black<br>/<br>Plastic
+|Clear
+|Black
+|Yellow & Black [[MC5 (Muscle)#Outer-rim colored MC5|MC5]]
+|DHR33
+|Malaysia
+|Base code(s): J10, J11, J12, J13, J16
+|[[File:72 Ford Torino 2016 Orange.JPG|75px]]
+|-
+|122/250
+|[[List of 2016 Hot Wheels|2016]]
+|[[Muscle Mania Mini Collection (2016)|Muscle Mania]]<br>2/10
+|Black
+|Black & Grey stripes on sides & hood, Grey HW logo on trunk
+|Black<br>/<br>Plastic
+|Clear
+|Chrome
+|Chrome Red & Black [[MC5 (Muscle)#Outer-rim colored MC5|MC5]]
+|DHX37
+|Malaysia
+|Base code(s): J26, J27, J28, J30
+|[[File:72_FGT_DHX37.jpg|75px]]
+|-
+|122/250
+|[[List of 2016 Hot Wheels|2016]]
+|[[Muscle Mania Mini Collection (2016)|Muscle Mania]]<br>2/10
+|[[ZAMAC]]
+|Black & Grey stripes on sides & hood, Grey HW logo on trunk
+|Black<br>/<br>Plastic
+|Tinted (Light Blue)
+|Chrome
+|[[MC5 (muscle)|MC5]]
+|DHX94
+|Malaysia
+|[[Walmart Exclusive Zamac Editions#2016|''Walmart Exclusive'']]<br>Base code(s): J20
+|[[File:1972_Ford_Gran_Torino_Sport_.png|75px]]
+|-
+|
+|[[2016]]
+|[[HotWheelsCollectors.com Series 14|HWC Series 14: Neo-Classics]]<br>4/4
+|[[Spectraflame]] Olive Green
+|Pale green & light green stripes on sides & top, "Boss" & "429" on sides, painted taillights, side marker lights, headlights, & trim
+|Chrome<br>/<br>Metal
+|Clear
+|Tinted (Smoke)
+|[[NCRL]]
+|DTH36
+|China
+|''5,000 produced''
+|[[File:72 Ford Gran Torino Sport (DTH36) 02.jpg|75px]]
+|-
+|
+|[[2017]]
+|[[Retro Style Series (2016)|Retro Style]]
+|Metallic Copper
+|Black racing stripes on hood & trunk, Gold details on sides
+|Black<br>/<br>Plastic
+|Yellow Tint
+|Gold Chrome
+|Gold Chrome [[MC5]]
+|FJP16
+|Malaysia
+|''Target Exclusive''<br>Base code(s): K27
+|[[File:2017-72FordGranTorinoSport-Copper-Carded.jpg|75px]]
+|-
+|
+|[[2018]]
+|[[2018 Multi-Pack Exclusives|Multipack Exclusive]]
+|Metalflake Red
+|Black & White Stripes, Flames on sides & hood
+|Black<br>/<br>Plastic
+|Clear
+|Black
+|[[5SP]]
+|X6999
+|Malaysia
+|Base code(s): L34, L35
+|[[File:72' Ford gran torino sport (3791) HW L1160846.JPG|75px]]
+|-
+|
+|[[2019 5-Packs|2019]]
+|[[Fast & Furious 5-Pack (2019)|''Fast &amp; Furious'' 5-Pack]]
+|Metalflake Green
+|White Line w/ Blinkers
+|Green<br>/<br>Plastic
+|Tinted (smoke)
+|Chrome
+|Chrome [[MC5 (muscle)|MC5]]
+|FYL16<br>GGH46
+|Indonesia
+|Base code(s): M12, M20, M22, M27
+|[[File:F&F Gran Torino. 5-Pack (2019). Front Persp.JPG|75px]]
+|-
+|
+|[[2020]]
+|[[American Steel Series (2020)|American Steel]]<br>6/10
+|Metalflake Blue
+|Gold stripes
+|Blue<br>/<br>Plastic
+|Tinted (smoke)
+| Chrome
+|[[5SP|GT5SP]]
+|GJW70
+|Thailand 
+|''Walmart Exclusive''<br>Base code(s): M41, M48, N08,
+|[[File:GJW70 - 72 Ford Gran Torino Sport-2.jpg|75px]]
+|-
+|
+|[[2020]]
+|[[2020 Fast & Furious Premium Series#Motor City Muscle|''Fast &amp; Furious'': Motor City Muscle]]<br>2/5
+|Metalflake Green
+|White Line w/ Blinkers
+|Unpainted<br>/<br>Metal
+|Tinted (smoke)
+|Chrome
+|[[RR10SP]]
+|GJR70
+|Thailand
+|Base code(s): N03, N06, N10, N12
+|[[File:GJR70 - 72 Ford Gran Torino Sport-2.jpg|75px]]
+|-
+|
+|[[2021 5-Packs|2021]]
+|[[Fast & Furious 5-Pack (2021)|''Fast & Furious'' 5-Pack]]
+|Metalflake Green
+|White stripes on sides
+|Green<br>/<br>Plastic
+|Clear
+|Chrome
+|[[J5]]
+|GTN40
+|Indonesia
+|Base code(s): N48, P01, P02,  P07, P10
+|[[File:2021FF5pk-72FordGT (Large).JPG|75px]]
+|-
+|250/250
+|[[List of 2022 Hot Wheels|2022]]
+|[[Muscle Mania Mini Collection (2022)|Muscle Mania]]<br>10/10
+|Orange
+|White and gold stripes on sides and hood, "GRAN TORINO" on front fenders, gold Hot Wheels logo on rear fenders, running lights.
+|Orange<br>/<br>Plastic
+|Smoke tint
+|Chrome
+|[[MC5 (muscle)|MC5]]
+|HCW29
+|Malaysia
+|Base code(s): R30, R31, R33, R34, R35
+|[[File:2022TorinoMuscleMania.jpg|75px]]
+|-
+|
+|[[2023]]
+|[[Fast & Furious Series (2023)|''Fast & Furious'' (Series 1)]]<br>4/10
+|Metalflake green
+|White lines, detailed blinkers
+|Green<br>/<br>Plastic
+|Smoke tint
+|Chrome
+|[[J5]]
+|HNR94
+|Malaysia
+|''[[Walmart]] Exclusive''<br>Base code(s): R46, R51
+|[[File:Hot Wheels Fast and the Furious 1972 Ford Gran Torino.jpg|75px]]
+|-
+|
+|[[2024]]
+|[[2024 Fast & Furious Premium Series|''Fast & Furious'']]<br>3/5
+|Metalflake green
+|White stripes on sides, silver trim, detailed headlights, side markers, & taillights
+|[[ZAMAC]]
+|Light smoke tint
+|Chrome
+|[[RR10SP]]
+|HYP72
+|Thailand
+|''Identical to GJR70''<br>Base code(s): T01, T02, T03
+|[[File:FordTorinoSport.jpg|75px]]
+|-
+|
+|[[2026 5-Packs|2026]]
+|[[HW Torque 5-Pack]]
+|Black
+|Yellow to red gradient stripe on sides, silver Hot Wheels logo on front fenders
+|Black<br>/<br>Plastic
+|Blue tint
+|Chrome
+|[[MC5 (muscle)|MC5]]
+|JKG14
+|Indonesia
+|Base code(s): U53I, V02I, V03I
+|[[File:Ford Torino 5 pack 2026.jpg|75x75px]]
+|}
+
+==2011 card==
+(prose omitted from this fixture)
+
+==See also==
+(prose omitted from this fixture)
+
+==Gallery ==
+(prose omitted from this fixture)
+

@@ -6,6 +6,7 @@ use App\Models\Brand;
 use App\Models\Casting;
 use App\Models\CastingVersion;
 use App\Models\Make;
+use App\Models\RecordSource;
 use App\Models\Release;
 use App\Models\Series;
 use App\Models\Submission;
@@ -49,6 +50,63 @@ class CatalogSchemaTest extends TestCase
         Variation::factory()->bare()->create(['release_id' => $release, 'color' => 'Blue']);
 
         $this->assertSame(2, $release->variations()->count());
+    }
+
+    public function test_two_cars_with_different_toy_numbers_are_different_variations(): void
+    {
+        $release = Release::factory()->create();
+        $shared = ['release_id' => $release, 'color' => 'Metalflake Silver'];
+
+        Variation::factory()->bare()->create([...$shared, 'toy_number' => 'X7060']);
+        $second = Variation::factory()->bare()->create([...$shared, 'toy_number' => 'X9764']);
+
+        // Real pages do this: the '68 COPO Camaro lists two 2012 cars alike on
+        // every descriptive column and told apart only by the number on the
+        // base. Without toy_number in the uniqueness index the second insert
+        // fails and the car is lost.
+        $this->assertSame(2, $release->variations()->count());
+        $this->assertTrue($second->exists);
+    }
+
+    public function test_the_same_car_assembled_in_two_countries_is_two_variations(): void
+    {
+        $release = Release::factory()->create();
+        $shared = ['release_id' => $release, 'color' => 'Red', 'toy_number' => 'T9671'];
+
+        Variation::factory()->bare()->create([...$shared, 'country' => 'Malaysia']);
+        Variation::factory()->bare()->create([...$shared, 'country' => 'Thailand']);
+
+        $this->assertSame(2, $release->variations()->count());
+    }
+
+    public function test_a_row_identical_on_every_column_including_toy_number_still_collides(): void
+    {
+        $release = Release::factory()->create();
+        $attributes = ['release_id' => $release, 'color' => 'Red', 'toy_number' => 'T9671', 'country' => 'Malaysia'];
+
+        Variation::factory()->bare()->create($attributes);
+
+        // The wiki lists the same car twice often enough that this is the
+        // importer's normal case, not an error — two identical rows are one
+        // variation, and the index is what says so.
+        $this->expectException(QueryException::class);
+
+        Variation::factory()->bare()->create($attributes);
+    }
+
+    public function test_a_proposal_can_exist_without_a_capture_behind_it(): void
+    {
+        $casting = Casting::factory()->pending()->create();
+
+        $proposal = SubmissionProposal::factory()
+            ->forProposable($casting)
+            ->create(['submission_id' => null]);
+
+        // The catalog importer infers a casting's make and model from its name,
+        // which needs review exactly like a photographed one — but there is no
+        // capture session, no photos and nobody who took them.
+        $this->assertNull($proposal->fresh()->submission_id);
+        $this->assertNull($proposal->fresh()->submission);
     }
 
     public function test_status_only_accepts_known_values(): void
@@ -214,5 +272,54 @@ class CatalogSchemaTest extends TestCase
         $submission = Submission::factory()->completed()->create();
 
         $this->assertSame('Night Burnerz', $submission->fresh()->ocr_output['series']);
+    }
+
+    public function test_one_source_key_can_only_be_imported_once(): void
+    {
+        RecordSource::factory()->create(['source_key' => 'page:12345']);
+
+        // The whole basis of a re-runnable importer: a second pass over the same
+        // dump has to update this row, not insert a parallel catalog beside it.
+        $this->expectException(QueryException::class);
+
+        RecordSource::factory()->create(['source_key' => 'page:12345']);
+    }
+
+    public function test_the_same_key_under_a_different_source_is_a_different_record(): void
+    {
+        RecordSource::factory()->create(['source_key' => 'page:12345']);
+
+        $other = RecordSource::factory()->create([
+            'source' => 'matchbox_fandom',
+            'source_key' => 'page:12345',
+        ]);
+
+        // Page numbering is per-site. Scoping the constraint to the source is
+        // what stops a second wiki's page 12345 colliding with this one's.
+        $this->assertTrue($other->exists);
+    }
+
+    public function test_a_catalog_record_can_only_come_from_one_source(): void
+    {
+        $casting = Casting::factory()->create();
+
+        RecordSource::factory()->forSourceable($casting)->create();
+
+        // A record picking up facts from a second source is a merge, which is a
+        // human decision — not a second provenance row appearing quietly and
+        // leaving "where did this come from" with two answers.
+        $this->expectException(QueryException::class);
+
+        RecordSource::factory()->forSourceable($casting)->create();
+    }
+
+    public function test_an_imported_record_cannot_be_stored_without_attribution(): void
+    {
+        // NOT NULL alone wouldn't catch this, and a parser that failed to build
+        // a URL writes exactly this. The wiki is CC-BY-SA: a row that can't name
+        // its source can't legally be shown as imported.
+        $this->expectException(QueryException::class);
+
+        RecordSource::factory()->create(['source_url' => '   ']);
     }
 }

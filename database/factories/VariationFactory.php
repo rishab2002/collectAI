@@ -25,6 +25,9 @@ class VariationFactory extends Factory
             'interior_color' => fake()->randomElement(['Black', 'Grey', 'Tan', 'Red']),
             'window_tint' => fake()->randomElement(['Clear', 'Smoke', 'Blue', 'None']),
             'base_color' => fake()->randomElement(['Black', 'Chrome', 'Grey', 'Body colour']),
+            // A Mattel toy number: a letter and four digits, printed on the base.
+            'toy_number' => strtoupper(fake()->randomLetter()).fake()->numerify('####'),
+            'country' => fake()->randomElement(['Malaysia', 'Thailand', 'China', 'Indonesia']),
             'notes' => null,
             'status' => Variation::STATUS_LIVE,
         ];
@@ -47,6 +50,8 @@ class VariationFactory extends Factory
             'interior_color' => null,
             'window_tint' => null,
             'base_color' => null,
+            'toy_number' => null,
+            'country' => null,
         ]);
     }
 }
