@@ -10,13 +10,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 /**
- * Where an imported catalog record came from, and which revision of it we read.
+ * Where an imported catalog record came from.
  *
- * The presence of one of these is what marks a record as something a source
- * states rather than something the pipeline inferred — see the import decisions
- * in CLAUDE.md. Facts the wiki prints go live through the importer and carry a
- * RecordSource; the Make/Model split and is_fantasy are inferences and go
- * through SubmissionProposal instead.
+ * Two jobs: it makes a re-import idempotent — (source, source_key) is unique, so
+ * the importer upserts against it rather than checking first and racing — and it
+ * carries the attribution the wiki's CC-BY-SA licence requires back to the page
+ * the facts were read from, for the public catalog to surface.
  */
 #[Fillable([
     'sourceable_type',
@@ -32,89 +31,19 @@ class RecordSource extends Model
     use HasFactory;
 
     /**
-     * hotwheels.fandom.com. The only source there is so far; the column is
-     * deliberately un-CHECKed so adding the next one needs no migration.
+     * hotwheels.fandom.com. Named for the site rather than the brand because the
+     * distinction that matters here is which body of data a key is numbered
+     * within — a future Matchbox wiki would be a different source even though
+     * both are Fandom.
      */
     public const SOURCE_HOT_WHEELS_FANDOM = 'hotwheels_fandom';
 
     /**
-     * The catalog record this describes — a Casting, Release, Variation, and so on.
+     * The catalog record these facts were imported into.
      */
     public function sourceable(): MorphTo
     {
         return $this->morphTo();
-    }
-
-    /**
-     * The key for a record that *is* a source page: one casting per article.
-     */
-    public static function pageKey(int|string $pageId): string
-    {
-        return "page:{$pageId}";
-    }
-
-    /**
-     * The key for a series.
-     *
-     * Keyed by the series itself rather than by a page, because a series is
-     * shared: every 2011 Nightburnerz car names the same one, and keying it to
-     * whichever casting page happened to mention it first would make the second
-     * page's import collide with the first.
-     */
-    public static function seriesKey(string $name): string
-    {
-        return 'series:'.self::identity($name);
-    }
-
-    /**
-     * The key for a release read off a casting page's ==Versions== table.
-     *
-     * Built from the release's own identity — the year and series it was sold in
-     * — rather than from its row number. The settled requirement is that a key
-     * identifies one *record* rather than one page, and a row number satisfies
-     * that only until somebody inserts a row: every key below it then shifts by
-     * one, and the next import silently resolves each release to its neighbour.
-     * Year plus series is what the release actually is, and it survives the page
-     * being reordered, split or extended.
-     */
-    public static function releaseKey(int|string $pageId, int $year, string $series): string
-    {
-        return self::pageKey($pageId).":release:{$year}:".self::identity($series);
-    }
-
-    /**
-     * The key for one variation under that release.
-     *
-     * Positional within its release, which is a far smaller and more stable
-     * scope than the page: adding a 2015 release doesn't renumber the 2011 one's
-     * variations. The importer still resolves by natural key first and treats
-     * this as a fallback, so a genuine reshuffle costs an update rather than a
-     * duplicate.
-     */
-    public static function variationKey(int|string $pageId, int $year, string $series, int $position): string
-    {
-        return self::releaseKey($pageId, $year, $series).":variation:{$position}";
-    }
-
-    /**
-     * The name as the source writes it, with only whitespace normalised.
-     *
-     * It deliberately does *not* slug. Slugging looked tidier and was wrong: it
-     * folded case and collapsed punctuation, so "Monster Jam: Monster Duo" and
-     * "Monster Jam - Monster Duo" — two distinct series the wiki lists
-     * separately — produced one key, and the second import to reach them died on
-     * the unique constraint. A source key has one job, which is to identify one
-     * record; any transform that can map two records onto one key can only fail,
-     * either loudly like that or silently by overwriting.
-     *
-     * Keeping it identical to the name also keeps it in step with how the
-     * importer resolves a series, which is an exact match on that name.
-     */
-    private static function identity(string $value): string
-    {
-        $value = trim(preg_replace('/\s+/u', ' ', $value) ?? $value);
-
-        return $value === '' ? 'unknown' : $value;
     }
 
     #[Scope]
@@ -124,18 +53,40 @@ class RecordSource extends Model
     }
 
     /**
-     * Records last read before the given moment — what a refresh run picks up.
-     * Matches the (source, imported_at) index when chained onto fromSource().
+     * Records imported from a revision older than the one now available, which
+     * is the set a re-import has to revisit. Rows with no revision recorded are
+     * included: a source that doesn't version itself can never be shown to be
+     * current, and re-reading it is cheaper than assuming it hasn't moved.
      */
     #[Scope]
-    protected function staleSince(Builder $query, \DateTimeInterface $moment): void
+    protected function staleAgainst(Builder $query, string $source, int $revisionId): void
     {
-        $query->where('imported_at', '<', $moment);
+        $query->where('source', $source)
+            ->where(function (Builder $query) use ($revisionId): void {
+                $query->whereNull('source_revision_id')
+                    ->orWhere('source_revision_id', '<', $revisionId);
+            });
+    }
+
+    /**
+     * The key identifying one row of a multi-row page — a single line of a
+     * casting article's Versions table. Built here rather than at each call site
+     * so the page key and its row keys can never drift apart.
+     */
+    public static function rowKey(string $pageKey, int $row): string
+    {
+        return "{$pageKey}:row:{$row}";
+    }
+
+    public static function pageKey(int $pageId): string
+    {
+        return "page:{$pageId}";
     }
 
     protected function casts(): array
     {
         return [
+            'source_revision_id' => 'integer',
             'imported_at' => 'datetime',
         ];
     }

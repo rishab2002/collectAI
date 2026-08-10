@@ -103,6 +103,25 @@ class ImportCommandTest extends TestCase
         $this->assertSame(1, Casting::count());
     }
 
+    public function test_a_dry_run_reports_what_it_would_import_and_keeps_none_of_it(): void
+    {
+        $this->fakeWiki([
+            'List of 2011 Hot Wheels' => [$this->fixture('list-of-2011-hot-wheels'), 21769, 790637],
+            'Danicar' => [$this->fixture('danicar'), 21620, 762778],
+            "'72 Ford Gran Torino Sport" => [$this->fixture('72-ford-gran-torino-sport'), 21739, 790239],
+        ]);
+
+        $this->artisan('catalog:import-hot-wheels', ['--year' => 2011, '--limit' => 2, '--dry-run' => true])
+            ->expectsOutputToContain('rolled back')
+            ->assertSuccessful();
+
+        // The point of rehearsing is that the writes really happen and are then
+        // discarded, so a collision surfaces here rather than partway through
+        // the real run.
+        $this->assertSame(0, Casting::count());
+        $this->assertSame(0, Variation::count());
+    }
+
     public function test_a_year_with_no_index_page_fails_rather_than_reporting_success(): void
     {
         $this->fakeWiki([]);

@@ -11,6 +11,7 @@ use App\Services\Import\HotWheelsWiki\WikiPage;
 use App\Services\Import\HotWheelsWiki\YearIndexParser;
 use App\Services\Import\ImportSummary;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Imports one year of Hot Wheels from the wiki.
@@ -25,7 +26,8 @@ class ImportHotWheelsWiki extends Command
     protected $signature = 'catalog:import-hot-wheels
         {--year=2011 : The year index to import}
         {--dump= : Path to the wiki XML dump (.7z or a decompressed .xml). Without it, the API is used}
-        {--limit= : Stop after this many casting pages, for a trial run}';
+        {--limit= : Stop after this many casting pages, for a trial run}
+        {--dry-run : Import inside a transaction that is rolled back, reporting what a real run would do}';
 
     protected $description = 'Import a year of Hot Wheels castings, releases and variations from the Fandom wiki';
 
@@ -53,11 +55,40 @@ class ImportHotWheelsWiki extends Command
 
         $this->info(sprintf('%d casting articles to import.', count($titles)));
 
-        $summary = $this->importAll($source, $titles);
+        $summary = $this->option('dry-run')
+            ? $this->rehearse($source, $titles)
+            : $this->importAll($source, $titles);
 
         $this->report($summary);
 
         return self::SUCCESS;
+    }
+
+    /**
+     * A run that writes everything a real one would, then rolls it back.
+     *
+     * Deliberately not "parse and skip the insert". What a rehearsal is for is
+     * catching the writes that *collide* — a source key two pages both claim, a
+     * variation the uniqueness index reads as one already imported — and a dry
+     * run that never reaches the insert reports those as a clean import and then
+     * dies partway through the real one.
+     *
+     * The cost is one transaction held open for the whole run rather than one
+     * per page. Fine for a year; reach for --limit before rehearsing the dump.
+     *
+     * @param  list<string>  $titles
+     */
+    private function rehearse(PageSource $source, array $titles): ImportSummary
+    {
+        $this->warn(' Dry run — everything below is rolled back.');
+
+        DB::beginTransaction();
+
+        try {
+            return $this->importAll($source, $titles);
+        } finally {
+            DB::rollBack();
+        }
     }
 
     /**

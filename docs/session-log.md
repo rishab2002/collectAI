@@ -14,6 +14,74 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-08-09 — Two importers reconciled into one
+
+Opened the repo to carry on with Make/Model inference and found `php artisan
+test` reporting **158 failed, 29 passed**. The first assertion never ran: a
+migration died on `column "toy_number" of relation "variations" already exists`.
+
+Both `huracan` (PR #10) and `aventador` (PR #11) had built the entire Hot Wheels
+Wiki importer, independently and in full, and both had been merged into `main`.
+
+**The reason it merged cleanly is the interesting part.** The two versions
+disagreed mostly on *filename*, not on content — `WikitableParser.php` against
+`Wikitext/WikitextTable.php`, `WikiClient.php` against `PageSource.php` and its
+two implementations, `import:hot-wheels` against `catalog:import-hot-wheels`.
+Git had almost nothing to conflict on, so it took the union and reported
+success. `main` ended up with two commands, two wikitext parsers, two DTO sets,
+two `ImportSummary` classes and two migrations stamped `2026_08_09_100001` both
+adding the same column. The lesson promoted to `CLAUDE.md`: a clean merge
+reconciles text, not designs, and nothing about the absence of conflicts means
+the result is coherent.
+
+The dozen files whose paths *did* collide all resolved to huracan's version,
+while the code around them came from aventador. That is how `config/catalog.php`
+came to ship `import.auto_approve_threshold` at 1.0 while `CLAUDE.md` — merged
+from the other side — documented it as 0.9. A silent disagreement between the
+code and the file that calls itself the source of truth is exactly the failure
+mode the second new rule is aimed at.
+
+**Kept aventador.** Both were real, complete and well tested, so this was a
+judgment call rather than a discovery, made on four facts:
+
+- The dev database was already migrated *and* imported with it — 12,934
+  provenance rows produced by aventador's importer, against huracan's zero.
+- It carries `DumpPageSource` and the `p7zip` line in the Dockerfile. Huracan's
+  `WikiClient` is API-only, and going wide over 11,041 pages through the API is
+  a crawler with extra steps against someone else's wiki.
+- Its three migrations are the schema decisions `CLAUDE.md` records as
+  *measured* rather than argued: `country` in the variation uniqueness index (11
+  collisions in 1,183 real rows without it, 5 with), `tampo` widened to `text`
+  (a convention car runs to 328 characters, and tampo is in that index, so
+  truncation silently changes which cars count as the same car), and
+  `submission_id` nullable.
+- 47 tests against 28, and six verbatim casting-page fixtures against four.
+
+Restoring aventador meant pulling its version of the ten contested files back
+out of `c8f9f48`. Huracan's `isImported()` helper on `HasApprovalStatus` went
+with them; nothing outside its own deleted test used it.
+
+**Ported `--dry-run` across**, the one thing huracan's command had that
+aventador's didn't. It rehearses by writing inside a transaction and rolling
+back, deliberately *not* by parsing and skipping the insert. The failure a
+rehearsal exists to catch is a write that collides — and a source-key collision
+is precisely what killed a real run during the original build. A dry run that
+never reaches the insert would report that import clean and then die partway
+through the real one.
+
+Verified the way the schema rules in `CLAUDE.md` demand, from zero rather than
+forward from an already-migrated database, which is the only way this collision
+was ever going to surface: `migrate`, `rollback`, `re-migrate` and
+`migrate:fresh --seed` all clean, **154 passed**, Pint clean. Then re-imported
+2011 against the live wiki — 27 seconds, 241 castings, 258 casting versions,
+1,856 series, 4,284 releases, 6,295 variations, 12,934 provenance rows,
+identical to the pre-merge state, and a second run changed no count.
+
+No feature work happened this session. Make/Model inference is still the next
+thing, now on a base where the test suite runs.
+
+---
+
 ## 2026-08-09 — The Hot Wheels Wiki importer landed
 
 The implementation half of the decisions settled earlier the same day, in the
