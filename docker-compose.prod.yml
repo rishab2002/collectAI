@@ -1,0 +1,110 @@
+# Production stack for a single AWS Lightsail instance.
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Differs from docker-compose.yml in four ways that all matter:
+#
+#   1. Builds the `prod` target — nginx + php-fpm, no dev dependencies, assets
+#      compiled in — instead of `dev`'s `php artisan serve`.
+#   2. Runs a queue worker. Without it capture succeeds, the submission stays
+#      `queued`, ocr_output stays null and nothing anywhere reports an error.
+#   3. No source bind-mount. The image is the artifact; a deploy is a rebuild,
+#      which is also why opcache.validate_timestamps is 0.
+#   4. No Meilisearch. laravel/scout is not in composer.json, so the container
+#      would index nothing while holding a few hundred MB on a small box.
+#
+# Configuration is a .env file mounted read-only, never process environment —
+# see docker/entrypoint.sh for why. Compose also reads that same .env for the
+# ${...} substitutions below, so the database credentials are stated once.
+
+x-app: &app
+  build:
+    context: .
+    target: prod
+  image: collectai:prod
+  restart: unless-stopped
+  volumes:
+    # Read-only: nothing in the app should ever rewrite its own configuration,
+    # and a stray `artisan key:generate` on the box would invalidate every
+    # session without leaving a trace.
+    - ./.env:/var/www/html/.env:ro
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  web:
+    <<: *app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./.env:/var/www/html/.env:ro
+      # The Cloudflare Origin CA certificate and key. If this directory is
+      # empty the entrypoint generates a self-signed pair and says so loudly —
+      # the container boots, but Cloudflare Full (strict) answers 526.
+      - ./certs:/etc/nginx/certs:ro
+    command: ["web"]
+    healthcheck:
+      # /up is Laravel's health route, registered in bootstrap/app.php. Hitting
+      # it over loopback also proves php-fpm is answering, not just nginx.
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/up"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+
+  worker:
+    <<: *app
+    command: ["worker"]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      # Waits for `web` to finish migrating before consuming. Otherwise the
+      # worker's first boot races the schema and crash-loops until the restart
+      # policy happens to win.
+      web:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-diecast}
+      POSTGRES_USER: ${DB_USERNAME:-diecast}
+      # No default on purpose: compose refuses to start rather than quietly
+      # bringing up a production database with the development password.
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Deliberately no `ports:`. In development Postgres is published to the host
+    # for psql and GUI clients; on a public box that would expose 5432 to the
+    # internet. The app reaches it over the compose network, and
+    # docker/backup/pg-dump-to-r2.sh runs inside that network too.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-diecast} -d ${DB_DATABASE:-diecast}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Queued captures are real work that has already cost an upload, so the
+    # queue should survive a restart of the box.
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:
+  redisdata:

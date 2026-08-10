@@ -1,6 +1,11 @@
 services:
   app:
-    build: .
+    # `target` is not optional. The Dockerfile is multi-stage and `prod` is the
+    # last stage, so omitting this would build the production image — nginx,
+    # php-fpm, no dev dependencies — and quietly break the test suite here.
+    build:
+      context: .
+      target: dev
     ports:
       - "8000:8000"
     volumes:

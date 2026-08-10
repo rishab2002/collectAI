@@ -6,3 +6,16 @@ storage/framework/cache
 storage/framework/sessions
 storage/framework/views
 .env
+.env.production
+
+# Vite's dev-server marker. If this is copied into an image, @vite stops
+# emitting <script> tags for the compiled bundle and instead points every page
+# at http://localhost:5173 — so a production build made on a machine that had
+# `npm run dev` running would serve pages whose CSS and JS never load, with
+# nothing in any log to say why.
+public/hot
+public/fonts-manifest.dev.json
+
+# Rebuilt by the `assets` stage. Copying the host's copy in only risks shipping
+# a stale bundle if that stage is ever skipped or reordered.
+public/build
