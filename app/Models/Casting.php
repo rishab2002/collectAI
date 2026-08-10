@@ -102,4 +102,34 @@ class Casting extends Model
             ? "Casting “{$this->name}” has no vehicle model. Identify the real make and model, or mark it as a fantasy casting, before approving."
             : null;
     }
+
+    /**
+     * Rejecting a proposal for a casting means one of two different things, and
+     * which one depends on where the casting came from.
+     *
+     * A casting the capture pipeline invented is rejected outright — the default.
+     * A casting that arrived from an outside source exists independently of
+     * anything inferred about it: the wiki states the tool and its whole
+     * Versions table, and the only thing the Metadata Agent added was the
+     * attribution. Rejecting "this is a Ford Thunderbird" has to retract that
+     * attribution and nothing else. Marking the row rejected instead would throw
+     * away a real, sourced casting — and, because approval walks upward, quietly
+     * strand every release and variation hanging off it with a parent that can
+     * never go live.
+     *
+     * Retracting puts it back where the importer left it: a real car nobody has
+     * named yet. CastingIdentifier::outstanding() deliberately won't pick it up
+     * again, because the rejected proposal it leaves behind is a ruling, not a
+     * gap — re-inferring would hand the admin back the claim they just refused.
+     */
+    public function rejectProposed(): void
+    {
+        if (! $this->source()->exists()) {
+            $this->markRejected();
+
+            return;
+        }
+
+        $this->forceFill(['model_id' => null, 'is_fantasy' => false])->save();
+    }
 }

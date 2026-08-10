@@ -50,12 +50,43 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Anthropic
+    |--------------------------------------------------------------------------
+    |
+    | The credential every agent's Claude API call goes out under. It lives here
+    | rather than in config/services.php to keep every value this app is
+    | configured by in one file, the same way the admin identity above is, and it
+    | sits above the per-agent blocks rather than inside one of them because
+    | there is now more than one agent and they share an account.
+    |
+    | **Deliberately not named ANTHROPIC_API_KEY.** That is the variable Claude
+    | Code, the Anthropic SDKs and the `ant` CLI all resolve first — ahead of an
+    | OAuth subscription profile — so a process that inherits it bills to the API
+    | account instead of the subscription, silently. This repo is edited with
+    | Claude Code and its .env sits in that working directory, so the one thing
+    | worth guaranteeing is that the file never carries that name. Anything that
+    | sources .env then changes nothing about how the editor authenticates.
+    |
+    | The same trap has a blank-value form: an empty ANTHROPIC_API_KEY still wins
+    | its precedence slot and authenticates with an empty key, so leaving it set
+    | but blank is not the same as leaving it unset.
+    |
+    | Read through config, never env() directly, so it still resolves once config
+    | is cached. Unset is not an error here — it surfaces as a 401 on the first
+    | real call, which `catalog:identify-castings` reports with the fix.
+    |
+    */
+
+    'anthropic' => [
+        'api_key' => env('COLLECTAI_ANTHROPIC_KEY') ?: null,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | OCR Agent
     |--------------------------------------------------------------------------
     |
-    | The vision call that reads packaging text off a capture. The credential
-    | lives here rather than in config/services.php to keep every value this app
-    | is configured by in one file, the same way the admin identity above is.
+    | The vision call that reads packaging text off a capture.
     |
     | `model` defaults to Claude Opus 5. Don't lower it to save money without
     | measuring first: a misread here becomes a catalog row an admin has to
@@ -77,7 +108,6 @@ return [
     */
 
     'ocr' => [
-        'api_key' => env('ANTHROPIC_API_KEY') ?: null,
         'model' => env('OCR_MODEL', 'claude-opus-5'),
         'effort' => env('OCR_EFFORT', 'high'),
         'max_tokens' => (int) env('OCR_MAX_TOKENS', 8000),
@@ -90,6 +120,46 @@ return [
         // the eligible substitutes are per-model, so a different OCR_MODEL may
         // have none.
         'fallbacks' => env('OCR_FALLBACKS', 'default') ?: null,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Metadata Agent
+    |--------------------------------------------------------------------------
+    |
+    | The call that works out which real-world vehicle a casting is a model of —
+    | the Make/Model split the wiki never states, and the one thing standing
+    | between the imported catalogue and a browsable one.
+    |
+    | `batch_size` is the dial with real consequences, and it trades two failure
+    | modes against each other. Too small and a full 11,041-casting import is
+    | that many round trips. Too large and two things go wrong at once: the
+    | answer may not fit in max_tokens, which fails the whole batch rather than
+    | one casting, and a long list is where a model starts answering from the
+    | shape of the list instead of from each name. 25 is a starting point, not a
+    | measured value.
+    |
+    | `max_tokens` covers thinking as well as the JSON, and the JSON here grows
+    | with the batch: roughly 80 tokens per casting answered, plus whatever
+    | thinking the harder names take. Raise it with batch_size, not instead of it.
+    |
+    | Same reasoning as the OCR agent on `model` and `effort`: a wrong
+    | attribution becomes a live catalogue row that nothing flags again, and the
+    | review time that costs dwarfs the token difference. `effort` is the cheaper
+    | dial to sweep.
+    |
+    */
+
+    'metadata' => [
+        'model' => env('METADATA_MODEL', 'claude-opus-5'),
+        'effort' => env('METADATA_EFFORT', 'high'),
+        'max_tokens' => (int) env('METADATA_MAX_TOKENS', 16000),
+        'batch_size' => (int) env('METADATA_BATCH_SIZE', 25),
+
+        // As on the OCR agent: "default" lets Anthropic route by refusal
+        // category rather than pinning a model that will one day be deprecated.
+        // Blank disables it for a model with no eligible substitute.
+        'fallbacks' => env('METADATA_FALLBACKS', 'default') ?: null,
     ],
 
     /*
@@ -140,6 +210,44 @@ return [
 
     'import' => [
         'auto_approve_threshold' => (float) env('IMPORT_AUTO_APPROVE_THRESHOLD', 0.9),
+
+        /*
+        | The bar a *generation* claim has to clear to be recorded. A third
+        | dial, and a necessary one, because it governs a different question
+        | from the one above.
+        |
+        | `auto_approve_threshold` decides whether an attribution is published:
+        | get it wrong and a car goes live as a different car. This decides
+        | which model row a casting is filed under, within an attribution that
+        | already passed that bar — get it wrong and a 1963 Corvette is filed
+        | with the 1968s, which is bad but bounded, visible, and fixable by
+        | moving one row.
+        |
+        | They also score differently, and the difference was measured rather
+        | than guessed. Over 22 castings sampled from the 2011 import the scores
+        | come back **bimodal**, not spread:
+        |
+        |   0.00           a name with no model year and no generation in it —
+        |                  "Mustang Funny Car", "Blown Camaro", "Toyota RSC".
+        |                  Correct refusals, every one.
+        |   0.66 - 0.92    a real generation, and in the sample *correct* every
+        |                  time, including the awkward ones ('58 Impala as a
+        |                  one-year body, '10 BMW M3 as E92, '69 Shelby GT500 as
+        |                  1969-1970).
+        |
+        | So the bar belongs in the empty gap between them, not inside the upper
+        | cluster. At 0.85 four of ten correct generations were discarded; at
+        | 0.75 the cut still ran through the middle of the cluster and left
+        | comparable castings on both sides ('65 Mustang unplaced while another
+        | Mustang of the same generation was placed) — which is the tell that a
+        | threshold is sitting on noise rather than on signal.
+        |
+        | 0.65 sits in the gap. Being too strict costs a collapsed row and a
+        | visible backfill item; being too loose costs a car filed one
+        | generation off. Re-measure before moving it — the gap is the thing to
+        | aim at, and it will move with the model and the prompt.
+        */
+        'generation_threshold' => (float) env('IMPORT_GENERATION_THRESHOLD', 0.65),
     ],
 
 ];

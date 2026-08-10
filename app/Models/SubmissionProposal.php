@@ -120,7 +120,10 @@ class SubmissionProposal extends Model
     public function reject(?User $admin = null): void
     {
         DB::transaction(function () use ($admin): void {
-            $this->proposable->markRejected();
+            // Not markRejected() directly: what "no" costs depends on whether
+            // this proposal created the record or only made a claim about one
+            // that already existed. See HasApprovalStatus::rejectProposed().
+            $this->proposable->rejectProposed();
 
             $this->forceFill([
                 'decision' => self::DECISION_REJECTED,

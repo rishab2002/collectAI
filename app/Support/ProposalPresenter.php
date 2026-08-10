@@ -45,9 +45,12 @@ final class ProposalPresenter
                 'Parent company' => $record->parent_company,
             ])),
 
-            $record instanceof VehicleModel => new self('Model', $record->name, self::compact([
+            $record instanceof VehicleModel => new self('Model', $record->fullName(), self::compact([
                 'Make' => $record->make?->name,
-                'Chassis code' => $record->chassis_code,
+                // One row, one generation — so the generation belongs in the
+                // title, and this line spells out what the label means for a
+                // reviewer who doesn't read chassis codes fluently.
+                'Generation' => $record->generationLabel() ?? 'Not established',
             ])),
 
             $record instanceof Casting => new self('Casting', $record->name, self::compact([
@@ -56,7 +59,7 @@ final class ProposalPresenter
                 'Real car' => match (true) {
                     $record->isFantasy() => 'Fantasy casting — no real vehicle',
                     $record->isUnidentified() => 'Not identified yet',
-                    default => trim(($record->make?->name ?? '').' '.($record->model?->name ?? '')),
+                    default => trim(($record->make?->name ?? '').' '.($record->model?->fullName() ?? '')),
                 },
                 'Notes' => $record->notes,
             ])),

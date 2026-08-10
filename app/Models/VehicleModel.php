@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * #[Table] mapping, rather than distorting the schema to suit PHP.
  */
 #[Table('models')]
-#[Fillable(['make_id', 'name', 'chassis_code'])]
+#[Fillable(['make_id', 'name', 'chassis_code', 'generation_start_year', 'generation_end_year'])]
 class VehicleModel extends Model
 {
     use HasApprovalStatus, HasFactory;
@@ -26,6 +26,47 @@ class VehicleModel extends Model
     public function make(): BelongsTo
     {
         return $this->belongsTo(Make::class);
+    }
+
+    /**
+     * The generation, written the way a person reads it: "C3 (1968–1982)".
+     *
+     * A bare chassis code is unreadable to anyone who isn't already a marque
+     * specialist, and a bare year range doesn't say what enthusiasts call it, so
+     * the label carries whichever of the two this row has and both when it has
+     * both. Null when the generation was never established — which is a real
+     * state, not a missing value, and the catalogue should say so rather than
+     * print an empty pair of brackets.
+     *
+     * An en dash, not a hyphen: this is a range in prose, not a subtraction.
+     */
+    public function generationLabel(): ?string
+    {
+        $years = match (true) {
+            $this->generation_start_year === null => null,
+            // Still in production. "1997–" reads as unfinished rather than
+            // ongoing, so it's spelled out.
+            $this->generation_end_year === null => "{$this->generation_start_year}–present",
+            $this->generation_end_year === $this->generation_start_year => (string) $this->generation_start_year,
+            default => "{$this->generation_start_year}–{$this->generation_end_year}",
+        };
+
+        return match (true) {
+            $this->chassis_code !== null && $years !== null => "{$this->chassis_code} ({$years})",
+            $this->chassis_code !== null => $this->chassis_code,
+            default => $years,
+        };
+    }
+
+    /**
+     * Nameplate plus generation — what distinguishes this row from its siblings.
+     * "Corvette · C3 (1968–1982)".
+     */
+    public function fullName(): string
+    {
+        return ($label = $this->generationLabel()) === null
+            ? $this->name
+            : "{$this->name} · {$label}";
     }
 
     public function castings(): HasMany
@@ -36,5 +77,13 @@ class VehicleModel extends Model
     public function approvalDependencies(): array
     {
         return [$this->make];
+    }
+
+    protected function casts(): array
+    {
+        return [
+            'generation_start_year' => 'integer',
+            'generation_end_year' => 'integer',
+        ];
     }
 }
