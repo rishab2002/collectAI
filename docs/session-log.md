@@ -112,7 +112,40 @@ Hence `docker/backup/pg-dump-to-r2.sh`.
   than adding — additions round-robin with the parking service and the site
   works about half the time, which is a far worse bug than the one being fixed.
 
-### What is not verified
+### Then it was run, and two things broke
+
+The Docker proxy cleared later the same day, so the image was finally built and
+the stack booted locally — in parallel with the user working through the runbook
+on a real Lightsail box. Both hit `container collectai-web-1 is unhealthy` after
+~213 seconds, for **two different reasons**, which is worth recording because
+the symptom is identical and says nothing about the cause.
+
+- **`$path_info` is not an nginx variable.** `fastcgi_split_path_info` populates
+  `$fastcgi_path_info`; naming the other is a hard config error, not an empty
+  value. nginx exited immediately, supervisord retried ten times and gave up —
+  while php-fpm stayed up and healthy throughout, so `docker ps` showed a
+  running container and compose reported only "unhealthy". The misleading part
+  is that the surviving process is the one you'd naturally suspect.
+- **On the box, the Cloudflare Origin CA private key would not parse**
+  (`PEM_read_bio_PrivateKey() failed`). nginx validates its whole configuration
+  before binding, so it reports exactly one fatal error and stops — meaning the
+  box hit the certificate error *first* and would have hit the `$path_info` bug
+  immediately after fixing it. Two bugs, one symptom, revealed strictly in
+  sequence.
+
+The durable fix is not either patch: it is that **the nginx configuration is now
+parsed at build time**. A throwaway self-signed certificate is generated so that
+`ssl.conf` (normally written by the entrypoint at boot) exists, `nginx -t` runs,
+and all three files are deleted again. A typo now fails the build in
+milliseconds instead of costing a deploy, a 213-second timeout and a log dig.
+That is the general lesson: when a config error can only surface as
+"unhealthy after four minutes", move the check to where it is cheap.
+
+Also added to the runbook: `openssl` commands that verify both certificate files
+parse *and* that the key matches the certificate, since two valid files from
+different issuances fail later and far more confusingly.
+
+### What was not verified at the time
 
 `docker build --target prod` never ran. Docker Desktop on this Mac is configured
 with an HTTP proxy at `http.docker.internal:3128` that does not respond, so the

@@ -141,6 +141,28 @@ chmod 600 /opt/collectai/certs/origin.key
 
 `certs/` is gitignored — never commit either file.
 
+**Check both files before starting the stack.** A bad paste here does not fail
+gracefully: nginx refuses to load, supervisord retries ten times and gives up,
+and the only thing compose reports is `container is unhealthy` after ~213
+seconds — with php-fpm running fine the whole time, which sends you looking at
+the wrong process.
+
+```bash
+cd /opt/collectai && head -1 certs/origin.pem && head -1 certs/origin.key && openssl x509 -in certs/origin.pem -noout -subject && openssl pkey -in certs/origin.key -noout && echo "BOTH FILES OK"
+```
+
+`origin.pem` must begin `-----BEGIN CERTIFICATE-----` and `origin.key` must
+begin `-----BEGIN PRIVATE KEY-----` or `-----BEGIN RSA PRIVATE KEY-----`. The
+usual causes of `PEM_read_bio_PrivateKey() failed` are the two files being
+swapped, or a paste that dropped the trailing `-----END ...-----` line.
+
+Then confirm the key actually belongs to the certificate — two valid files from
+different issuances fail later and much more confusingly:
+
+```bash
+cd /opt/collectai && diff <(openssl x509 -noout -pubkey -in certs/origin.pem) <(openssl pkey -pubout -in certs/origin.key) && echo "KEY MATCHES CERTIFICATE"
+```
+
 > If you skip this, the container still boots: the entrypoint generates a
 > self-signed pair and logs four `WARNING` lines saying so. Cloudflare Full
 > (strict) then answers **526 Invalid SSL certificate** rather than 525.
@@ -314,3 +336,12 @@ mid-write, so a restored database has to replay WAL and may not come back.
 | Submission stuck `queued`, `ocr_output` null | No worker | `docker compose -f docker-compose.prod.yml ps worker` |
 | Job runs twice, two billed vision calls | `REDIS_QUEUE_RETRY_AFTER` ≤ worker `--timeout` | Keep retry_after (360) above the worker timeout (300) |
 | Pages render unstyled | Vite build missing from the image | Rebuild; check the `assets` stage — it needs network for the Bunny font fetch |
+| `web` never goes healthy; `dependency failed to start` after ~213s | nginx exited at startup and supervisord gave up; php-fpm stays up, so the container looks alive | `logs web \| grep emerg` — the first `[emerg]` line names the cause |
+| `[emerg] cannot load certificate key ... PEM_read_bio_PrivateKey() failed` | `origin.key` is not a readable PEM key — usually swapped with `origin.pem`, or a truncated paste | Re-check both files with the `openssl` commands in step 4 |
+
+**Reading a `web` failure.** `docker compose ... ps` reporting `unhealthy` says
+only that `/up` did not answer. Because nginx and php-fpm are supervised
+together, php-fpm surviving tells you nothing about nginx — go to the log and
+find the first `[emerg]`, which is always the real message. nginx validates its
+whole configuration before binding, so it reports one fatal error and stops;
+fixing it can reveal the next one.

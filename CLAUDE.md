@@ -5,9 +5,9 @@ domain model, conventions and current state only have to be explained once.
 **Treat this file as the source of truth, not the conversation history** —
 update it whenever a convention changes.
 
-**Last edited:** 2026-08-10 (production deployment configuration written and
-verified locally; **still nothing deployed** — the apex is unchanged and the
-runbook has not been run)
+**Last edited:** 2026-08-10 (production deployment configuration written; image
+builds and the stack boots healthy locally; **still nothing deployed** — the
+apex is unchanged)
 
 ## Start here
 
@@ -117,15 +117,22 @@ Dockerfile's `prod` stage (nginx + php-fpm under supervisord, a separate
 Nothing has been provisioned, so the table above is still exactly what is on the
 internet — the 525 stands until someone works through the runbook.
 
-**The `prod` image has never actually been built.** Compose files validate,
-every shell script passes `sh -n`, and the dev suite is untouched at 207 passed
-— but `docker build --target prod` could not run on this Mac: Docker Desktop is
-configured with an HTTP proxy at `http.docker.internal:3128` which does not
-respond, so the daemon cannot pull `php:8.4-fpm-alpine`, `node:22-alpine` or
-`composer:2` (the host's own network is fine — `curl` reaches the registry). The
-first real build will therefore happen on the Lightsail box at step 5 of the
-runbook. Treat a first-build failure there as expected work, not as a
-regression.
+**The `prod` image builds and the stack boots — verified locally 2026-08-10.**
+`web` reaches healthy, `/login` renders with its compiled assets (the
+content-hashed CSS returns 200 with `Cache-Control: public, immutable`), and the
+worker starts `queue:work`. The dev suite is untouched at 207 passed, 609
+assertions. What has *not* happened is a real deployment: no instance, no DNS
+change, so the table above still stands.
+
+**Read a `web` container that never goes healthy by finding the first
+`[emerg]`.** nginx and php-fpm are supervised together, and php-fpm survives
+whatever nginx does — so a config error leaves a *running* container that merely
+fails its healthcheck, and compose reports only `dependency failed to start`
+after ~213 seconds. Two separate bugs presented exactly this way on the first
+run. nginx validates its whole configuration before binding, so it reports one
+fatal error and stops; fixing it can reveal the next. **The nginx config is now
+parsed at build time** (`nginx -t` against a throwaway certificate, all of it
+deleted again), so that class of error fails the build instead.
 
 There is still no CI: no `.github/workflows`, and a deploy is `git pull` plus
 `docker compose -f docker-compose.prod.yml up -d --build` on the box.
@@ -236,9 +243,9 @@ queue worker, `APP_URL=http://localhost` — reachable only from this Mac on
   Dockerfile is multi-stage (`dev` unchanged, plus `vendor`, `assets` and
   `prod`), `docker-compose.prod.yml` runs web + worker + Postgres + Redis, and
   `docker/` holds the nginx, php-fpm, supervisord, entrypoint and backup pieces.
-  `docs/deploy.md` is the runbook. See
-  [Deployment](#deployment) for the calls that are settled, and the caveat above
-  about the image never having been built.
+  `docs/deploy.md` is the runbook. The image builds and the stack boots healthy
+  locally; nothing is deployed. See [Deployment](#deployment) for the settled
+  calls.
 
 **Not built — do not assume these exist:**
 
@@ -1172,6 +1179,14 @@ why it says what it says. None of it has run against real infrastructure yet.*
   the volume mid-write.
 - **Meilisearch is not deployed.** `laravel/scout` isn't installed, so it would
   hold a few hundred MB on a small box indexing nothing.
+- **The nginx config is parsed at build time**, using a throwaway self-signed
+  certificate to satisfy the `ssl.conf` include the entrypoint normally writes
+  at boot, then deleting all of it. Cheap because the alternative is expensive:
+  a bad directive otherwise costs a full deploy, a ~213-second healthcheck
+  timeout, and a log dig — and it presents as a *running* container, because
+  php-fpm is unaffected by anything nginx does. When a config error can only
+  surface as "unhealthy after four minutes", move the check to where it is
+  cheap.
 
 ## Open questions
 
