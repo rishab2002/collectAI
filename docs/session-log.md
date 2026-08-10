@@ -14,6 +14,106 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-08-10 — A verification pass: what the file claimed vs. what the stack does
+
+No feature was built. The session started as "read `CLAUDE.md` and see if
+there's anything to add", which turned into checking every falsifiable claim in
+it against the running stack, and then into two real bugs the checking exposed.
+
+`php artisan test` green at **207 passed, 609 assertions** — the file said 202
+and 580, its first wrong number.
+
+Most of it held up exactly: twelve routes, the thresholds at 1.0 / 0.9 / 0.65,
+no `env_file:` on the `app` service, Scout still absent, provenance at precisely
+12,934 rows, `diablo` and `main` identical with nothing unmerged. The two-branch
+trap the file leads with was not live.
+
+**The counts drifted because the file was measuring a different thing than a
+query does.** `Casting::count()` says 250; the file said 241. Both are right:
+241 came from the wiki, and `CatalogSeeder`/`SubmissionSeeder` contribute the
+other 9, along with 8 casting versions, 1 series, 2 releases and 3 variations.
+Nothing was double-imported — the giveaway is that provenance never moved.
+That's the durable form of the lesson, now in `CLAUDE.md`: **the test of what
+the importer produced is a `record_sources` row, not a total.** Totals in a dev
+database are the import plus whatever was seeded on top of it, and a future
+session that reads 250 against a documented 241 will otherwise go looking for a
+re-import that never happened.
+
+**`decision` is the string `'pending'`, not NULL — and this one was learned the
+hard way.** The first query of the review backlog used `whereNull('decision')`,
+got 0, and reported the queue empty. It isn't: there are 12 pending proposals.
+The failure mode is what makes it worth recording — an undecided proposal
+carries the literal word, so the wrong query doesn't error, doesn't return
+nonsense, and doesn't look wrong. It returns zero, which reads as "all done"
+whichever direction the backlog is actually moving. The corrected count also
+vindicated the file rather than contradicting it: 7 of the 12 are the importer's
+held inferences, exactly as documented, and the other 5 belong to
+`SubmissionSeeder`'s one submission and are fixture data, not work. Two queues,
+counted apart.
+
+**Nothing runs a queue worker, and the test suite structurally cannot notice.**
+The `app` container's only process is `php artisan serve`, and
+`QUEUE_CONNECTION=redis`. So capture enqueues `ReadSubmissionPhotos` and it
+sits: the upload succeeds, the submission stays `queued`, `ocr_output` stays
+null, and nothing logs an error anywhere. `CaptureTest` calls `Queue::fake()` on
+purpose — without it the sync driver would make a live vision call during a
+file-upload test — which means the one safeguard that would catch this is
+deliberately disabled in the only place it could fire. Not a bug, but a fact
+about running the app that the file didn't carry, and the symptom points at the
+OCR agent rather than at the missing worker.
+
+**Two symptoms, one dead link.** Reported as "all I can see is dashboard not
+login, and dashboard gives a 404". Both came from
+`resources/views/welcome.blade.php`, and the loop is neat enough to write down.
+Logged in, `/login` bounces you off the `guest` middleware; Laravel's
+`RedirectIfAuthenticated::defaultRedirectUri()` looks for a route *named*
+`dashboard` or `home`, this app's is named `admin.dashboard`, so neither matches
+and it falls through to `/`. `/` is the stock welcome scaffold, which swaps its
+"Log in" button for a "Dashboard" one when authenticated — that is why the login
+page was unreachable — and that button hardcoded `url('/dashboard')`, a route
+this app has never had. Hence the 404. Fixed by pointing it at
+`route('admin.dashboard')`; verified over real HTTP with a cookie jar rather
+than by reading the template, because the interesting question was whether the
+generated URL keeps the `:8000` port, and it does. The underlying sharp edge
+stays: this app has no route named `dashboard` or `home`, so any future scaffold
+leaning on that framework default will misbehave the same way. Setting an
+explicit redirect target in `bootstrap/app.php` would close it, but that's a
+decision about where a logged-in user should land, so it was left alone.
+
+**The apex was documented as deliberately free, and was not free.** Asked why
+nothing is connected to `collectai.club`, the honest answer needed measuring
+rather than quoting. DNS is properly delegated to Cloudflare, but the apex and
+`www` are *proxied* A records still pointing at Porkbun's parking service left
+over from registration — `X-Service: pixie-default`, a `page_path: '/parked'`
+analytics call, `X-Powered-By: PHP/8.0.25`, AWS ALB cookies. That explains an
+asymmetry that would otherwise waste somebody's afternoon: Cloudflare reaches
+that origin fine on port 80 and returns the parking page (`200`), but cannot
+complete a TLS handshake against a certificate that doesn't cover this domain,
+so HTTPS returns **525**. A 525 reads as a misconfigured origin, and the search
+it invites is for a server that does not exist. There is also no deployment
+configuration in the repo at all — no CI workflow, no `fly.toml`,
+`render.yaml`, `Procfile` or tunnel config — so this is a deployment that never
+existed rather than one that lapsed. `img.collectai.club`, by contrast, is
+genuinely healthy: valid certificate, and `capture:check-storage` passes write,
+read, public fetch and delete end to end. The photo half of the domain has been
+connected since 2026-08-09; the app half never has.
+
+**Why that sentence was wrong is the part worth keeping.** "The apex is
+deliberately still free for it" wasn't a lie, it was an *intention* written into
+a section whose whole job is to record measurements. It was accurate as a plan
+and false as a fact, and it read as a fact for a day. *Current state* should say
+what was observed and when — which is why the new subsection is stamped with
+the date and the tools that produced it, and why deploying is now described as
+**replacing** the parking records rather than creating records on an empty apex.
+Getting that backwards leaves the parking page winning.
+
+Promoted into `CLAUDE.md`: the corrected counts; the seed-vs-import warning; the
+`decision` string; the missing queue worker; the `/` route-table note; and a new
+*What is actually on the internet* subsection plus an ordered deploy checklist
+whose steps each name the trap they avoid — Full (strict) rather than Flexible
+gets its own line, because Flexible would clear the 525 while quietly sending
+origin traffic unencrypted, which looks exactly like success.
+
 ## 2026-08-09 — Make/Model inference: the Metadata Agent
 
 The 241 imported castings were all `pending` and unattributed, and each was
