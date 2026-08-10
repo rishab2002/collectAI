@@ -171,6 +171,26 @@ RUN mkdir -p \
 # package discovery does not read configuration.
 RUN composer dump-autoload --optimize --no-dev
 
+# Parse the nginx configuration at build time, so a typo fails the build instead
+# of crash-looping a container. Without this a bad directive costs a full deploy
+# to discover: nginx exits, supervisord retries ten times, gives up, and the only
+# symptom compose reports is "container is unhealthy" after ~213 seconds — with
+# php-fpm running happily the whole time, which points the investigation at the
+# wrong process.
+#
+# A throwaway certificate is needed because nginx.conf includes ssl.conf, which
+# the entrypoint only writes at boot once it knows whether a real origin
+# certificate was mounted. All three files are removed again so nothing here can
+# ever be mistaken for a usable key.
+RUN openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
+        -keyout /tmp/build-check.key \
+        -out /tmp/build-check.pem \
+        -subj "/CN=build-check" >/dev/null 2>&1 \
+    && printf 'ssl_certificate /tmp/build-check.pem;\nssl_certificate_key /tmp/build-check.key;\n' \
+        > /etc/nginx/ssl.conf \
+    && nginx -t \
+    && rm -f /tmp/build-check.key /tmp/build-check.pem /etc/nginx/ssl.conf
+
 EXPOSE 80 443
 
 ENTRYPOINT ["entrypoint"]
