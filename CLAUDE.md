@@ -5,7 +5,8 @@ domain model, conventions and current state only have to be explained once.
 **Treat this file as the source of truth, not the conversation history** —
 update it whenever a convention changes.
 
-**Last edited:** 2026-08-09 (Metadata Agent — Make/Model inference — landed)
+**Last edited:** 2026-08-10 (counts re-verified; deployment/DNS state measured
+and recorded — nothing is deployed, and the apex is not free)
 
 ## Start here
 
@@ -43,7 +44,7 @@ The five things most likely to trip you up, each expanded below:
 
 ## Index
 
-- [Current state](#current-state) — what exists, what doesn't
+- [Current state](#current-state) — what exists, what doesn't · [what is actually on the internet](#what-is-actually-on-the-internet)
 - [What to do next](#what-to-do-next)
 - [How to work in this repo](#how-to-work-in-this-repo) — conventions, traps
 - [Domain model](#domain-model) — [Make/Model splitting](#makemodel-splitting-rules) · [field definitions](#field-definitions)
@@ -56,22 +57,71 @@ The five things most likely to trip you up, each expanded below:
 
 ## Current state
 
-*Verified 2026-08-09 against the running stack. Keep this section honest — it's
-the fastest way for a new session to avoid assuming something exists.*
+*Counts re-verified 2026-08-10 against the running stack. Keep this section
+honest — it's the fastest way for a new session to avoid assuming something
+exists.*
 
 **Running:** `docker compose up -d` brings up `app` (:8000), `db` (Postgres 16,
-:5432), `redis` (:6379), `meilisearch` (:7700). `php artisan test` → **202
-passed, 580 assertions**.
+:5432), `redis` (:6379), `meilisearch` (:7700). `php artisan test` → **207
+passed, 609 assertions**.
+
+**The dev database holds the import *plus* seed data, so its counts are not the
+import's counts.** `CatalogSeeder` and `SubmissionSeeder` contribute 9 castings
+(`'92 Honda Prelude`, `Twin Mill`, four RX-7s, …), 8 casting versions, 1 series,
+2 releases and 3 variations on top of the 241 imported castings — which is why a
+`Casting::count()` says 250. The reliable test of what came from the wiki is a
+`record_sources` row, not a total: provenance sits at exactly 12,934 and is
+untouched by seeding. Check that before concluding the importer double-ran.
 
 **A clean checkout has no `.env`** (it's gitignored), so the suite fails on
 `MissingAppKeyException` before it reaches anything real. `cp .env.example .env
 && php artisan key:generate` is step one.
 
+**Nothing runs a queue worker.** The `app` container's only process is `php
+artisan serve`, and `QUEUE_CONNECTION=redis`, so the `ReadSubmissionPhotos` job
+that capture dispatches is enqueued and then sits there: the upload succeeds,
+the submission stays `queued`, and `ocr_output` stays null with no error
+anywhere. Run `php artisan queue:work` in a second shell to watch the OCR agent
+actually fire. Don't diagnose this as a broken agent — and note the test suite
+can't catch it, because `CaptureTest` calls `Queue::fake()` on purpose (see
+[AI pipeline](#ai-pipeline)).
+
+### What is actually on the internet
+
+*Measured 2026-08-10 with `dig`, `curl`, `openssl s_client` and
+`capture:check-storage`. The app half of this domain has never been connected;
+the photo half has been since 2026-08-09.*
+
+| Host | Measured 2026-08-10 |
+|---|---|
+| `img.collectai.club` | **Working.** R2 custom domain, valid Cloudflare cert (`Verify return code: 0`). `capture:check-storage` passes all four steps: write, read, public fetch, delete. Root and unknown keys 404 by design — that is not breakage |
+| `collectai.club` | **Porkbun parking page.** `200` over HTTP, **`525`** over HTTPS |
+| `www.collectai.club` | Same parking page, same behaviour |
+
+**The 525 is not a broken deployment — it is the absence of one.** DNS is
+correctly delegated to Cloudflare (`cris`/`suzanne.ns.cloudflare.com`), and the
+apex and `www` are *proxied* A records that still point at Porkbun's parking
+service. The fingerprints are unambiguous: `X-Service: pixie-default`,
+`gtag('config', …, {'page_path': '/parked'})`, `X-Powered-By: PHP/8.0.25`, and
+AWS ALB cookies. Cloudflare reaches that origin fine over port 80 and hands back
+the parking page, but cannot complete a TLS handshake with a certificate that
+doesn't cover this domain — hence `525` on HTTPS and `200` on HTTP. Anyone
+diagnosing the 525 as a misconfigured origin will look for a server that does
+not exist.
+
+**There is no deployment configuration in this repo, anywhere.** No
+`.github/workflows`, no `fly.toml`, `render.yaml`, `Procfile`, `vercel.json`,
+`captain-definition`, no cloudflared or tunnel config. `docker-compose.yml`
+builds a development box: one `php artisan serve` process, no queue worker, no
+web server in front of it, `APP_URL=http://localhost`. So the app is reachable
+only from this Mac on `localhost:8000`. This is a deployment that has never
+existed, not one that lapsed.
+
 **The entire HTTP surface is twelve routes** (`routes/web.php`):
 
 | Route | State |
 |---|---|
-| `GET /` | Stock Laravel welcome page, untouched scaffold |
+| `GET /` | Stock Laravel welcome page. Scaffold apart from one fix: its authed "Dashboard" button hardcoded `url('/dashboard')`, a route this app has never had, so every logged-in visitor was one click from a 404. Now `route('admin.dashboard')` |
 | `GET\|POST /login` | Real. Admin only — no registration, no password reset |
 | `POST /logout` | Real |
 | `GET /admin` | Two queues: submissions awaiting review, and a link to the inferred queue below |
@@ -214,11 +264,17 @@ Comparison finally has a catalog to diff against.
 
 **Make/Model inference landed, ran for real, and the queue was worked on
 2026-08-09.** All 241 imported castings have been through the Metadata Agent and
-the review queue is down to 7. **The catalog is browsable** — 218 live castings,
-3,772 releases, **5,543 live variations** (88% of the import), under 110 model
-rows of which 54 carry a generation. What's left is a small, named backfill:
-22 castings the agent honestly couldn't name, 7 held proposals (see the
-near-duplicate item below), and 1,298 imported records waiting behind them.
+the inferred queue is down to 7. **The catalog is browsable** — 218 live
+castings, 3,772 releases, **5,543 live variations** (88% of the import), 118
+model rows of which 55 carry a generation. What's left is a small, named
+backfill: 23 castings the agent honestly couldn't name, 7 held proposals (see
+the near-duplicate item below), and the 1,333 pending records waiting behind
+them (32 castings, 32 versions, 514 releases, 755 variations).
+
+**Two queues, and only one of them is the backlog.** `/admin/proposals` holds
+the 7 inferred proposals above; the 5 others in the DB belong to
+`SubmissionSeeder`'s one submission and are fixture data, not work. Count them
+apart — 12 pending proposals is the expected total, not a regression.
 
 **The obvious next moves:**
 
@@ -244,7 +300,27 @@ near-duplicate item below), and 1,298 imported records waiting behind them.
 - **Deploy to the apex.** `collectai.club` is registered and delegated to
   Cloudflare but nothing is deployed, so the capture screen has never run on a
   phone — which is the only place it's meant to run. The app is now installable
-  the moment it's served over HTTPS.
+  the moment it's served over HTTPS, and HTTPS already terminates at the
+  Cloudflare edge, so the install prompt should work the moment an origin
+  exists. What is measured to be live, and why the apex returns 525 today, is in
+  [What is actually on the internet](#what-is-actually-on-the-internet).
+
+  **Picking a host is the first decision, not a later detail**, because there is
+  no deployment configuration in this repo to inherit one from, and the choice
+  constrains everything after it. The app needs Postgres, Redis and a queue
+  worker running beside it, so a static or function-only host cannot serve it.
+  Then, in order:
+
+  1. Replace the apex and `www` parking records — this is a *replacement*, not a
+     new record, and forgetting that leaves the parking page winning.
+  2. Set `APP_URL=https://collectai.club`. Local-disk photo URLs are signed
+     against `APP_URL`, and session and redirect URLs are built from it.
+  3. Set Cloudflare SSL to **Full (strict)** once the origin has a real
+     certificate. Leaving it on Flexible would clear the 525 while sending
+     traffic to the origin unencrypted, which reads as success.
+  4. Run a real web server plus a separate `queue:work` process. `artisan serve`
+     is single-process and development-only, and without a worker every capture
+     silently skips OCR (see [Current state](#current-state)).
 - **Import more years.** `catalog:import-hot-wheels --year=2012` needs no new
   code, and `catalog:identify-castings` will pick up whatever it adds.
 - **Join the two agents up.** Metadata is currently driven by the import
@@ -258,12 +334,16 @@ near-duplicate item below), and 1,298 imported records waiting behind them.
   of doing the import first — and `variations.toy_number` is the match key to
   reach for before fuzzy name matching, since it's what the OCR agent already
   reads off the card.
-- **Prove the OCR agent against the live API.** It has never run for real —
-  there's no `ANTHROPIC_API_KEY` set, and every test to date uses a faked PSR-18
-  transport. The one genuinely unverified assumption is that the API's
+- **Prove the OCR agent against the live API.** A working key *is* now set
+  (`COLLECTAI_ANTHROPIC_KEY` in `.env`) and the Metadata Agent has billed real
+  calls against it, so the credential is no longer the blocker — OCR simply
+  hasn't been pointed at a real photo yet, and every test to date uses a faked
+  PSR-18 transport. The one genuinely unverified assumption is that the API's
   structured-output subset accepts `"type": ["string", "null"]`; if it doesn't,
-  that's a 400 at schema compilation and a switch to `anyOf`. Cheap to check,
-  and everything downstream is built on that schema.
+  that's a 400 at schema compilation and a switch to `anyOf`. Note
+  `casting_identity.json` uses the same construct and the Metadata Agent's live
+  runs succeeded, which is strong evidence it's accepted — but confirm on the
+  OCR schema rather than inferring it. Everything downstream is built on it.
 
 Note the layout lives at `resources/views/components/layouts/app.blade.php`
 (anonymous Blade components resolve under `views/components/`), and the base
@@ -271,9 +351,10 @@ Note the layout lives at `resources/views/components/layouts/app.blade.php`
 
 **Further out, still untouched:** Meilisearch indexing (`laravel/scout` isn't
 installed), the public catalog, collections/wishlists, price charts, barcode
-scanning. `/` is still the stock welcome page and is the one screen not using
-the app layout, so it carries no manifest link — install works from `/login`
-and `/admin/*`. Worth folding in whenever the public catalog replaces it.
+scanning. `/` is still essentially the stock welcome page (one dead link fixed,
+see the route table) and is the one screen not using the app layout, so it
+carries no manifest link — install works from `/login` and `/admin/*`. Worth
+folding in whenever the public catalog replaces it.
 
 ## How to work in this repo
 
@@ -594,6 +675,10 @@ The rationale for each is in the [session log](docs/session-log.md).*
   tables, and "everything awaiting review" is one indexed read instead of an
   eight-way UNION. Unique on `(proposable_type, proposable_id)` — a record is
   proposed once; re-photographing a car is the Comparison Agent's problem.
+- **`decision` is the string `'pending'`, never NULL.** An undecided proposal
+  carries the word, so `whereNull('decision')` matches zero rows and reports an
+  empty queue whichever way the backlog is actually going — the one wrong answer
+  that looks like success. Query `where('decision', 'pending')`.
 - **Rejected is a terminal state, not a delete**, so a resubmitted photo can be
   recognised as something an admin already turned down.
 - **`config/catalog.php`** holds the admin identity and
@@ -964,8 +1049,14 @@ the [session log](docs/session-log.md).*
 - **Admin auth returns 404, not 403** for non-admins, so they can't discover the
   admin area exists. Login is throttled on email+IP together.
 - **The domain is `collectai.club`** — registered at Porkbun, DNS delegated to
-  Cloudflare (2026-08-09). The app itself isn't deployed anywhere yet; the apex
-  is deliberately still free for it. `img.collectai.club` is a custom domain on
+  Cloudflare (2026-08-09). The app itself isn't deployed anywhere yet, and the
+  apex is **not** free for it: `collectai.club` and `www` are proxied A records
+  still pointing at Porkbun's parking page (`X-Service: pixie-default`), left
+  over from registration. Measured 2026-08-10, that serves the parking page over
+  HTTP and **error 525** over HTTPS, because Cloudflare can't complete a TLS
+  handshake with a parking origin whose certificate doesn't cover this domain.
+  Deploying means replacing those records, not creating them.
+  `img.collectai.club` is a custom domain on
   the `collectai-photos` R2 bucket, chosen over the bucket's `r2.dev` subdomain
   because `r2.dev` is rate-limited and explicitly not for production — and
   because photo URLs outlive whatever hostname first served them.
