@@ -182,6 +182,22 @@ trait HasApprovalStatus
         return $this->forceFill(['status' => self::STATUS_LIVE])->save();
     }
 
+    /**
+     * What turning down a proposal for this record should do to the record.
+     *
+     * The default is to reject the record itself, because in the capture
+     * pipeline the proposal and the record are the same claim: the pipeline
+     * invented the row, so "no" means the row shouldn't exist.
+     *
+     * That stops being true once a proposal can be about a record that arrived
+     * from somewhere else. A model overrides this when a proposal may be
+     * annotating it rather than proposing it — see Casting.
+     */
+    public function rejectProposed(): void
+    {
+        $this->markRejected();
+    }
+
     public function markRejected(): bool
     {
         return $this->forceFill(['status' => self::STATUS_REJECTED])->save();

@@ -5,7 +5,7 @@ domain model, conventions and current state only have to be explained once.
 **Treat this file as the source of truth, not the conversation history** —
 update it whenever a convention changes.
 
-**Last edited:** 2026-08-09 (two duplicate importers reconciled into one)
+**Last edited:** 2026-08-09 (Metadata Agent — Make/Model inference — landed)
 
 ## Start here
 
@@ -33,10 +33,13 @@ The five things most likely to trip you up, each expanded below:
 4. **A cross-brand release is legal.** One casting is one physical tool; the
    brand that sold it is a fact about the release. See
    [Settled decisions → Schema](#schema).
-5. **Nothing auto-publishes.** Catalog rows default to `pending`, `status` is
-   not fillable anywhere, and approval promotes the whole ancestor chain. The
-   6,295 imported variations are all pending because their castings have no
-   identified model — that's the blocker doing its job, not a bug.
+5. **Nothing auto-publishes on the capture path.** Catalog rows default to
+   `pending`, `status` is not fillable anywhere, and approval promotes the whole
+   ancestor chain. Imported castings arrive unidentified and their releases and
+   variations are held back with them — that's the blocker doing its job, not a
+   bug. The importer's *own inferences* are the one exception, and they have
+   their own separate threshold; see
+   [Make/Model inference](#makemodel-inference).
 
 ## Index
 
@@ -45,7 +48,7 @@ The five things most likely to trip you up, each expanded below:
 - [How to work in this repo](#how-to-work-in-this-repo) — conventions, traps
 - [Domain model](#domain-model) — [Make/Model splitting](#makemodel-splitting-rules) · [field definitions](#field-definitions)
 - [AI agent pipeline](#ai-agent-pipeline) — [example flow](#example-flow) · [acquisition priorities](#data-acquisition-priorities)
-- [Settled decisions](#settled-decisions) — [schema](#schema) · [approval](#approval--submissions) · [capture](#capture) · [AI pipeline](#ai-pipeline) · [catalog import](#catalog-import-hot-wheels-wiki) · [review](#review) · [delivery](#delivery)
+- [Settled decisions](#settled-decisions) — [schema](#schema) · [approval](#approval--submissions) · [capture](#capture) · [AI pipeline](#ai-pipeline) · [catalog import](#catalog-import-hot-wheels-wiki) · [Make/Model inference](#makemodel-inference) · [review](#review) · [delivery](#delivery)
 - [Open questions](#open-questions)
 - [Session log](docs/session-log.md) — narrative and rationale, loaded on demand
 
@@ -57,26 +60,29 @@ The five things most likely to trip you up, each expanded below:
 the fastest way for a new session to avoid assuming something exists.*
 
 **Running:** `docker compose up -d` brings up `app` (:8000), `db` (Postgres 16,
-:5432), `redis` (:6379), `meilisearch` (:7700). `php artisan test` → **154
-passed, 444 assertions**.
+:5432), `redis` (:6379), `meilisearch` (:7700). `php artisan test` → **202
+passed, 580 assertions**.
 
 **A clean checkout has no `.env`** (it's gitignored), so the suite fails on
 `MissingAppKeyException` before it reaches anything real. `cp .env.example .env
 && php artisan key:generate` is step one.
 
-**The entire HTTP surface is nine routes** (`routes/web.php`):
+**The entire HTTP surface is twelve routes** (`routes/web.php`):
 
 | Route | State |
 |---|---|
 | `GET /` | Stock Laravel welcome page, untouched scaffold |
 | `GET\|POST /login` | Real. Admin only — no registration, no password reset |
 | `POST /logout` | Real |
-| `GET /admin` | Review queue — submissions awaiting review, each linking to its review screen |
+| `GET /admin` | Two queues: submissions awaiting review, and a link to the inferred queue below |
 | `GET /admin/capture` | Real. Camera capture form + optional brand/year/series hints |
 | `POST /admin/capture` | Real. Uploads photos, creates a `queued` submission |
 | `GET /admin/submissions/{submission}` | Real. Photos + proposals, with approve/reject |
 | `POST …/{submission}/proposals/{proposal}/approve` | Real. Scoped bindings |
 | `POST …/{submission}/proposals/{proposal}/reject` | Real. Scoped bindings |
+| `GET /admin/proposals` | Real. Proposals with **no** submission behind them — the importer's inferences, paginated |
+| `POST /admin/proposals/{proposal}/approve` | Real. Unscoped — there is no parent to scope to |
+| `POST /admin/proposals/{proposal}/reject` | Real. Retracts, rather than rejects, an imported casting |
 
 **Built and tested:**
 
@@ -129,6 +135,26 @@ passed, 444 assertions**.
   dispatches the job; it reads the packaging with a Claude vision call and
   writes the result to `submissions.ocr_output`. Tests fake the SDK's PSR-18
   transporter, so they assert the real request body without an API key.
+- **The Metadata Agent** (`app/AI/schemas/casting_identity.json` — **v2**,
+  `app/Services/AI/MetadataAgent.php` + `CastingIdentity`,
+  `app/Services/Catalog/CastingIdentifier.php`, `catalog:identify-castings`).
+  Turns a casting name into a Make/Model and a *generation* — or a fantasy flag,
+  or an honest "unknown" — with per-field confidence, and writes the result.
+  Asks in batches of 25 behind a cached system prompt, and matches answers back
+  **by casting id with the name echoed for confirmation**, never by position.
+  `--regenerate` re-files already-attributed castings under the right
+  generation, writing only `castings.model_id` and refusing to move any casting
+  whose make/model no longer agrees with the catalog. See
+  [Make/Model inference](#makemodel-inference) for the rules.
+- **`catalog:publish-imported`** — publishes the casting versions, releases and
+  variations that were only ever waiting on a blocked casting. Separate from
+  approval on purpose, and gated on *ancestors already live* rather than on "no
+  blockers". Both calls are explained under
+  [Make/Model inference](#makemodel-inference).
+- **The inferred-proposal review screen** (`ProposalReviewController`,
+  `resources/views/admin/proposals/index.blade.php`) — the queue for proposals
+  with no submission behind them. Same model methods as the submission screen;
+  what differs is that there are no photos, so it links the source page instead.
 - **R2**, verified end to end on 2026-08-09 against the live `collectai-photos`
   bucket: the capture endpoint stored a 150,000-byte photo, and fetching
   `Photo::url()` over `img.collectai.club` returned identical bytes (md5 match)
@@ -143,11 +169,15 @@ passed, 444 assertions**.
 
 **Not built — do not assume these exist:**
 
-- **Only the first of the seven agents exists.** The OCR Agent reads packaging
-  text; Metadata, Search, Comparison, Insertion and Review do not exist, so a
-  completed submission has a reading and **no proposals**. Nothing populates the
-  review queue automatically yet — `SubmissionSeeder` is still what puts
-  proposals in it.
+- **Two of the seven agents exist, and they are not yet joined up.** OCR reads
+  packaging text into `submissions.ocr_output`; Metadata attributes *imported
+  castings* from their names. Nothing connects the two: Metadata is driven by
+  `catalog:identify-castings` over the import backlog, and does not read a
+  submission's OCR output. Search, Comparison, Insertion and Review do not
+  exist, so a completed capture still has a reading and **no proposals**, and
+  `SubmissionSeeder` is still what puts anything in the *submission* queue.
+  Pointing Metadata at a capture's reading is a natural next step and is not
+  built.
 - **The dump has never been read for real.** `DumpPageSource` is tested against
   an archive built by the same 7-Zip binary, but every real run so far has gone
   through `ApiPageSource`. Going wide (11,041 pages) should use `--dump=` and is
@@ -175,45 +205,59 @@ them.
 
 **The capture/review milestone is complete as of 2026-08-09** — capture, review
 and the PWA shell all landed. The admin loop closes: photograph a car, rule on
-what the pipeline proposed, watch it go live. Nothing produces proposals
-automatically yet, so `SubmissionSeeder` is still what puts anything in the
-queue.
+what the pipeline proposed, watch it go live. Nothing produces proposals from a
+*capture* automatically yet, so `SubmissionSeeder` is still what puts anything
+in that queue.
 
 **The importer landed on 2026-08-09** and 2011 has been imported for real, so
 Comparison finally has a catalog to diff against.
 
+**Make/Model inference landed, ran for real, and the queue was worked on
+2026-08-09.** All 241 imported castings have been through the Metadata Agent and
+the review queue is down to 7. **The catalog is browsable** — 218 live castings,
+3,772 releases, **5,543 live variations** (88% of the import), under 110 model
+rows of which 54 carry a generation. What's left is a small, named backfill:
+22 castings the agent honestly couldn't name, 7 held proposals (see the
+near-duplicate item below), and 1,298 imported records waiting behind them.
+
 **The obvious next moves:**
 
-- **Make/Model inference — the one thing blocking everything imported.** 241
-  castings are sitting `pending` and unidentified, and each one blocks its own
-  releases and variations from ever going live. This is the Metadata Agent's
-  work: read `'72 Ford Gran Torino Sport` and produce Make: Ford, Model: Gran
-  Torino Sport, with a confidence. Above `catalog.import.auto_approve_threshold`
-  it attaches; below it, the casting stays pending as a backfill queue. The
-  plumbing is in place — `submission_proposals.submission_id` is nullable now —
-  but nothing reads that threshold yet, and there is no review screen for a
-  proposal with no submission behind it.
+- **Resolve the 7 held proposals, which are all one question.** Each is a
+  casting whose stored nameplate carries a trim the v2 prompt now strips —
+  `Corvette Grand Sport` → `Corvette`, `Hummer H2 SUT` → `H2`, `Mini Cooper S
+  Challenge` → `Cooper`. They were deliberately left pending rather than ruled
+  on: approving publishes a near-duplicate model row beside the generation rows,
+  and rejecting throws away an attribution that isn't wrong, only differently
+  scoped. Deciding whether a trim is its own model row is the near-duplicate
+  call `models.name` has no unique constraint *for*, and belongs with the
+  Comparison Agent. `--regenerate`'s skipped list is the full worklist.
+- **Trim names are leaking into `models.name`, creating near-duplicates.**
+  The v1 prompt produced rows like `Corvette Grand Sport`, `Corvette Stingray
+  Concept`, `911 GT3 RS` and `H2 SUT`; v2 says "the nameplate alone" and now
+  reduces those to `Corvette`, `911`, `H2`. The re-split's make/model guard
+  correctly refused to re-attribute them on its own — 7 castings were skipped
+  and reported — so the catalog currently holds both spellings. Merging a trim
+  row into its nameplate row is a near-duplicate judgement, which is the
+  Comparison Agent's job; the skipped list from `--regenerate` is the worklist.
+  One of them is a genuine correction worth taking: `Custom '41 Willys Coupe`
+  is a Willys **Americar**, not "Coupe".
 - **Deploy to the apex.** `collectai.club` is registered and delegated to
   Cloudflare but nothing is deployed, so the capture screen has never run on a
   phone — which is the only place it's meant to run. The app is now installable
   the moment it's served over HTTPS.
-- **Import more years, then attribute what's imported.** The importer is done
-  and 2011 is in; `catalog:import-hot-wheels --year=2012` needs no new code. The
-  more interesting follow-on is the 241 pending castings: nothing yet turns "a
-  real car, not identified yet" into a Make/Model, and that inference is exactly
-  what `submission_proposals` is for. That is the natural first customer for the
-  Metadata Agent below.
-- **Then the rest of the AI pipeline.** The OCR Agent landed on 2026-08-09, so a
-  capture produces a reading. The next link turns a reading into proposals:
-  **Metadata** (normalise the read strings against known naming), then
+- **Import more years.** `catalog:import-hot-wheels --year=2012` needs no new
+  code, and `catalog:identify-castings` will pick up whatever it adds.
+- **Join the two agents up.** Metadata is currently driven by the import
+  backlog only. A capture produces an OCR reading and still yields no proposals,
+  because the link that turns a reading into catalog records doesn't exist:
   **Comparison** (deterministic `pg_trgm` lookup — no LLM call) and **Insertion**
-  (create pending records + `submission_proposals`). Until those exist the review
-  queue only fills from `SubmissionSeeder`. Whoever writes Insertion must create
-  `CastingVersion` 1 explicitly — nothing does it automatically, see below.
-  Comparison now has a real catalog to diff against, which was the point of
-  doing the import first — and `variations.toy_number` is the match key to reach
-  for before fuzzy name matching, since it's what the OCR agent already reads
-  off the card.
+  (create pending records + `submission_proposals`). Until those exist the
+  submission queue only fills from `SubmissionSeeder`. Whoever writes Insertion
+  must create `CastingVersion` 1 explicitly — nothing does it automatically, see
+  below. Comparison now has a real catalog to diff against, which was the point
+  of doing the import first — and `variations.toy_number` is the match key to
+  reach for before fuzzy name matching, since it's what the OCR agent already
+  reads off the card.
 - **Prove the OCR agent against the live API.** It has never run for real —
   there's no `ANTHROPIC_API_KEY` set, and every test to date uses a faked PSR-18
   transport. The one genuinely unverified assumption is that the API's
@@ -380,7 +424,10 @@ Make (real-world manufacturer, e.g. Mazda)
   approval rather than go live unattributed.
 - Prefer the specific chassis code (e.g. FD3S) in the Model record's metadata
   when identifiable, since the same nameplate can span multiple real-world
-  generations.
+  generations. **Only when the Model record covers exactly one generation** —
+  a row that several castings share cannot carry a code, because the castings
+  span the generations the code is meant to distinguish. See
+  [Make/Model inference](#makemodel-inference).
 - A single real Make/Model can be tooled by multiple brands (Hot Wheels,
   Matchbox and GreenLight might each cut their own RX-7) — those are separate
   Castings, while the Model is shared.
@@ -398,9 +445,10 @@ For consistency across agents and manual entry.
 
 ## AI agent pipeline
 
-**Agent 2 of 7 is written** — see [Current state](#current-state). The tables the
-rest write into, and the approve/reject mechanics they feed, are built and
-tested.
+**Agents 2 and 3 of 7 are written** — see [Current state](#current-state). They
+are not yet joined to each other: OCR runs off a capture, Metadata runs off the
+import backlog. The tables the rest write into, and the approve/reject mechanics
+they feed, are built and tested.
 
 Order matters; later agents depend on earlier output. Only the first three
 should call the Claude API directly. Everything from Comparison onward should be
@@ -413,9 +461,11 @@ reliable for DB matching.
    schema at `app/AI/schemas/ocr_output.json` is sent to the model as the
    structured-output format *and* is the contract for `submissions.ocr_output`,
    so the prompt and the stored shape cannot drift.
-3. **Metadata Agent** — normalizes extracted names/attributes against known
-   casting/brand/series naming conventions (resolves OCR typos, standardizes
-   series names).
+3. **Metadata Agent** — **built.** Normalizes names against known conventions.
+   Today it does the Make/Model split behind an imported casting name, driven by
+   `catalog:identify-castings`; the same agent is where resolving OCR typos and
+   standardizing series names belongs when a capture needs it. See
+   [Make/Model inference](#makemodel-inference).
 4. **Search Agent** — finds corroborating public references for anything not
    already resolvable from the DB.
 5. **Comparison Agent** — deterministic DB lookup (`pg_trgm` trigram similarity,
@@ -636,9 +686,24 @@ in the [session log](docs/session-log.md).*
   so don't "fix" them into looking consistent. `OCR_FALLBACKS` turns it off:
   it's Claude-API-only and eligible substitutes are per-model.
 - **Tests fake the SDK's PSR-18 transporter, never the client.** A mocked client
-  only proves `OcrAgent` called the method it was written to call; faking
+  only proves an agent called the method it was written to call; faking
   transport means the SDK really serialises the request, so the tests assert the
   actual JSON body — and catch a named argument that doesn't reach the wire.
+  `tests/Concerns/FakesAnthropicTransport` is the shared seam.
+- **One `Anthropic\Client` for every agent, keyed from
+  `catalog.anthropic.api_key`.** They are calls to the same account; what
+  differs per agent (model, effort, token budget) is a request parameter, not
+  client state. The key used to live at `catalog.ocr.api_key`, which stopped
+  being an honest name the moment there was a second agent.
+- **The env var is `COLLECTAI_ANTHROPIC_KEY`, never `ANTHROPIC_API_KEY`.**
+  That name is resolved first by Claude Code, the Anthropic SDKs and the `ant`
+  CLI — ahead of an OAuth subscription profile — so anything that loads this
+  repo's `.env` into the environment would silently switch those tools to
+  billing the API account. Laravel reads `.env` off disk itself and the client
+  is passed the key explicitly, so the value never needs to be in the
+  environment. Don't "fix" this back to the conventional name. Note the
+  blank-value form of the same trap: an empty `ANTHROPIC_API_KEY` still wins its
+  precedence slot and authenticates with an empty key.
 - **`Queue::fake()` is load-bearing in `CaptureTest`.** The suite runs the
   `sync` driver, so without it the capture endpoint's dispatch runs the vision
   call inline and a file-upload test makes a live API request.
@@ -749,6 +814,90 @@ Year indexes exist as `List of YYYY Hot Wheels`, 1968–2027. Two gotchas: `Col 
 arrives as `032/244`, and Series as `[[2011 New Models]]<br>32/50` — both need
 splitting, and Series being a wiki-link means series identity is resolvable
 rather than a bare string.
+
+### Make/Model inference
+
+*The Metadata Agent and the two commands that drive it. Landed 2026-08-09;
+reasoning in the [session log](docs/session-log.md).*
+
+- **Three verdicts, not two.** `casting_identity.json`'s `kind` is
+  `real` / `fantasy` / `unknown`, mapping onto the three states `castings`
+  already has. **"unknown" is a first-class answer**, and the prompt says so at
+  length: `'64 Pontiac GTO` and `Bone Shaker` are easy, but `Circle Tracker`,
+  `Monster Vette`, `F-Racer` and `Honda Racer` are real names from the real
+  import, and a model with only two options resolves them by guessing. An
+  unknown writes nothing and is counted separately from failures, not filed as a
+  skip where it would bury them.
+- **The score decides whether an attribution is *published*, never whether it is
+  *written down*.** Every usable answer attaches `model_id` (or `is_fantasy`)
+  whatever it scored; only approval is gated. Withholding the attachment below
+  the threshold sounds safer and isn't: `Casting::approvalBlocker()` refuses to
+  approve a casting with no model, so the reviewer would be handed a proposal
+  they cannot act on and `ProposalPresenter` would render it "Not identified
+  yet". Nothing is exposed either way — the casting is pending until approved.
+- **Proposal confidence is `min(make, model)`, not the average.** Approving
+  publishes both, so an attribution is as good as its weaker half, and the
+  manufacturer is usually the easy part — averaging is exactly how a guessed
+  nameplate rides a certain make over the line.
+- **A `models` row is one generation of one nameplate, not the nameplate.**
+  The lookup key is `(make_id, name, generation_start_year)` — the start year,
+  because not every generation has a manufacturer code but every generation has
+  years. This is the fix for the first live run's worst bug: seven Corvette
+  castings spanning C2 to C6 all resolved to a single "Chevrolet / Corvette" row
+  which then took whichever chassis code arrived first and mislabelled the other
+  six. A nameplate is not one vehicle. Corollary: **a null start year is its own
+  bucket, not a wildcard** — `where generation_start_year = null` matches nothing
+  in Postgres, so the lookup uses an explicit `whereNull` or every unplaced
+  casting mints a fresh row.
+- **A generation is one claim — code plus both years — recorded or dropped
+  whole.** Half of it files a casting under a generation the agent never
+  asserted. `VehicleModel::generationLabel()` renders it as `C3 (1968–1982)`,
+  or `1967–1969` where the manufacturer publishes no code, or `2020–present`.
+- **Generation has its own threshold, `import.generation_threshold` (0.65),
+  and the value was measured.** Scores come back *bimodal*: a name with no model
+  year in it scores exactly 0.00, and a real generation scores 0.66–0.92 and was
+  correct in every one of 22 sampled castings. The bar belongs in the empty gap,
+  not inside the upper cluster — at 0.85 it discarded four of ten correct
+  generations, and at 0.75 it left comparable castings on both sides of the
+  line, which is the tell that a threshold is sitting on noise. Re-measure the
+  gap rather than nudging the number if the model or prompt changes.
+- **Batched, and therefore matched by id with the name echoed back.** Batching
+  is what makes 11,041 castings affordable, and it introduces the one failure
+  this pipeline doesn't otherwise have: a well-formed answer about the *wrong
+  car*. Structured outputs guarantee the shape and cannot catch it. An id that
+  wasn't in the batch, or an echoed name that doesn't match what was sent under
+  that id, is **dropped**. Do not "fix" that by trusting position or by matching
+  loosely — a dropped answer leaves a casting unidentified, a misfiled one
+  publishes Bone Shaker as a Pontiac GTO on the GTO's score.
+- **Makes are matched case-insensitively on the exact name, never fuzzily.**
+  `makes.name` is hard-unique, so "Chevy" beside "Chevrolet" is not a collision
+  the DB catches — it is two rows for one company. The known-make list is sent
+  with every batch for that reason. Fuzzy matching is the Comparison Agent's
+  job and would merge a Ford GT into a Ford GT40.
+- **Rejecting an inference is not rejecting the record.**
+  `HasApprovalStatus::rejectProposed()` defaults to `markRejected()` — right for
+  the capture path, where the pipeline invented the row. `Casting` overrides it:
+  a casting carrying provenance has its attribution retracted and goes back to
+  unidentified. Marking that row rejected would throw away a real, sourced
+  casting and strand every release and variation under a parent that can never
+  go live. `CastingIdentifier::outstanding()` then won't re-infer it — a
+  rejected proposal is a ruling, not a gap.
+- **A bulk agent run survives an API error but not a rejected credential.**
+  `CastingIdentifier` records a rate limit, a 529, a dropped connection or a
+  refusal as a failed batch and carries on — one bad batch shouldn't cost the
+  240 castings behind it. `AuthenticationException` and `PermissionDeniedException`
+  are deliberately re-thrown: nothing about the next batch would differ, and
+  swallowing them means grinding through every batch and finishing with a report
+  that reads like the model was unsure rather than like the key is wrong.
+- **`catalog:publish-imported` is separate from approval, and gated on
+  "ancestors already live" rather than "no blockers".** Approval walks upward
+  only and that asymmetry is settled, so identifying castings publishes makes,
+  models and castings and leaves 10,837 imported records exactly where they
+  were; this is the step that releases them. The gate is the safety property: a
+  casting whose attribution scored 0.4 is pending and perfectly *approvable*, so
+  a blocker check would publish its releases and make the reviewer's decision
+  for them. It also only touches records with a `record_sources` row, so a
+  capture's pending variation is never swept up.
 
 ### Review
 

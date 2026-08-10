@@ -14,6 +14,230 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-08-09 — Make/Model inference: the Metadata Agent
+
+The 241 imported castings were all `pending` and unattributed, and each was
+holding its own releases and variations back — 10,837 records in total, none of
+them browsable. This is the step that clears that.
+
+`php artisan test` green at **202 passed, 580 assertions** (154 before).
+
+**The shape: one agent that decides, one service that writes.** `MetadataAgent`
+turns casting names into attributions and touches no tables; `CastingIdentifier`
+resolves those against the catalogue, attaches them and rules on them. Same
+split the pipeline draws everywhere else, and it means every interesting
+decision — which answers get written, which get published — is testable without
+a model in the loop.
+
+**Three verdicts, not two.** The output's `kind` is `real` / `fantasy` /
+`unknown`, mapping onto the three states `castings` already has. A nullable
+boolean would have conflated "no real car behind this" with "can't tell", which
+is precisely the distinction `is_fantasy` was added to make. Sampling the real
+names showed why the third one has to exist: `'64 Pontiac GTO` and `Bone Shaker`
+are easy, but `Circle Tracker`, `Monster Vette`, `F-Racer` and `Honda Racer` are
+not, and a model with only two options will resolve them by guessing. An unknown
+verdict writes nothing and leaves the casting where it was.
+
+**The score decides publication, never attachment.** This was the call that
+shaped the rest. The obvious reading of "above the threshold it attaches" is to
+withhold `model_id` below the bar — but a proposal for a casting with no model
+is one nobody can act on: `Casting::approvalBlocker()` refuses to approve it and
+`ProposalPresenter` renders it as "Not identified yet", so the review screen
+would be asking for a ruling on nothing. Attaching always and gating on approval
+gives the reviewer a concrete claim to say yes or no to, and it stays invisible
+either way because the casting is still pending. Invisible and concrete beats
+visible and vague.
+
+**Confidence is the minimum of make and model, not the average.** Approving
+publishes both, so an attribution is exactly as good as its weaker half.
+Averaging would let a certain "Ford" carry a guessed nameplate over the line —
+which is the failure mode, since the manufacturer is usually the easy part.
+`chassis_code` is scored and attached separately: a generation nobody was sure
+of shouldn't hold back a make and model that are certain, and a wrong chassis
+code is a silent wrong fact on the one field that exists to disambiguate
+generations.
+
+**Batching, and the misalignment it introduces.** 241 castings one at a time is
+241 round trips and the full wiki is 11,041, so the agent asks in batches of 25
+behind a cached system prompt. That buys one new failure mode that nothing else
+in this pipeline has: a batch is the one place a model can return a perfectly
+well-formed answer *about the wrong car*. Structured outputs guarantee the shape
+and therefore cannot catch it. So answers are matched back by casting id and the
+schema requires the name echoed back verbatim; an id that wasn't in the batch,
+or a name that doesn't match what was sent under that id, is dropped rather than
+written. A dropped answer leaves a casting unidentified, which is recoverable; a
+misfiled one publishes Bone Shaker as a Pontiac GTO on the GTO's score.
+
+**Rejecting an inference is not rejecting the record.** `SubmissionProposal::
+reject()` marked the proposable rejected, which is right on the capture path —
+the pipeline invented the row, so "no" means it shouldn't exist. It is wrong
+here: the wiki states the casting and its whole Versions table, and the only
+thing inferred was the attribution. Marking the row rejected would throw away a
+real, sourced casting and strand every release and variation beneath it under a
+parent that can never go live. So `rejectProposed()` is now an overridable hook
+on `HasApprovalStatus`, defaulting to the old behaviour, and `Casting` overrides
+it: a casting with provenance has its attribution retracted and goes back to
+being a real car nobody has named. `CastingIdentifier::outstanding()`
+deliberately won't re-infer it — the rejected proposal is a ruling, not a gap.
+
+**Publishing the descendants is a separate command, on purpose.** Identifying
+241 castings makes castings, models and makes live and leaves 10,837 imported
+records exactly where they were, because approval walks upward only and nothing
+walks down. `catalog:publish-imported` is that step. It was kept out of
+`approve()` because the upward-only asymmetry is a settled decision and adding a
+downward cascade would change the capture path too — approving a casting would
+start publishing unrelated pending variations under it.
+
+Its gate is **"ancestors already live"**, not "no blockers". That distinction is
+the whole safety property: a casting whose attribution scored 0.4 is pending and
+perfectly approvable, so a blocker check would happily publish its releases and
+make the reviewer's decision for them. A pending ancestor means a human is still
+deciding, and the descendant waits with them. It also only touches records
+carrying a `record_sources` row, so a capture's pending variation is never swept
+up in a bulk publish.
+
+**A bug worth recording, because the test passed anyway.** The publish command's
+`--dry-run` first rolled back from *inside* `DB::transaction()`. Laravel's
+wrapper then tries to commit, and its `if ($this->transactions == 1)` check —
+which is what makes this harmless in production — is exactly true under
+`RefreshDatabase`, so it committed the savepoint the test framework had opened.
+The dry-run assertions still passed while every row it wrote leaked into the
+next test. Fixed to the explicit `beginTransaction()`/`rollBack()` pattern the
+importer already uses, with a regression test that asserts the transaction level
+is where it started. The general shape: **a rehearsal that manipulates the
+transaction stack has to leave it as it found it, and the assertion that it
+rolled back is not the same as the assertion that it rolled back the right
+thing.**
+
+**The live run, same day.** All 241 castings through the agent in ~9 minutes of
+API time across 10 batches, no failed batches: 137 identified, 82 fantasy, 22
+honestly unknown. `catalog:publish-imported` then released 146 casting versions,
+2,303 releases and 3,489 variations — the catalog is browsable for the first
+time. Three things the run taught that no test could have:
+
+- **The threshold was mis-set at 0.9, and the reason is structural.** In the
+  first 25-casting sample every one of the 11 fantasy verdicts was correct and
+  *none* scored above 0.88, while every real-car identification that cleared 0.9
+  was also correct. Asserting "no real car exists behind this name" is proving a
+  negative, and the model is consistently less confident about it — so a bar set
+  where real-car identifications are safe leaves ~44% of the catalog needing
+  hand-review of answers that were right every time. Moved to **0.85**, which in
+  the sample would have added three correct fantasy calls and nothing wrong.
+- **Passing the known-make list per batch works.** 39 makes across 10 batches
+  with zero fragmentation — no Chevy beside Chevrolet, no VW beside Volkswagen,
+  and correct historical marques (AMC, Mercury, Oldsmobile, Studebaker, Tucker,
+  Willys) rather than everything collapsed onto the nearest famous name. This
+  was the failure `makes.name` being hard-unique cannot catch, and it did not
+  happen.
+- **The chassis-code backfill was a real bug, and only a real catalog exposed
+  it.** Every unit test passed because every fixture had one casting per model
+  row; the wiki has seven Corvettes spanning four generations. **A rule about
+  "the same nameplate across generations" cannot be tested on fixtures that
+  contain one generation.** Nulling the bad code was the stopgap; splitting the
+  rows was the fix — below.
+
+### Generations became rows, same day
+
+Auditing the chassis codes turned up 18 model rows collapsing 70+ castings:
+Ford Mustang held ten spanning four generations, Camaro eight, Corvette seven.
+`chassis_code` alone was never going to fix that, for two reasons:
+
+1. **Not every generation has a code.** First-gen Mustang, second-gen Camaro and
+   fifth-gen Camaro have none in common use, so keying on the code still
+   collapses them. Every generation has *years*.
+2. **A bare code is unreadable.** "C3" means nothing without "1968–1982" beside
+   it — a catalog that can't render the distinction it just made is barely
+   better than one that never made it.
+
+So `models` gained `generation_start_year`/`generation_end_year`, the lookup key
+became `(make_id, name, generation_start_year)`, and the schema went to v2 with
+generation as one claim scored by one number. `generationLabel()` prints
+`C3 (1968–1982)`, `1967–1969`, or `2020–present`. Note the create migration had
+already named `(make_id, name, chassis_code)` as the natural key — the design
+anticipated this; only the years were missing.
+
+**The threshold lesson is the transferable one.** Generation got its own dial,
+and the first two values were guesses that both failed in an instructive way. At
+0.85 the re-split discarded 18 of 25 *correct* generations. At 0.75 it left
+comparable castings on opposite sides of the line — `'65 Mustang` unplaced while
+another Mustang of the same generation was placed — which is the tell that a
+threshold is sitting on noise rather than signal. Probing the raw scores instead
+of nudging the number showed why: **the distribution is bimodal.** A name with
+no model year scores exactly 0.00; a real generation scores 0.66–0.92 and was
+correct in all 22 sampled castings, including `'58 Impala` as a one-year body,
+`'10 BMW M3` as E92 and `'69 Shelby GT500` as 1969–1970. The bar belongs in the
+empty gap between the clusters. **Measure the gap; don't tune the number.**
+
+**The queue, and the third option.** 83 proposals: 51 fantasy verdicts (every one
+a genuine Hot Wheels original — Night Burner, Sky Knife, Mad Propz, RD-04) and
+32 real-car attributions, all correct including the awkward ones ('57 Chevy as a
+1955–57 Bel Air, '49 Drag Merc as a Mercury Eight, '70 AAR Cuda as an E-body
+Barracuda). 76 approved; **7 deliberately left pending**, which is the part worth
+recording. Those seven are the castings whose stored nameplate the v2 prompt now
+strips a trim from, and neither button is right for them: approving publishes a
+near-duplicate model row beside the generation rows, rejecting discards an
+attribution that isn't wrong, only differently scoped. A review screen offers two
+actions, but **not ruling is a third and sometimes correct one** — deciding
+whether a trim deserves its own model row is the near-duplicate judgement
+`models.name` has no unique constraint *for*.
+
+Final: 218 live castings, 3,772 releases, 5,543 live variations — 88% of the
+import — under 110 model rows, 54 of them carrying a generation.
+
+Two things the re-split fixed on its own that had been written up as needing a
+human: `Nissan Skyline GT-R (R32)` came out from under the seeder's R34 row, and
+`Toyota GR Supra` moved off A80 onto its correct A90. What it deliberately did
+*not* do was re-attribute the 7 castings whose make/model the v2 prompt now reads
+differently (`Corvette Grand Sport` → `Corvette`, `911 GT3 RS` → `911`) — the
+guard reported them and left them alone, because silently re-attributing records
+an admin approved, under a command whose job is splitting generations, is a
+change nobody asked for and nobody sees. That skipped list is now the
+near-duplicate worklist.
+
+The judgment calls the threshold correctly kicked to a human were the ones worth
+kicking: `Back to the Future Time Machine` → DeLorean DMC-12 (right, and right
+to hesitate), `'69 Shelby GT500` → Shelby rather than Ford (defensible, but it
+means Shelby and Ford now coexist as makes), and `'63 Ford Mustang II Concept` →
+"Mustang II", which was **wrong** — the '63 show car is not the '74–78
+production Mustang II, and the bare nameplate would have collided with it. That
+last one was retracted, which exercised `Casting::rejectProposed()` on a real
+row: casting kept, provenance intact, attribution cleared, and the rejected
+proposal correctly keeping `outstanding()` from re-proposing the same claim.
+
+**Running the command with no key found the second bug**, which is the argument
+for running things even when you know they'll fail. `identifyBatch` caught only
+`MetadataFailedException`, so the SDK's own exceptions went straight past it: a
+401 stack-traced out of the command, and — worse — a single transient 529 partway
+through would have ended a 241-casting run and lost every batch after it. Now a
+rate limit, a 5xx, a dropped connection or a refusal is recorded as a failed
+batch and the run continues, while `AuthenticationException` and
+`PermissionDeniedException` are re-thrown on purpose: nothing about the next
+batch would differ, and swallowing them means grinding through ten batches to
+produce a report that reads like the model was unsure rather than like the key
+is wrong. The command catches those two, prints the partial summary — six
+batches of real work is the difference between resuming and starting over — and
+exits non-zero with the fix.
+
+**The credential is deliberately not called `ANTHROPIC_API_KEY`.** That name is
+first in the resolution order for Claude Code, the Anthropic SDKs and the `ant`
+CLI — ahead of an OAuth subscription profile — and Anthropic's own CLI docs call
+it "the #1 auth trap". This repo is edited with Claude Code and its `.env` sits
+in that working directory, so the cheap guarantee is that the file never carries
+the name: anything that later sources it (direnv, a `set -a; source .env` in a
+launcher, a CI runner) then changes nothing about how the editor authenticates.
+Laravel reads `.env` off disk itself and `AppServiceProvider` passes the key to
+the client explicitly, so the value never needs to be in the process environment
+at all — which is the same reason `docker-compose.yml` must not gain an
+`env_file:`. Worth knowing the blank-value form too: an empty
+`ANTHROPIC_API_KEY` still wins its precedence slot and authenticates with an
+empty key, so setting it blank is not the same as leaving it unset.
+
+Also folded in: the API key moved from `catalog.ocr.api_key` to
+`catalog.anthropic.api_key`, since two agents now share one account and one
+client; and the dashboard grew a second queue, kept apart from submissions
+because these have no photos and the only thing to check them against is the
+source page.
+
 ## 2026-08-09 — Two importers reconciled into one
 
 Opened the repo to carry on with Make/Model inference and found `php artisan

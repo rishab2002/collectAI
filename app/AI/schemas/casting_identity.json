@@ -1,0 +1,92 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://collectai.club/schemas/casting_identity/v2.json",
+    "title": "Metadata Agent output, version 2",
+    "description": "Which real-world vehicle — and which generation of it — each casting is a model of. Sent to the model verbatim as a structured-output schema and read back by MetadataAgent, so there is one definition of this shape in the project. v2 replaces v1's lone chassis_code with a full generation claim (code plus production years), because generation turned out to be identity rather than description: a nameplate is not one vehicle, and seven Corvette castings spanning C2 to C6 collapsing onto one 'Corvette' record is the bug this version exists to fix. Subset rules as before: no minimum/maximum, no minLength, no recursion, additionalProperties false on every object, so the 0-to-1 bound on confidence is prose here and a check in PHP. Every field is required with null allowed, because an omitted key and a field the model could not determine are different claims.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["schema_version", "identifications"],
+    "properties": {
+        "schema_version": {
+            "const": 2,
+            "description": "Version of this schema, so a later reader can tell which shape it is looking at without guessing from the keys."
+        },
+        "identifications": {
+            "type": "array",
+            "description": "Exactly one entry per casting given, in any order. Castings are matched back up by casting_id, never by position — a batch that comes back short or reordered must not silently attribute one car's identity to another.",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "casting_id",
+                    "casting_name",
+                    "kind",
+                    "make",
+                    "model",
+                    "chassis_code",
+                    "generation_start_year",
+                    "generation_end_year",
+                    "confidence"
+                ],
+                "properties": {
+                    "casting_id": {
+                        "type": "integer",
+                        "description": "The id given for this casting in the request, copied back unchanged."
+                    },
+                    "casting_name": {
+                        "type": "string",
+                        "description": "The casting name given in the request, copied back character for character. This is a tripwire, not data: the reader compares it against what it asked about, so a batch whose answers have drifted out of alignment fails loudly instead of writing the wrong car's make and model."
+                    },
+                    "kind": {
+                        "enum": ["real", "fantasy", "unknown"],
+                        "description": "'real' — a model of a real production or racing vehicle, including a customised or race-bodied version of one. 'fantasy' — an original design by the toy manufacturer with no real-world counterpart, such as Bone Shaker or Twin Mill. 'unknown' — the name does not identify a specific real vehicle and you cannot tell which of the other two it is. 'unknown' is a real answer and is always better than a guess: it leaves the casting in a backfill queue, whereas a guess becomes a published catalogue row that nothing looks at again."
+                    },
+                    "make": {
+                        "type": ["string", "null"],
+                        "description": "The real-world vehicle manufacturer — Ford, Chevrolet, Nissan. Never the toy brand: a Hot Wheels Honda Civic has make 'Honda'. Null unless kind is 'real'."
+                    },
+                    "model": {
+                        "type": ["string", "null"],
+                        "description": "The real-world vehicle's nameplate, without the year prefix the casting name carries and without words describing the toy rather than the car — \"'64 Pontiac GTO\" has model 'GTO', not \"'64 GTO\". The nameplate alone: the generation goes in the three fields below, so this is 'Corvette' and never 'Corvette C3'. Null unless kind is 'real'."
+                    },
+                    "chassis_code": {
+                        "type": ["string", "null"],
+                        "description": "The manufacturer's designation for this generation, where one exists in common use — 'C3' for a 1968-1982 Corvette, 'FD3S' for a 1992-2002 RX-7, 'R32' for that Skyline GT-R, 'S197' for a 2005-2014 Mustang. Null when the manufacturer has no such designation for the nameplate, which is common and is not a failure — the year range below still identifies the generation. Do not invent one."
+                    },
+                    "generation_start_year": {
+                        "type": ["integer", "null"],
+                        "description": "The first model year of the generation this casting depicts, as a four-digit number. This is the generation's own first year, NOT the model year in the casting name: \"'69 Corvette\" is a C3, so this is 1968, the year the C3 began — not 1969."
+                    },
+                    "generation_end_year": {
+                        "type": ["integer", "null"],
+                        "description": "The last model year of that generation, as a four-digit number. Null when the generation is still in production. Null alongside a null start year means the generation could not be determined at all."
+                    },
+                    "confidence": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "description": "Per-field certainty, each between 0 and 1 inclusive. Per-field rather than one score per casting because the parts are separable: a name can name its manufacturer outright while leaving the model or the generation uncertain. A field reported as null scores 0.",
+                        "required": ["kind", "make", "model", "generation"],
+                        "properties": {
+                            "kind": {
+                                "type": "number",
+                                "description": "How sure you are that this is a real vehicle rather than an original design, or the other way round."
+                            },
+                            "make": {
+                                "type": "number",
+                                "description": "How sure you are of the manufacturer."
+                            },
+                            "model": {
+                                "type": "number",
+                                "description": "How sure you are of the nameplate."
+                            },
+                            "generation": {
+                                "type": "number",
+                                "description": "How sure you are of the generation as a whole — the chassis code and the year range together, since they are one claim about which vehicle this is. Below the catalogue's threshold nothing is recorded and the casting is filed against the nameplate with no generation, so score honestly rather than defensively: a wrong generation is a silent wrong fact, and an absent one is a visible gap."
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

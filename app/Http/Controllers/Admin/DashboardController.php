@@ -8,9 +8,14 @@ use App\Models\SubmissionProposal;
 use Illuminate\View\View;
 
 /**
- * The admin landing page. Deliberately thin for now — the capture and review
- * screens land in the next milestone; this exists so login has somewhere to go
- * and so the review queue is visible end to end.
+ * The admin landing page: what is waiting to be ruled on.
+ *
+ * Two queues, kept apart on purpose. Submissions are cars someone photographed,
+ * and the evidence is the photos. The inferred queue is judgements the pipeline
+ * made about imported records, where there is nothing to look at but the source
+ * page. Merging them would put rows in the capture app's list that nobody
+ * captured — the same reason submission_proposals.submission_id was made
+ * nullable instead of a synthetic submission being invented per import run.
  */
 class DashboardController extends Controller
 {
@@ -25,6 +30,11 @@ class DashboardController extends Controller
                 ])
                 ->latest()
                 ->get(),
+
+            'inferredCount' => SubmissionProposal::query()
+                ->whereNull('submission_id')
+                ->undecided()
+                ->count(),
         ]);
     }
 }
