@@ -5,8 +5,9 @@ domain model, conventions and current state only have to be explained once.
 **Treat this file as the source of truth, not the conversation history** —
 update it whenever a convention changes.
 
-**Last edited:** 2026-08-10 (counts re-verified; deployment/DNS state measured
-and recorded — nothing is deployed, and the apex is not free)
+**Last edited:** 2026-08-10 (production deployment configuration written and
+verified locally; **still nothing deployed** — the apex is unchanged and the
+runbook has not been run)
 
 ## Start here
 
@@ -49,7 +50,7 @@ The five things most likely to trip you up, each expanded below:
 - [How to work in this repo](#how-to-work-in-this-repo) — conventions, traps
 - [Domain model](#domain-model) — [Make/Model splitting](#makemodel-splitting-rules) · [field definitions](#field-definitions)
 - [AI agent pipeline](#ai-agent-pipeline) — [example flow](#example-flow) · [acquisition priorities](#data-acquisition-priorities)
-- [Settled decisions](#settled-decisions) — [schema](#schema) · [approval](#approval--submissions) · [capture](#capture) · [AI pipeline](#ai-pipeline) · [catalog import](#catalog-import-hot-wheels-wiki) · [Make/Model inference](#makemodel-inference) · [review](#review) · [delivery](#delivery)
+- [Settled decisions](#settled-decisions) — [schema](#schema) · [approval](#approval--submissions) · [capture](#capture) · [AI pipeline](#ai-pipeline) · [catalog import](#catalog-import-hot-wheels-wiki) · [Make/Model inference](#makemodel-inference) · [review](#review) · [delivery](#delivery) · [deployment](#deployment)
 - [Open questions](#open-questions)
 - [Session log](docs/session-log.md) — narrative and rationale, loaded on demand
 
@@ -109,13 +110,28 @@ doesn't cover this domain — hence `525` on HTTPS and `200` on HTTP. Anyone
 diagnosing the 525 as a misconfigured origin will look for a server that does
 not exist.
 
-**There is no deployment configuration in this repo, anywhere.** No
-`.github/workflows`, no `fly.toml`, `render.yaml`, `Procfile`, `vercel.json`,
-`captain-definition`, no cloudflared or tunnel config. `docker-compose.yml`
-builds a development box: one `php artisan serve` process, no queue worker, no
-web server in front of it, `APP_URL=http://localhost`. So the app is reachable
-only from this Mac on `localhost:8000`. This is a deployment that has never
-existed, not one that lapsed.
+**There is now deployment configuration, but it has never been run.** The
+target is a single AWS Lightsail box: `docker-compose.prod.yml` plus the
+Dockerfile's `prod` stage (nginx + php-fpm under supervisord, a separate
+`queue:work` container, Postgres, Redis), with `docs/deploy.md` as the runbook.
+Nothing has been provisioned, so the table above is still exactly what is on the
+internet — the 525 stands until someone works through the runbook.
+
+**The `prod` image has never actually been built.** Compose files validate,
+every shell script passes `sh -n`, and the dev suite is untouched at 207 passed
+— but `docker build --target prod` could not run on this Mac: Docker Desktop is
+configured with an HTTP proxy at `http.docker.internal:3128` which does not
+respond, so the daemon cannot pull `php:8.4-fpm-alpine`, `node:22-alpine` or
+`composer:2` (the host's own network is fine — `curl` reaches the registry). The
+first real build will therefore happen on the Lightsail box at step 5 of the
+runbook. Treat a first-build failure there as expected work, not as a
+regression.
+
+There is still no CI: no `.github/workflows`, and a deploy is `git pull` plus
+`docker compose -f docker-compose.prod.yml up -d --build` on the box.
+`docker-compose.yml` remains the development box — one `php artisan serve`, no
+queue worker, `APP_URL=http://localhost` — reachable only from this Mac on
+`localhost:8000`.
 
 **The entire HTTP surface is twelve routes** (`routes/web.php`):
 
@@ -216,6 +232,13 @@ existed, not one that lapsed.
   `apple-touch-icon.png`, and registration in `resources/js/app.js`. The layout
   is now a real HTML document (it used to start at `<meta name="viewport">`, so
   every page rendered in quirks mode).
+- **The production deployment configuration** — written, not yet run. The
+  Dockerfile is multi-stage (`dev` unchanged, plus `vendor`, `assets` and
+  `prod`), `docker-compose.prod.yml` runs web + worker + Postgres + Redis, and
+  `docker/` holds the nginx, php-fpm, supervisord, entrypoint and backup pieces.
+  `docs/deploy.md` is the runbook. See
+  [Deployment](#deployment) for the calls that are settled, and the caveat above
+  about the image never having been built.
 
 **Not built — do not assume these exist:**
 
@@ -305,22 +328,19 @@ apart — 12 pending proposals is the expected total, not a regression.
   exists. What is measured to be live, and why the apex returns 525 today, is in
   [What is actually on the internet](#what-is-actually-on-the-internet).
 
-  **Picking a host is the first decision, not a later detail**, because there is
-  no deployment configuration in this repo to inherit one from, and the choice
-  constrains everything after it. The app needs Postgres, Redis and a queue
-  worker running beside it, so a static or function-only host cannot serve it.
-  Then, in order:
+  **The host decision is made and the configuration is written: AWS Lightsail,
+  one box, `docker-compose.prod.yml`.** Chosen over ECS/RDS/ElastiCache because
+  that shape's fixed costs — an ALB at ~$16/mo and, with private subnets, a NAT
+  gateway at ~$32/mo — dwarf a workload with one admin user. The only new
+  spend is the instance itself; R2, the Anthropic key and the domain are already
+  paid, and photos serve from `img.collectai.club`, so the image-heavy half of
+  the catalog never touches AWS bandwidth.
 
-  1. Replace the apex and `www` parking records — this is a *replacement*, not a
-     new record, and forgetting that leaves the parking page winning.
-  2. Set `APP_URL=https://collectai.club`. Local-disk photo URLs are signed
-     against `APP_URL`, and session and redirect URLs are built from it.
-  3. Set Cloudflare SSL to **Full (strict)** once the origin has a real
-     certificate. Leaving it on Flexible would clear the 525 while sending
-     traffic to the origin unencrypted, which reads as success.
-  4. Run a real web server plus a separate `queue:work` process. `artisan serve`
-     is single-process and development-only, and without a worker every capture
-     silently skips OCR (see [Current state](#current-state)).
+  **Follow [docs/deploy.md](docs/deploy.md) rather than improvising** — the
+  ordering in it is load-bearing, particularly verifying against the raw IP with
+  `curl --resolve` *before* touching DNS, and setting Full (strict) only *after*
+  the origin certificate is in place. The calls behind it are in
+  [Deployment](#deployment).
 - **Import more years.** `catalog:import-hot-wheels --year=2012` needs no new
   code, and `catalog:identify-castings` will pick up whatever it adds.
 - **Join the two agents up.** Metadata is currently driven by the import
@@ -1071,6 +1091,87 @@ the [session log](docs/session-log.md).*
   on its own; `resources/js/app.js` only adds thumbnails, progress and retry.
   Feature tests exercise the no-JS path, so a broken bundle degrades instead of
   taking the capture app down — worth preserving on the review screen too.
+
+### Deployment
+
+*Written 2026-08-10. The runbook is [docs/deploy.md](docs/deploy.md); this is
+why it says what it says. None of it has run against real infrastructure yet.*
+
+- **One Lightsail box running `docker-compose.prod.yml`**, not ECS/RDS/
+  ElastiCache. That shape's *fixed* costs — ALB ~$16/mo, NAT gateway ~$32/mo —
+  exceed the whole workload, which has one admin user. The tradeoff taken
+  knowingly: Postgres shares the box, so backups are ours to arrange.
+- **`prod` is the last stage in the Dockerfile, so `docker-compose.yml` must
+  name `target: dev`.** A bare `docker build .` should produce the production
+  image; the cost is that the development stack would otherwise silently build
+  nginx + php-fpm and break the suite.
+- **Cloudflare's real client IP is restored in nginx, never with Laravel's
+  `TrustProxies`.** `set_real_ip_from` over Cloudflare's ranges plus
+  `real_ip_header CF-Connecting-IP` rewrites `REMOTE_ADDR` before PHP sees it.
+  `TrustProxies` at `'*'` would instead have Laravel re-read `X-Forwarded-For`,
+  which any client can forge — reintroducing the problem one layer up. What
+  depends on this: `LoginController::throttleKey()` keys on email **+ IP**, and
+  behind an un-restored proxy the IP half is a constant, degrading to exactly
+  the per-email throttle its own comment warns "would let anyone lock the admin
+  out of their own catalog".
+- **The origin only accepts Cloudflare ranges.** The Lightsail IP is not secret
+  — certificate transparency logs and old DNS records leak origins routinely —
+  and without the allow-list it is a second front door past the edge's TLS
+  policy and rate limiting. `set_real_ip_from` and `allow` are different
+  directives over the same list, so `cloudflare-ips.conf` and
+  `cloudflare-allow.conf` are generated **together** by
+  `docker/nginx/refresh-cloudflare-ips.sh`. Stale in only one and the failure is
+  baffling: some visitors 403, others throttle against the wrong key.
+- **No HTTP→HTTPS redirect at the origin.** TLS is the edge's job. An
+  origin-side redirect is precisely what turns a Cloudflare **Flexible** SSL
+  setting into an infinite loop, and Flexible is the tempting wrong fix for the
+  525 — it clears the error while sending origin traffic in the clear.
+- **`.env` is mounted read-only; configuration never arrives as process
+  environment.** Same rule as `docker-compose.yml`'s missing `env_file`, and it
+  still holds here even though there are no tests to corrupt: Laravel's Dotenv
+  reads `$_SERVER` first, so an injected value cannot be overridden from the
+  file. Read-only additionally means a stray `key:generate` on the box cannot
+  invalidate every session — which is why the runbook uses `key:generate
+  --show` and pastes the value in by hand.
+- **The worker's `--timeout` (300s) must stay below
+  `REDIS_QUEUE_RETRY_AFTER` (360s).** Redis re-queues a job after `retry_after`;
+  if that fires while the job is still running, a second worker takes it and one
+  capture becomes two billed vision calls. Laravel's defaults (60s / 90s) are
+  both far too low for an Opus 5 vision call with thinking enabled, and
+  `ReadSubmissionPhotos` declares no `$timeout` of its own — so at the default
+  the first real OCR run is killed mid-call, retried three times and marked
+  failed, which reads exactly like a broken agent.
+- **PHP's upload limits are set deliberately *above* the application's.** When
+  PHP rejects a file it does so before userland runs: `$_FILES` comes back empty
+  and Laravel reports a missing field, which looks like a broken form. Letting
+  the request through means `StoreSubmissionRequest`'s `max:12288` rejects it
+  with a message naming the photo. `client_max_body_size`, `post_max_size` and
+  `CAPTURE_MAX_PHOTO_KB` move together or not at all.
+- **The readiness probe is `tinker --execute="DB::connection()->getPdo();"`, not
+  `db:show`.** `db:show` is the obvious choice and a trap: it connects, prints
+  the tables, then exits **1** anyway because its summary calls
+  `Number::format`, which throws without the `intl` extension. The wait loop
+  would never succeed and every boot would time out claiming the database was
+  unreachable. Nothing in the app uses `Number::`, so adding `intl` would be
+  installing an extension to satisfy a probe rather than to make the app work —
+  the same call already made about GD and `UploadedFile::fake()->image()`.
+- **`opcache.validate_timestamps=0`, so a deploy is a rebuild and a restart.**
+  Correct for an immutable image, but it means editing a file inside a running
+  container has no effect at all.
+- **`public/hot` is in `.dockerignore`.** Vite writes it while `npm run dev`
+  runs, and baked into an image it makes `@vite` point every page at
+  `localhost:5173` — so CSS and JS silently never load, with nothing in any log
+  saying why.
+- **Postgres is not published to the host in production.** `docker-compose.yml`
+  maps 5432 for psql and GUI clients; doing that on a public box exposes it to
+  the internet.
+- **Backups are `pg_dump` to the R2 bucket that already holds the photos**, and
+  the script deliberately does **not** prune. Retention belongs in an R2
+  lifecycle rule: server-side, no credentials on the box, and no delete loop
+  running as root nightly. An instance snapshot is not a substitute — it catches
+  the volume mid-write.
+- **Meilisearch is not deployed.** `laravel/scout` isn't installed, so it would
+  hold a few hundred MB on a small box indexing nothing.
 
 ## Open questions
 

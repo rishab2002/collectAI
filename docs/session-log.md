@@ -14,6 +14,117 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-08-10 — Production deployment configuration, written but not yet run
+
+The session started from a bug report: "whenever I go to collectai.club it says
+SSL handshake failed, and I can't reach /admin or /login either. Everything is
+set up in Cloudflare and Porkbun."
+
+Both halves of that were true, and that is the whole diagnosis. Measured again:
+`dig` returns Cloudflare proxy IPs, HTTP returns Porkbun's parking page
+(`X-Service: pixie-default`, `X-Powered-By: PHP/8.0.25`, AWS ALB cookies) and
+HTTPS returns **525**. Cloudflare and Porkbun genuinely are configured
+correctly — which is exactly *why* the error is a 525 rather than a DNS failure.
+The apex and `www` are proxied A records still pointing at the parking service,
+so Cloudflare reaches an origin on port 80 and cannot complete a TLS handshake
+with it on 443. `img.collectai.club` answering cleanly over HTTPS proves the
+edge certificate is fine; the failing handshake is Cloudflare→origin.
+
+**The error is the absence of a deployment, not a misconfiguration of one.**
+Worth stating plainly because the 525 invites you to go looking for a broken web
+server, and there is no web server.
+
+### Host choice
+
+AWS, at the user's request. Within AWS the fork that mattered was cost shape:
+ECS Fargate + RDS + ElastiCache + ALB is the "proper" build and carries ~$16/mo
+of ALB and ~$32/mo of NAT gateway *before any traffic*, against a workload with
+one admin user. Lightsail with a single production compose stack was chosen
+instead. The user's follow-up question — "what more would I need to pay for?" —
+has a short answer: the instance, and nothing else. R2, the Anthropic key and
+the domain are already paid, Cloudflare's Origin CA certificate is free, the
+static IP is free while attached, and photos serve from `img.collectai.club`, so
+the image-heavy half of the catalog never touches AWS bandwidth. That last point
+is the R2-over-S3 decision paying out.
+
+The tradeoff accepted knowingly: Postgres shares the box, so backups are ours.
+Hence `docker/backup/pg-dump-to-r2.sh`.
+
+### Three bugs found by writing the config, not by running it
+
+- **`db:show` is not a database readiness probe.** It was the obvious choice for
+  the entrypoint's wait loop. It connects, prints the table count — and then
+  exits **1**, because its summary calls `Number::format` and `intl` isn't
+  installed. The loop would have spun for two minutes on every boot and then
+  declared the database unreachable while it sat there working. Caught by
+  checking the exit code rather than the output, which is the only way it is
+  visible. Replaced with `tinker --execute="DB::connection()->getPdo();"`;
+  `laravel/tinker` is in `require`, not `require-dev`, so it ships. Adding
+  `intl` was the wrong fix — nothing in the app uses `Number::`, so it would
+  have been installing an extension to satisfy a probe, the same call already
+  made about GD.
+- **The default queue timeout would have killed the first real OCR call.**
+  `ReadSubmissionPhotos` declares `$tries` and `$backoff` but no `$timeout`, so
+  Laravel's 60s default applies — against an Opus 5 vision call with thinking
+  enabled over up to four photos. It would be killed mid-call, retried three
+  times, and marked failed, reading exactly like a broken agent on the day the
+  agent first ran for real. Fixed in deployment config rather than app code:
+  `--timeout=300` on the worker, with `REDIS_QUEUE_RETRY_AFTER=360` raised to
+  stay above it. Those two numbers are a pair — if `retry_after` ever drops
+  below the timeout, Redis re-queues a job that is still running and one capture
+  becomes two billed vision calls.
+- **`public/hot` would have shipped in the image.** It doesn't exist right now,
+  but Vite writes it whenever `npm run dev` runs, and baked into a production
+  image it makes `@vite` point every page at `localhost:5173`. CSS and JS
+  silently never load and nothing logs anything. Now in `.dockerignore`.
+
+### Calls worth the argument
+
+- **Cloudflare's real client IP is restored in nginx, not with Laravel's
+  `TrustProxies`.** `TrustProxies` at `'*'` looks like the idiomatic Laravel
+  answer and is worse: it has Laravel re-read `X-Forwarded-For`, which any
+  client can forge, so it moves the spoofing problem up a layer instead of
+  fixing it. `set_real_ip_from` over Cloudflare's ranges with
+  `real_ip_header CF-Connecting-IP` rewrites `REMOTE_ADDR` before PHP sees it,
+  and CF-Connecting-IP is one value Cloudflare overwrites every request. This
+  matters because `LoginController::throttleKey()` keys on email **+ IP**;
+  un-restored, the IP half is constant and the throttle degrades to precisely
+  the per-email form its own comment warns "would let anyone lock the admin out
+  of their own catalog". It also keeps a deployment concern out of
+  `bootstrap/app.php`, which is where this repo already puts that line.
+- **No HTTP→HTTPS redirect at the origin.** Tempting and wrong: an origin-side
+  redirect behind a proxy is exactly what turns a Cloudflare **Flexible**
+  setting into an infinite loop. Flexible is itself the trap this whole session
+  is about — it makes the 525 vanish instantly, which reads as success, while
+  sending origin traffic in the clear. The runbook calls it out by name.
+- **`.env` is mounted read-only.** The same rule as the missing `env_file:` in
+  development, holding for a second reason here: nothing should rewrite its own
+  configuration, and a stray `key:generate` on the box would invalidate every
+  session leaving no trace of why. That is why the runbook uses
+  `key:generate --show` and pastes the value in by hand.
+- **PHP's upload limits sit deliberately above the application's.** A file
+  rejected by PHP never reaches userland: `$_FILES` is empty and Laravel reports
+  a missing field, which looks like a broken form. Letting it through means
+  `StoreSubmissionRequest`'s `max:12288` rejects it and names the photo.
+- **The runbook's ordering is load-bearing**, in two places. Verify against the
+  raw IP with `curl --resolve` *before* touching DNS, so a failure is a private
+  box rather than a public outage. And **replace** the parking A records rather
+  than adding — additions round-robin with the parking service and the site
+  works about half the time, which is a far worse bug than the one being fixed.
+
+### What is not verified
+
+`docker build --target prod` never ran. Docker Desktop on this Mac is configured
+with an HTTP proxy at `http.docker.internal:3128` that does not respond, so the
+daemon cannot pull `php:8.4-fpm-alpine`, `node:22-alpine` or `composer:2` — the
+host's own network is fine, `curl` reaches the registry in 0.19s. What *was*
+checked: both compose files validate, all three shell scripts pass `sh -n`, and
+the dev suite is untouched at **207 passed, 609 assertions**. The first real
+build will be on the Lightsail box, at step 5 of the runbook. A first-build
+failure there is expected work, not a regression.
+
+---
+
 ## 2026-08-10 — A verification pass: what the file claimed vs. what the stack does
 
 No feature was built. The session started as "read `CLAUDE.md` and see if

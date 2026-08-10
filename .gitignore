@@ -13,6 +13,11 @@
 /.vscode
 /.zed
 /auth.json
+# The Cloudflare Origin CA certificate and its private key, mounted into the
+# web container by docker-compose.prod.yml. Committing the key would hand
+# anyone the ability to impersonate this origin to Cloudflare, and git history
+# keeps it whether or not a later commit deletes it.
+/certs
 /node_modules
 /public/build
 /public/fonts-manifest.dev.json
