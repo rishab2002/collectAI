@@ -503,10 +503,31 @@ class ManualCatalogEntryTest extends TestCase
             ->get(route('admin.castings.show', $casting))
             ->assertOk()
             ->assertSee('2011 · Nightburnerz')
+            ->assertSee('1 release,')
+            ->assertSee('1 variation')
+            ->assertDontSee('1 variations')
             ->assertSee('Midnight Blue')
             ->assertSee('Primary')
             ->assertSee('hotwheels.fandom.com')
             ->assertSee('Add a release or variation');
+    }
+
+    public function test_the_catalog_search_names_the_brands_that_sold_each_casting(): void
+    {
+        // Two tools of the same real car, one per brand, otherwise read as a
+        // duplicate in the list.
+        foreach (['Hot Wheels', 'Matchbox'] as $brandName) {
+            $casting = Casting::factory()->unidentified()->pending()->create(['name' => 'Nissan Skyline GT-R (BNR34)']);
+            Release::factory()
+                ->for(CastingVersion::factory()->for($casting), 'castingVersion')
+                ->for(Series::factory()->for(Brand::firstOrCreate(['name' => $brandName])))
+                ->create();
+        }
+
+        $this->actingAs($this->admin())
+            ->get(route('admin.catalog.index', ['q' => 'skyline']))
+            ->assertOk()
+            ->assertSeeInOrder(['Hot Wheels ·', 'Not identified yet', 'Matchbox ·', 'Not identified yet']);
     }
 
     public function test_the_entry_screens_render(): void

@@ -65,8 +65,8 @@ honest — it's the fastest way for a new session to avoid assuming something
 exists.*
 
 **Running:** `docker compose up -d` brings up `app` (:8000), `db` (Postgres 16,
-:5432), `redis` (:6379), `meilisearch` (:7700). `php artisan test` → **255
-passed, 823 assertions** (re-measured 2026-11-03).
+:5432), `redis` (:6379), `meilisearch` (:7700). `php artisan test` → **256
+passed, 828 assertions** (re-measured 2026-11-03).
 
 **The dev database holds the import *plus* seed data, so its counts are not the
 import's counts.** `CatalogSeeder` and `SubmissionSeeder` contribute 9 castings
@@ -425,6 +425,12 @@ folding in whenever the public catalog replaces it.
 
 ## How to work in this repo
 
+- **When the work is finished, merge the session's branch into `main` and push
+  both.** The owner's standing instruction (2026-11-03): don't leave finished
+  work sitting on a feature branch. Gate it first — `php artisan test` green and
+  `vendor/bin/pint --test` clean — then `git merge --no-ff` so `main` keeps one
+  merge commit per piece of work, as its history already has. Unfinished or
+  failing work stays on its branch. After merging, say so with the commit hash.
 - **Keep schema/model decisions and implementation work in separate sessions.**
   Don't iterate on the Casting/Model split *and* write migrations at once —
   settle the model first.

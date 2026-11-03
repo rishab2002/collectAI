@@ -42,6 +42,13 @@
                         <span class="min-w-0">
                             <span class="block truncate font-medium">{{ $casting->name }}</span>
                             <span class="block truncate text-sm text-neutral-500">
+                                {{-- The brand is a fact about a release, not the casting,
+                                     so a shared tool lists every brand that sold it. Without
+                                     it, a Hot Wheels and a Matchbox tool of the same car read
+                                     as a duplicate. --}}
+                                @if ($brands->has($casting->id))
+                                    {{ implode(' / ', $brands[$casting->id]) }} ·
+                                @endif
                                 @if ($casting->is_fantasy)
                                     Fantasy casting
                                 @elseif ($casting->model)
