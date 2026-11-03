@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Import\HotWheelsWiki;
+namespace App\Services\Import\FandomWiki;
 
 use App\Services\Import\Wikitext\Wikitext;
 use App\Services\Import\Wikitext\WikitextTable;
@@ -48,6 +48,16 @@ final class CastingPageParser
         'base color / types' => 'base',
         'toy #' => 'toy_number',
         'toy#' => 'toy_number',
+        // The Matchbox wiki's spellings. A car sold under two regional toy
+        // numbers lists both in the one cell.
+        'toy number(s)' => 'toy_number',
+        'toy numbers' => 'toy_number',
+        'toy number' => 'toy_number',
+        'wheel / type' => 'wheel',
+        // Older Matchbox models were labelled or decal-printed rather than
+        // tampo-printed. Same fact — the printed graphics — so the same column.
+        'decals' => 'tampo',
+        'labels' => 'tampo',
         'country' => 'country',
     ];
 
@@ -62,6 +72,13 @@ final class CastingPageParser
      */
     private const EXCLUDED_SECTIONS = ['code 3'];
 
+    private readonly Wiki $wiki;
+
+    public function __construct(?Wiki $wiki = null)
+    {
+        $this->wiki = $wiki ?? Wiki::hotWheels();
+    }
+
     public function parse(string $wikitext, string $title, int $pageId, ?int $revisionId = null): CastingPage
     {
         $infobox = $this->infobox($wikitext);
@@ -75,6 +92,7 @@ final class CastingPageParser
             name: $infobox['name'] ?? Wikitext::plainText($title),
             designer: $infobox['designer'] ?? null,
             versions: $this->versions($wikitext),
+            wiki: $this->wiki,
         );
     }
 
@@ -205,7 +223,12 @@ final class CastingPageParser
      */
     private function versionSections(string $wikitext): array
     {
-        preg_match_all('/^(==+)\s*(.*?Versions)\s*\1\s*$/mi', $wikitext, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
+        // Every heading, then filtered on its plain text. Matching "Versions" in
+        // the raw markup missed every heading written in bold —
+        // `=='''USA Versions'''==` — which is how the wiki writes most of the
+        // 1968–69 castings, so Python, Chaparral 2G and the rest parsed to no
+        // rows and were reported as pages with nothing to import.
+        preg_match_all('/^(==+)\s*(.*?)\s*\1\s*$/m', $wikitext, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
 
         $sections = [];
 
@@ -214,8 +237,22 @@ final class CastingPageParser
             $level = strlen($match[1][0]);
             $label = Wikitext::plainText($match[2][0]);
 
-            // "Versions" itself carries no tooling name; anything before it does.
-            $label = trim(preg_replace('/\s*Versions$/i', '', $label) ?? '');
+            // "Versions", and also a singular "Version" and a trailing
+            // parenthetical — "Original Versions (rear loading)", Matchbox's
+            // "Versions (MB168)". Widened 2026-11, before any full import had
+            // run, after checking it renumbered no row that existed anywhere.
+            // From here on a change to which headings count can shift the row
+            // numbers provenance keys are built from: measure that first.
+            if (preg_match('/(?:^|\s)Versions?(?:\s*\([^)]*\))?$/i', $label) !== 1) {
+                continue;
+            }
+
+            // "Versions" itself carries no tooling name; anything around it does.
+            $label = trim(preg_replace('/(?:^|\s+)Versions?(?=\s*\(|$)/i', '', $label) ?? '');
+
+            if (preg_match('/^\((.*)\)$/', $label, $bare) === 1) {
+                $label = trim($bare[1]);
+            }
 
             if (in_array(mb_strtolower($label), self::EXCLUDED_SECTIONS, true)) {
                 continue;
@@ -309,7 +346,7 @@ final class CastingPageParser
             baseType: $baseType,
             windowColor: Wikitext::valueOrNull($cells['window'] ?? ''),
             interiorColor: Wikitext::valueOrNull($cells['interior'] ?? ''),
-            wheelType: Wikitext::valueOrNull($cells['wheel'] ?? ''),
+            wheelType: $this->wheel($cells['wheel'] ?? ''),
             toyNumber: Wikitext::valueOrNull($cells['toy_number'] ?? ''),
             country: Wikitext::valueOrNull($cells['country'] ?? ''),
         );
@@ -333,7 +370,9 @@ final class CastingPageParser
     {
         $value = Wikitext::plainText($cell);
 
-        if ($value === '') {
+        // "N/A" is the wiki saying there is no number, not number "N" of "A" —
+        // which is what splitting on the slash below made of it.
+        if ($value === '' || preg_match('#^(n\s*/\s*a|none|-+|—|\?)$#i', $value) === 1) {
             return null;
         }
 
@@ -356,6 +395,10 @@ final class CastingPageParser
             return [null, null, null];
         }
 
+        if ($this->wiki->compoundSeries) {
+            return $this->compoundSeries($parts);
+        }
+
         $link = Wikitext::firstLink($parts[0]);
         $name = $link !== null ? $link[1] : Wikitext::valueOrNull($parts[0]);
         $page = $link !== null ? $link[0] : null;
@@ -369,6 +412,60 @@ final class CastingPageParser
         }
 
         return [$name, $page, $position];
+    }
+
+    /**
+     * A series named by more than its first link — the Matchbox wiki's
+     * "[[1-75]]: [[Wheeled Envy]]" is the 1-75 range's Wheeled Envy segment, and
+     * "5-Pack: [[List of 2010 5-Packs#…|Modern Rides]]" is a 5-pack. The name is
+     * the whole line as a reader sees it, and a cell that is nothing but one
+     * link still keys by that link, exactly as on the Hot Wheels wiki.
+     *
+     * The position can trail on the same line ("1-100: Sports Cars 16/17") as
+     * well as sit on the next.
+     *
+     * @param  list<string>  $parts
+     * @return array{0: string|null, 1: string|null, 2: string|null}
+     */
+    private function compoundSeries(array $parts): array
+    {
+        $text = Wikitext::plainText($parts[0]);
+        $position = null;
+
+        if (preg_match('#^(.*?)\s+(\d+\s*/\s*\d+)$#', $text, $matches) === 1) {
+            $text = trim($matches[1]);
+            $position = $matches[2];
+        }
+
+        if ($position === null && isset($parts[1]) && preg_match('#^\d+\s*/\s*\d+$#', Wikitext::plainText($parts[1])) === 1) {
+            $position = Wikitext::plainText($parts[1]);
+        }
+
+        $link = Wikitext::firstLink($parts[0]);
+
+        if ($link !== null && $link[1] === $text) {
+            return [$link[1], $link[0], $position];
+        }
+
+        return [$text === '' ? null : $text, null, $position];
+    }
+
+    /**
+     * The wheel, as text where the wiki wrote text, and as the wheel image's
+     * file name where it wrote a picture — which is how the Matchbox wiki
+     * writes most of them. See Wikitext::mediaNames().
+     */
+    private function wheel(string $cell): ?string
+    {
+        $text = Wikitext::valueOrNull($cell);
+
+        if ($text !== null) {
+            return $text;
+        }
+
+        $names = Wikitext::mediaNames($cell);
+
+        return $names === [] ? null : implode(' / ', $names);
     }
 
     /**

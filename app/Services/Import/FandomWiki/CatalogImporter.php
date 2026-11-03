@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Import\HotWheelsWiki;
+namespace App\Services\Import\FandomWiki;
 
 use App\Models\Brand;
 use App\Models\Casting;
@@ -12,6 +12,7 @@ use App\Models\Variation;
 use App\Services\Import\ImportSummary;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 
 /**
  * Writes a parsed casting article into the catalog.
@@ -31,9 +32,18 @@ use Illuminate\Support\Facades\DB;
  */
 final class CatalogImporter
 {
-    public function __construct(
-        private readonly string $source = RecordSource::SOURCE_HOT_WHEELS_FANDOM,
-    ) {}
+    private readonly Wiki $wiki;
+
+    /**
+     * The provenance source keys are numbered within — the wiki's own.
+     */
+    private readonly string $source;
+
+    public function __construct(?Wiki $wiki = null)
+    {
+        $this->wiki = $wiki ?? Wiki::hotWheels();
+        $this->source = $this->wiki->source;
+    }
 
     /**
      * Imports one casting article, in a transaction so a page either lands whole
@@ -43,6 +53,15 @@ final class CatalogImporter
     public function import(CastingPage $page): ImportSummary
     {
         $summary = new ImportSummary;
+
+        // Page ids restart from 1 on every wiki, so a Matchbox page imported
+        // under the Hot Wheels source would overwrite whichever Hot Wheels
+        // casting happens to share its id.
+        if ($page->wiki->key !== $this->wiki->key) {
+            throw new InvalidArgumentException(
+                "A {$page->wiki->key} page can't be imported by the {$this->wiki->key} importer."
+            );
+        }
 
         if ($page->importableVersions() === []) {
             $summary->problem("{$page->title}: no importable version rows");
@@ -179,7 +198,7 @@ final class CatalogImporter
 
         $url = $row->seriesPage !== null
             ? $this->articleUrl($row->seriesPage)
-            : 'https://hotwheels.fandom.com/wiki/Special:Search?query='.rawurlencode((string) $row->seriesName);
+            : $this->wiki->searchUrl((string) $row->seriesName);
 
         $series = $this->upsert(Series::class, $key, $url, [
             'brand_id' => $brand->getKey(),
@@ -329,14 +348,14 @@ final class CatalogImporter
     }
 
     /**
-     * Every series this source produces belongs to Hot Wheels — the wiki covers
-     * one brand, so the brand is a property of the source rather than something
-     * read off a page. It carries no provenance row for that reason: no
-     * particular article states it.
+     * Every series a wiki produces belongs to that wiki's brand — each of these
+     * sites covers one brand, so the brand is a property of the source rather
+     * than something read off a page. It carries no provenance row for that
+     * reason: no particular article states it.
      */
     private function brand(): Brand
     {
-        $brand = Brand::firstOrCreate(['name' => 'Hot Wheels'], ['parent_company' => 'Mattel']);
+        $brand = Brand::firstOrCreate(['name' => $this->wiki->brand], ['parent_company' => $this->wiki->parentCompany]);
 
         if (! $brand->isLive()) {
             $brand->markLive();
@@ -410,6 +429,6 @@ final class CatalogImporter
 
     private function articleUrl(string $title): string
     {
-        return 'https://hotwheels.fandom.com/wiki/'.str_replace('%2F', '/', rawurlencode(str_replace(' ', '_', $title)));
+        return $this->wiki->articleUrl($title);
     }
 }

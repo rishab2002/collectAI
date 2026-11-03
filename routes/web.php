@@ -1,9 +1,11 @@
 <?php
 
 use App\Http\Controllers\Admin\CaptureController;
+use App\Http\Controllers\Admin\CatalogController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ProposalReviewController;
 use App\Http\Controllers\Admin\SubmissionReviewController;
+use App\Http\Controllers\Admin\VariationPhotoController;
 use App\Http\Controllers\Auth\LoginController;
 use Illuminate\Support\Facades\Route;
 
@@ -30,6 +32,28 @@ Route::middleware(['auth', 'admin'])
 
         Route::get('capture', [CaptureController::class, 'show'])->name('capture');
         Route::post('capture', [CaptureController::class, 'store'])->name('capture.store');
+
+        // The admin's own view of the catalog, every status included, and the
+        // manual entry path: cars typed in by hand go live on the spot because
+        // the admin is the reviewer. See ManualCatalogEntry.
+        Route::get('catalog', [CatalogController::class, 'index'])->name('catalog.index');
+        Route::get('castings/create', [CatalogController::class, 'create'])->name('castings.create');
+        Route::post('castings', [CatalogController::class, 'store'])->name('castings.store');
+        Route::get('castings/{casting}', [CatalogController::class, 'show'])->name('castings.show');
+        Route::post('castings/{casting}/variations', [CatalogController::class, 'storeVariation'])
+            ->name('castings.variations.store');
+
+        Route::post('variations/{variation}/photos', [VariationPhotoController::class, 'store'])
+            ->name('variations.photos.store');
+
+        // Scoped, so a photo id belonging to another variation 404s rather than
+        // being made primary or deleted from the wrong car's page.
+        Route::scopeBindings()->group(function () {
+            Route::post('variations/{variation}/photos/{photo}/primary', [VariationPhotoController::class, 'primary'])
+                ->name('variations.photos.primary');
+            Route::delete('variations/{variation}/photos/{photo}', [VariationPhotoController::class, 'destroy'])
+                ->name('variations.photos.destroy');
+        });
 
         // Not nested under a submission, because these proposals have none — the
         // importer's inferences are records the pipeline produced with no capture

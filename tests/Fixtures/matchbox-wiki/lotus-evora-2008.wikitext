@@ -1,0 +1,286 @@
+{{casting
+|name = Lotus Evora (2008)
+|scale = 1:60
+|series = [[1-100]]: [[Sports Cars]]
+|years = [[List of 2008 Matchbox|2008]] - Present
+|number = MB750
+|image = 0916-LotusEvora.jpg
+|designer = Mike Nuttall
+}}
+
+==Versions==
+{|width="100%" class="wikitable sortable" style="font-size: 85%; text-align: center;"
+!style="border-style: none none solid solid"|'''Col #'''
+!style="border-style: none none solid solid"|'''Year'''
+!style="border-style: none none solid solid"|'''Series'''
+!style="border-style: none none solid solid"|'''Color'''
+!style="border-style: none none solid solid"|'''Tampo'''
+!style="border-style: none none solid solid"|'''Base Color / Type'''
+!style="border-style: none none solid solid"|'''Window Color'''
+!style="border-style: none none solid solid"|'''Interior Color'''
+!style="border-style: none none solid solid"|'''Wheel Type'''
+!style="border-style: none none solid solid"|'''Toy #'''
+!style="border-style: none none solid solid"|'''Country'''
+!style="border-style: none none solid solid"|'''Notes'''
+!style="border-style: none none solid solid"|'''Photo'''
+|-
+|MB10
+|[[List of 2008 Matchbox|2008]]
+|[[1-100]]: [[Sports Cars]]<br/>2/17
+|Metalflake Silver
+|Detailed trim
+|Black / Plastic
+|Clear
+|Black
+|[[File:M002f.jpg|65px]]
+|M0072 (USA)<br>M7348 (INT)
+|Thailand
+|"''<nowiki/>'08 Lotus''" on card
+|[[File:0810Evora.jpg|100px]]
+|-
+|MB16
+|[[List of 2009 Matchbox|2009]]
+|[[1-100]]: [[Sports Cars]]<br/>2/13
+|Bright Blue
+|Detailed trim
+|Black / Plastic
+|Clear
+|White
+|[[File:M002f.jpg|65px]]
+|P2918 (USA)<br>P6379 (INT)
+|Thailand
+|''Variations: Bright Blue and Dark Blue''<br>Base Code(s): B06, B17
+|[[File:0916-LotusEvora.jpg|100px]]
+|-
+|BB01
+|[[List of 2009 Matchbox|2009]]
+|[[Best of British]]
+|Pea Green
+|Detailed trim
+|Black / Plastic
+|Clear
+|Black
+|[[File:M002f.jpg|65px]]
+|P7543
+|Thailand
+|[[Base Codes|Base Code(s):]] A48
+|[[File:09BOB01-LotusEvora.jpg|100px]]
+|-
+|SF18
+|[[List of 2009 Matchbox|2009]]
+|[[Superfast 40th Anniversary]]
+|Metalflake Blue
+|Detailed trim with Silver and Black stripe on top
+|Black / Plastic
+|Clear
+|Black
+|[[File:5SpokeSuperfastSport.jpg|65px]]
+|P1688
+|Thailand
+|Base Code(s): B39
+|[[File:09SF18Evora.jpg|100px]]
+|-
+|MB08
+|[[List of 2010 Matchbox|2010]]
+|[[1-100]]: [[Sports Cars]]<br/>8/15
+|Red
+|Detailed trim
+|Black / Plastic
+|Clear
+|Black
+|[[File:M002f.jpg|65px]]
+|R4959 (USA)<br/>R5046 (INT)
+|Thailand
+|"''Lotus Evora 08''" on card<br>Base Code(s): B45
+|[[File:1008Evora.jpg|100px]]
+|-
+|MB08
+|[[List of 2010 Matchbox|2010]]
+|[[1-100]]: [[Sports Cars]] 8/15
+|Metalflake Orange
+|Detailed trim
+|Black / Plastic
+|Clear
+|Black
+|[[File:M002f.jpg|65px]]
+|T1529
+|Thailand
+|"Lotus Evora 08" on card<br>Base Code(s): C07, C10, C18
+|[[File:Matchbox_1008_Lotus_Evora_Orange.jpg|100px]]
+|-
+|N/A
+|[[List of 2010 Matchbox|2010]]
+|5-Pack: [[List of 2010 5-Packs#.232 Modern Rides|Modern Rides]]
+|British Racing Green
+|Detailed trim
+|Black / Plastic
+|Clear
+|Black
+|[[File:M002f.jpg|65px]]
+|R0602
+|Thailand
+|Base Code(s): B49, B51, C26
+|[[File:Lotus_Evora.jpg|100px]]
+|-
+|MB08
+|[[List of 2011 Matchbox|2011]]
+|[[1-100]]: [[Sports Cars]]<br/>8/13
+|Metalflake Lime Green
+|Detailed trim
+|Black / Plastic
+|Clear
+|Black
+|[[File:5SpokeSuperfastSport.jpg|65px]]
+|T8916 (USA)<br>T9298 (INT)
+|Thailand
+|Base Code(s): D05, D06
+|[[File:MB08_2011_Green.jpg|100px]]
+|-
+|N/A
+|[[List of 2011 Matchbox|2011]]
+|5-Pack: [[List of 2011 5-Packs#Modern Rides (V0309)|Modern Rides]]
+|Metalflake Neon Yellow
+|Detailed trim
+|Black / Plastic
+|Clear
+|Black
+|[[File:65px-M002f.jpg|65px]]
+|V0309
+|Thailand
+|Base Code(s): D04, D07
+|[[File:2011-LotusEvora-Green.jpg|100px]]
+|-
+|MB09
+|[[List of 2012 Matchbox|2012]]
+|[[1-120]]: MBX Airport<br/>9/10
+|Metalflake Light Blue
+|Headlights and taillights, detailed trim, "ICY BURR" on rear license plate
+|Black / Plastic
+|Clear
+|Black
+|[[File:5SpokeSuperfastSport.jpg|65px]]
+|W4800 (USA)<br>Y1964 (INT)
+|Thailand
+|''LOTUS - 2008'' on base.<br>Base Code(s): E12
+|[[File:Lotusevora.jpg|100px]]
+|-
+|N/A
+|[[List of 2016 Matchbox|2016]]
+|5-Pack: [[List_of_2016_5-Packs#Exotic (DJY01)|Exotic]]
+|British Racing Green
+|Lotus logo, "LOTUS EVORA", "08", Silver stripe and checkered flag on sides
+|Black / Plastic
+|Clear
+|Black
+|[[File:65px-DkGraySplit10Spoke.jpg|65px]]
+|DJY01
+|Thailand
+|Base Code(s): H50, J02, J07
+|[[File:LotusEvora-2016Exotics-MBX.jpg|100px]]
+|-
+|MB20
+|[[List of 2017 Matchbox|2017]]
+|[[1-125]]: [[MBX Adventure City]]
+|Matte Black
+|Detailed trim
+|Gray / Plastic
+|Clear
+|Gray
+|[[File:M002f.jpg|65px]]
+|DVK39 (USA)<br>DWT38 ([[Power Grabs Matchbox 2017|PG]])
+|Thailand
+|Base Code(s): K02, K03, K04
+|[[File:Lotus_Evora_(2017_Black_1-125).jpg|100px]]
+|-
+|N/A
+|[[List of 2021 Matchbox|2021]]
+|5-Pack: [[List_of_2021_5-Packs#MBX Exotic (HCJ01)|MBX Exotic]]
+|Metalflake Neon Yellow
+|Detailed trim
+|Black / Plastic
+|Clear
+|Gray
+|[[File:M002f.jpg|65px]]
+|HCJ01
+|Thailand
+|Base Code(s): P19, P24, P27, R38
+|[[File:2021_MBX_Exotic_(HCJ01)_2008_Lotus_Evora.jpg|100px]]
+|-
+|N/A
+|[[List of 2024 Matchbox|2024]]
+|[[European Streets Series (2024)|European Streets]]
+|Blue
+|Detailed headlights hood badge
+|Black / Plastic
+|Clear
+|White
+|[[File:M002f.jpg|65px]]
+|HVV28
+|Thailand
+|Base Code(s): S50
+|[[File:Lotus Evora (Euro Streets, 2024).webp|100px]]
+|-
+|N/A
+|[[List of 2026 Matchbox|2026]]
+|[[List of 2026 8-Packs|8-Pack Exclusive]]
+|Metalflake Purple
+|Detailed trim
+|Black / Plastic
+|Clear
+|Gray
+|[[File:Wheel Sport Dark.jpg|65px]]
+|JJP50
+|Thailand
+|Base Code(s): U39A, U47A
+|[[File:Purple '08 Lotus Evora.jpeg|100px]]
+|}
+
+==Card Description==
+*Chasing through the suburbs of London in hot pursuit of the double agent who has stolen top-secret documents, your Lotus Evora can accelerate from 0-60 mph in less than 5 seconds, reaching a top speed of 160 mph — perfect for this top-secret mission!<br>''—From the 2010 and 2011 1-100 Sports Cars cards''
+
+==Gallery==
+<gallery position="center">
+0301.JPG|2008
+0518.JPG|2010 (Orange)
+2010 3 pack.jpg|2010 3-Pack (Middle)
+Mat (4).jpg
+Lotus Evora - 2011 MB08.jpg|2011
+045.jpg|2017
+Lotus 2008.JPG|2021 MBX Exotic 5-Pack, based on the 2011 Modern Rides 5-Pack version
+Lotus Evora 2024 European Streets.jpg|2024 European Streets version
+</gallery>
+
+{{DEFAULTSORT:Lotus Evora (2008)}}
+[[Category:2008 New Models]]
+[[Category:Lotus vehicles|Evora (2008)]]
+[[Category:Coupes]]
+[[Category:Two/Three-door]]
+[[Category:Mid-Engine vehicles]]
+[[Category:British vehicles]]
+[[Category:2000s vehicles]]
+[[Category:2008 vehicles]]
+[[Category:Mainline by model name (L)]]
+[[Category:1:60]]
+[[Category:Mike Nuttall Designs]]
+[[Category:Ready For Action]]
+[[Category:Sports Cars]]
+[[Category:Best of British]]
+[[Category:Superfast]]
+[[Category:Superfast 40th Anniversary]]
+[[Category:5-Packs]]
+[[Category:3 Packs]]
+[[Category:MBX Airport]]
+[[Category:MBX Adventure City]]
+[[Category:European Streets series]]
+[[Category:2008 Matchbox]]
+[[Category:2009 Matchbox]]
+[[Category:2010 Matchbox]]
+[[Category:2010 3 packs]]
+[[Category:2011 Matchbox]]
+[[Category:2012 Matchbox]]
+[[Category:2016 Matchbox]]
+[[Category:2017 Matchbox]]
+[[Category:2021 Matchbox]]
+[[Category:2021 MBX 5 Packs]]
+[[Category:2024 Matchbox]]
+[[Category:2026 Matchbox]]

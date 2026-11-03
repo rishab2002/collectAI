@@ -143,6 +143,14 @@ final class WikitextTable
         foreach ($lines as $line) {
             $trimmed = ltrim($line);
 
+            // A caption, often an empty `|+` the visual editor leaves behind. It
+            // carries no row data — and read as a data cell, it marks the body
+            // as started before the header row, so every header after it is
+            // taken for data and the table loses its column names (Baja Bug).
+            if (str_starts_with($trimmed, '|+')) {
+                continue;
+            }
+
             if (str_starts_with($trimmed, '|-')) {
                 if ($current !== null && $current !== []) {
                     $rows[] = $current;

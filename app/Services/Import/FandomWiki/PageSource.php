@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Import\HotWheelsWiki;
+namespace App\Services\Import\FandomWiki;
 
 /**
  * Where the importer gets wikitext from.

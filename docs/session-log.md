@@ -14,6 +14,138 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-11-03 — Manual entry, every year of both wikis, and HWPriceGuide ruled out
+
+The request: "a database just like HWPriceGuide and a way for me to add cars
+manually as well as pictures … scrape all the database and organization for the
+toys in the website … build the database and pictures … focusing first on hot
+wheels, specifically everything from HWPRICEGUIDE, then hot wheels wiki and then
+matchbox wiki and then shuco, minigt, true scale models, inno64, and para 64."
+
+### HWPriceGuide: looked at properly, then declined
+
+Measured before deciding. robots.txt disallows only `/profile-v2`; there is no
+terms page (`/terms`, `/terms-of-service` and `/tos` all 404). The sitemap lists
+35,801 URLs: 33,462 `/item/`, 2,054 `/group/`, 171 `/category/`. An item page is
+one release: year, colour, sub-series, wheel type, first-casting flag, chase
+status and Mattel product code. Next to that sit the site's own sales-derived
+guide price and price history ("Collections: Upgrade to view"), a metered search
+("5 searches left") and the site's own photo of the car.
+
+Not copied, and recorded as a settled decision rather than left as a one-off
+refusal. The facts on an item page are facts, but the page as a whole is a
+competitor's product. Its prices are what it sells, its photos are someone's
+copyright, and a bulk copy of its catalog is the opposite of
+[priority 1](../CLAUDE.md#data-acquisition-priorities), an original database.
+A permissive robots.txt says what a crawler may fetch, not what may be taken.
+What *is* fair to learn from is the organisation: category → sub-series → item,
+with chase/Treasure Hunt and first-casting called out. That belongs in the
+public catalog's design when it is built. The same facts for Hot Wheels and
+Matchbox come from the Fandom dumps, which are CC-BY-SA and published for
+exactly this.
+
+Pictures were the other half of the ask, and the answer is the same: no
+source's images, wiki or HWPriceGuide. That is why manual entry was built
+first. Photos you take are the ones the catalog can freely show.
+
+### Manual entry
+
+Built and driven in Chromium at 390px, not only through feature tests: login →
+add a car with a deliberately missing make (error state keeps every typed value)
+→ fix it and attach two photos (both rendered, served through the signed
+local-disk URLs) → add a second colour from the casting page → re-add the first
+colour (refused with "already in the catalog as variation #4"). Two things came
+out of driving it that the tests hadn't caught. The add-variation form didn't
+prefill the series, so the browser's own `required` check blocked the commonest
+case (same series, new colour). And the casting header printed the chassis code
+twice, because `fullName()` already includes it.
+
+The design calls are in CLAUDE.md under *Manual entry*. The one worth arguing:
+"Add a car" always creates a casting and never matches a typed name onto an
+existing one. Name matching would merge, say, Hot Wheels' and Matchbox's
+separate Corvette tools, which is precisely what one-casting-per-tool forbids.
+New colours and years go through the casting's own page instead.
+
+### Going wide on the wikis found more than the parser bugs it expected
+
+The plan was to exercise `DumpPageSource` at size for the first time. A
+baseline run of the *unchanged* importer over 1968–2027 got two years in before
+showing the worst bug of the session. 1970's index parsed to **zero** casting
+titles, and `DumpPageSource::pages([])` reads an empty list as "every page".
+So "import 1970" became "import the whole wiki as 1970", visible only as an
+oddly long progress bar. Fixed at both ends.
+
+Surveying all 60 indexes with the real parser: **21 yielded nothing**. Three
+index shapes from three eras of the wiki: `<gallery>` captions (early 1970s),
+tables headed "Car Name" (1980s), and `{{List0000White|…}}` row templates (late
+1990s). After the fix every year yields castings: 7,991 index entries, 2,287
+distinct articles.
+
+Then a survey of *every casting page* (6,649 Hot Wheels, 2,578 Matchbox), which
+is what found the rest. Bold headings (`=='''USA Versions'''==`, most 1968–69
+cars) and an empty `|+` caption both made real castings parse to zero rows.
+Both fail exactly like a page with nothing to import, which is why they
+survived two months. Widening which headings count raised a real concern:
+provenance keys come from row numbers counted across sections, so a newly
+recognised early section renumbers later rows. It was measured before
+committing: Matchbox renumbers nothing; Hot Wheels touches 5 pages, none in
+2011, the only year imported anywhere. After the full import runs that freedom
+is gone, and CLAUDE.md says so.
+
+### Matchbox, with zero schema changes
+
+The Matchbox wiki shares the page format, so the importer became wiki-agnostic
+rather than copied. The previous session's warning about two importers built
+side by side applies. Three differences were each measured on both dumps
+before deciding whether they were global or per-wiki:
+
+- Wheels as images: 8,969 Matchbox cells, 1 Hot Wheels cell. Applied globally.
+- Range-plus-segment series (`[[1-75]]: [[Wheeled Envy]]`): 5,932 Matchbox
+  cells, but also 1,002 Hot Wheels cells with text beside the link. Applied to
+  Matchbox only, because re-keying Hot Wheels series would duplicate what's
+  imported.
+- Header spellings (`Toy Number(s)`, `Decals`, `Labels`, `Wheel/ Type`). Global
+  and harmless.
+
+### The full run
+
+Both wikis, every year, from the dumps, into one fresh database:
+**Hot Wheels** 2,073 castings, 22,631 releases, 33,744 variations in 448 s;
+**Matchbox** 1,569 castings, 12,045 releases, 13,449 variations in 190 s. Both
+exit cleanly. Every record has exactly one provenance row (64,983 and 30,975),
+and both brands are live under Mattel. All 3,642 castings are pending, as the
+blocker intends. A second Matchbox run over the same database created nothing
+and updated everything, so re-import is idempotent at full scale, not only for
+2011. The full table is in CLAUDE.md under *Catalog import*.
+
+Spot checks: Mantis (1970, read only through the gallery index) has 20 releases
+and 47 variations. Python has 30 variations across its USA, Hong Kong and
+2018-retool tooling. Baja Bug (the caption fix) has 76 and Lotus Turbine (the
+bold heading) 17.
+
+None of this is in the dev database on the Mac, which still holds 2011. The
+commands to reproduce it are in CLAUDE.md's *What to do next*.
+
+### The other five brands
+
+Checked rather than guessed. Mini GT has a Fandom wiki, but small (699
+articles) and in its own format. Inno64's has 24 articles. Schuco, TSM and
+Para64 have none, only manufacturer sites (Inno's is a WooCommerce shop with a
+sitemap; `para64.com` was unreachable through this environment's proxy). Each
+is a source decision as much as a parser, so none was started. Manual entry
+covers them meanwhile.
+
+### Environment
+
+The cloud container has PHP 8.3 and the lock needs 8.4. Adding a PHP PPA was
+refused by the session's permission policy, so dependencies were resolved for
+8.3 locally (Symfony 7.4) and the committed lock restored. Recorded under
+*Environment traps*. Also: `pkill -f <pattern>` kills the shell running it when
+the pattern appears in its own command line. That happened three times here,
+so kill by PID.
+
+---
+
 ## 2026-08-10 — Production deployment configuration, written but not yet run
 
 The session started from a bug report: "whenever I go to collectai.club it says

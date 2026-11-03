@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Services\Import\HotWheelsWiki\ApiPageSource;
-use App\Services\Import\HotWheelsWiki\DumpPageSource;
+use App\Services\Import\FandomWiki\ApiPageSource;
+use App\Services\Import\FandomWiki\DumpPageSource;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 use Tests\TestCase;
@@ -74,6 +74,16 @@ class PageSourceTest extends TestCase
         $this->assertSame('{{casting|name=Danicar}} & more', $pages[0]->wikitext);
 
         unlink($path);
+    }
+
+    public function test_asking_the_dump_for_no_pages_yields_no_pages(): void
+    {
+        // The regression this guards: an empty want-list used to mean "every
+        // page", so a year index the parser couldn't read started importing the
+        // entire wiki as that one year.
+        $path = $this->writeDump('wiki.xml', $this->dumpXml());
+
+        $this->assertSame([], iterator_to_array((new DumpPageSource($path))->pages([])));
     }
 
     public function test_the_dump_matches_titles_the_way_wiki_links_write_them(): void

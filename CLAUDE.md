@@ -5,9 +5,9 @@ domain model, conventions and current state only have to be explained once.
 **Treat this file as the source of truth, not the conversation history** —
 update it whenever a convention changes.
 
-**Last edited:** 2026-08-10 (production deployment configuration written; image
-builds and the stack boots healthy locally; **still nothing deployed** — the
-apex is unchanged)
+**Last edited:** 2026-11-03 (manual entry of cars and photos; the importer reads
+every Hot Wheels year and the Matchbox wiki; HWPriceGuide ruled out as a source.
+**Still nothing deployed** — the apex is unchanged)
 
 ## Start here
 
@@ -15,8 +15,10 @@ A brand-agnostic diecast catalog (Hot Wheels, Matchbox, Tomica, Mini GT, …) on
 Laravel + Postgres, whose catalog grows from photographs of packaging via an AI
 pipeline, gated behind admin approval.
 
-**The data layer is complete and tested, and the catalog now has 241 real
-castings in it. The public product is not started.** Read
+**The data layer is complete and tested. The importer covers every Hot Wheels
+year (1968–2027) and the Matchbox wiki, and an admin can add cars and photos by
+hand — but your dev database holds only what you have actually imported (2011,
+as of the last measurement). The public product is not started.** Read
 [Current state](#current-state) before assuming any feature exists — several
 plausible-sounding ones don't, including some the commit history implies.
 In particular: everything imported is `pending` and therefore invisible, on
@@ -50,7 +52,7 @@ The five things most likely to trip you up, each expanded below:
 - [How to work in this repo](#how-to-work-in-this-repo) — conventions, traps
 - [Domain model](#domain-model) — [Make/Model splitting](#makemodel-splitting-rules) · [field definitions](#field-definitions)
 - [AI agent pipeline](#ai-agent-pipeline) — [example flow](#example-flow) · [acquisition priorities](#data-acquisition-priorities)
-- [Settled decisions](#settled-decisions) — [schema](#schema) · [approval](#approval--submissions) · [capture](#capture) · [AI pipeline](#ai-pipeline) · [catalog import](#catalog-import-hot-wheels-wiki) · [Make/Model inference](#makemodel-inference) · [review](#review) · [delivery](#delivery) · [deployment](#deployment)
+- [Settled decisions](#settled-decisions) — [schema](#schema) · [approval](#approval--submissions) · [capture](#capture) · [AI pipeline](#ai-pipeline) · [catalog import](#catalog-import-fandom-wikis) · [data sources](#data-sources) · [Make/Model inference](#makemodel-inference) · [review](#review) · [manual entry](#manual-entry) · [delivery](#delivery) · [deployment](#deployment)
 - [Open questions](#open-questions)
 - [Session log](docs/session-log.md) — narrative and rationale, loaded on demand
 
@@ -63,8 +65,8 @@ honest — it's the fastest way for a new session to avoid assuming something
 exists.*
 
 **Running:** `docker compose up -d` brings up `app` (:8000), `db` (Postgres 16,
-:5432), `redis` (:6379), `meilisearch` (:7700). `php artisan test` → **207
-passed, 609 assertions**.
+:5432), `redis` (:6379), `meilisearch` (:7700). `php artisan test` → **255
+passed, 823 assertions** (re-measured 2026-11-03).
 
 **The dev database holds the import *plus* seed data, so its counts are not the
 import's counts.** `CatalogSeeder` and `SubmissionSeeder` contribute 9 castings
@@ -120,8 +122,8 @@ internet — the 525 stands until someone works through the runbook.
 **The `prod` image builds and the stack boots — verified locally 2026-08-10.**
 `web` reaches healthy, `/login` renders with its compiled assets (the
 content-hashed CSS returns 200 with `Cache-Control: public, immutable`), and the
-worker starts `queue:work`. The dev suite is untouched at 207 passed, 609
-assertions. What has *not* happened is a real deployment: no instance, no DNS
+worker starts `queue:work`. The dev suite was 207 passed, 609
+assertions at the time. What has *not* happened is a real deployment: no instance, no DNS
 change, so the table above still stands.
 
 **Read a `web` container that never goes healthy by finding the first
@@ -140,7 +142,7 @@ There is still no CI: no `.github/workflows`, and a deploy is `git pull` plus
 queue worker, `APP_URL=http://localhost` — reachable only from this Mac on
 `localhost:8000`.
 
-**The entire HTTP surface is twelve routes** (`routes/web.php`):
+**The entire HTTP surface is twenty-one routes** (`routes/web.php`, counted with `route:list` 2026-11-03):
 
 | Route | State |
 |---|---|
@@ -156,24 +158,37 @@ queue worker, `APP_URL=http://localhost` — reachable only from this Mac on
 | `GET /admin/proposals` | Real. Proposals with **no** submission behind them — the importer's inferences, paginated |
 | `POST /admin/proposals/{proposal}/approve` | Real. Unscoped — there is no parent to scope to |
 | `POST /admin/proposals/{proposal}/reject` | Real. Retracts, rather than rejects, an imported casting |
+| `GET /admin/catalog` | Real. Search castings by name, make or model, every status |
+| `GET /admin/castings/create` | Real. Add a car by hand — see [Manual entry](#manual-entry) |
+| `POST /admin/castings` | Real. New casting + version 1 + release + variation (+ photos); goes live |
+| `GET /admin/castings/{casting}` | Real. Every release, variation and photo; add-variation form; source attribution |
+| `POST /admin/castings/{casting}/variations` | Real. Another release/variation of the same tool |
+| `POST /admin/variations/{variation}/photos` | Real. Named photo slots, same as capture |
+| `POST\|DELETE /admin/variations/{variation}/photos/{photo}[/primary]` | Real. Scoped bindings; remove keeps bytes a submission still shares |
 
 **Built and tested:**
 
 - All 12 catalog tables + `submissions`, `submission_photos`,
   `submission_proposals`, `record_sources`. Migrations verified from zero
   (`migrate`, `rollback`, `re-migrate`, `migrate:fresh --seed` all clean).
-- **The Hot Wheels Wiki importer** — the whole path, end to end:
-  `app/Services/Import/Wikitext/` (a rowspan-aware wikitable parser),
-  `app/Services/Import/HotWheelsWiki/` (`CastingPageParser`, `YearIndexParser`,
-  `CatalogImporter`, `ApiPageSource`, `DumpPageSource`) and
-  `catalog:import-hot-wheels` (`--year`, `--dump`, `--limit`, `--dry-run`).
+- **The Fandom wiki importer — Hot Wheels and Matchbox** — the whole path, end
+  to end: `app/Services/Import/Wikitext/` (a rowspan-aware wikitable parser),
+  `app/Services/Import/FandomWiki/` (`Wiki`, `CastingPageParser`,
+  `YearIndexParser`, `CatalogImporter`, `ApiPageSource`, `DumpPageSource`) and
+  `catalog:import-wiki {hot-wheels|matchbox}` (`--year` or `--from`/`--to`,
+  `--dump`, `--limit`, `--dry-run`). `catalog:import-hot-wheels` is the same
+  command fixed to Hot Wheels and still works. The namespace was
+  `HotWheelsWiki` until 2026-11-03.
   Parser tests run on wikitext captured verbatim from the wiki in
   `tests/Fixtures/hotwheels-wiki/`, not on wikitext written to suit the parser —
   that distinction found four separate classes of dropped row and is worth
-  preserving. **2011 is imported**: 241 castings, 258 casting versions, 1,856
-  series, 4,284 releases, 6,295 variations, 12,934 provenance rows, in about 27
-  seconds. Re-import is idempotent — verified against the live wiki, not just in
-  tests.
+  preserving. **2011 is imported** into the dev DB: 241 castings, 258 casting
+  versions, 1,856 series, 4,284 releases, 6,295 variations, 12,934 provenance
+  rows, in about 27 seconds. Re-import is idempotent — verified against the live
+  wiki, not just in tests.
+  - **Every year, both wikis, has been run from the dumps — in a cloud session,
+    not into your dev DB.** See [Catalog import](#catalog-import-fandom-wikis)
+    for the measured totals and the command to reproduce them locally.
   - **Almost all of it is `pending`, by design.** The wiki states no make or
     model in a structured column, so imported castings are unidentified and
     `Casting::approvalBlocker()` holds them — and their releases and variations
@@ -239,6 +254,14 @@ queue worker, `APP_URL=http://localhost` — reachable only from this Mac on
   `apple-touch-icon.png`, and registration in `resources/js/app.js`. The layout
   is now a real HTML document (it used to start at `<meta name="viewport">`, so
   every page rendered in quirks mode).
+- **Manual entry** (`CatalogController`, `VariationPhotoController`,
+  `app/Services/Catalog/ManualCatalogEntry.php`, `VariationPhotos.php`, the
+  `StoreCarRequest` / `StoreVariationRequest` / `StoreVariationPhotosRequest`
+  requests, `resources/views/admin/catalog/`, `components/catalog/`). Add a car
+  by hand — make/model or fantasy, casting, release, variation, photos — or add a
+  variation and photos to any casting already in the catalog; search castings at
+  every status. What an admin enters goes live. See [Manual entry](#manual-entry).
+  Driven end to end in Chromium at phone width, not just in feature tests.
 - **The production deployment configuration** — written, not yet run. The
   Dockerfile is multi-stage (`dev` unchanged, plus `vendor`, `assets` and
   `prod`), `docker-compose.prod.yml` runs web + worker + Postgres + Redis, and
@@ -258,10 +281,14 @@ queue worker, `APP_URL=http://localhost` — reachable only from this Mac on
   `SubmissionSeeder` is still what puts anything in the *submission* queue.
   Pointing Metadata at a capture's reading is a natural next step and is not
   built.
-- **The dump has never been read for real.** `DumpPageSource` is tested against
-  an archive built by the same 7-Zip binary, but every real run so far has gone
-  through `ApiPageSource`. Going wide (11,041 pages) should use `--dump=` and is
-  the first thing that will exercise it at size.
+- **No image import from any source, and no price data.** The wiki images are
+  excluded by a settled decision, and HWPriceGuide is ruled out as a source
+  entirely — see [Data sources](#data-sources). Photos come from capture and
+  manual entry.
+- **Schuco, Mini GT, TSM, Inno64 and Para64 have no importer.** Mini GT has a
+  small Fandom wiki (699 articles, its own page format); Inno64's has 24
+  articles; the rest have no wiki, only manufacturer product sites. Each is a
+  separate source to vet and parse. Until then, manual entry is how they get in.
 
 - **No Meilisearch integration.** The container runs, but `laravel/scout` is not
   in `composer.json`, so nothing is indexed and cross-brand search doesn't work
@@ -348,8 +375,21 @@ apart — 12 pending proposals is the expected total, not a regression.
   `curl --resolve` *before* touching DNS, and setting Full (strict) only *after*
   the origin certificate is in place. The calls behind it are in
   [Deployment](#deployment).
-- **Import more years.** `catalog:import-hot-wheels --year=2012` needs no new
-  code, and `catalog:identify-castings` will pick up whatever it adds.
+- **Run the full imports into the dev DB.** No new code needed:
+
+  ```bash
+  php artisan catalog:import-wiki hot-wheels --from=1968 --to=2027 --dump=/path/to/hotwheels_pages_current.xml.7z
+  php artisan catalog:import-wiki matchbox --from=1968 --to=2027 --dump=/path/to/matchbox_pages_current.xml.7z
+  ```
+
+  The dump URLs are `Wiki::dumpUrl()`; S3 refuses `HEAD` with a 403 but serves
+  `GET`, so don't read a failed `curl -I` as the dump having moved. Decompress
+  once with `7z x` and pass the `.xml` if you will run more than once. Timings
+  are under [Catalog import](#catalog-import-fandom-wikis).
+- **Then budget before identifying.** Everything imported arrives unidentified,
+  and `catalog:identify-castings` is a billed Claude call per 25 castings. A
+  full import takes the backlog from 241 castings to 3,642 (measured) — decide on a `--limit`
+  per run rather than letting it walk the whole thing.
 - **Join the two agents up.** Metadata is currently driven by the import
   backlog only. A capture produces an OCR reading and still yields no proposals,
   because the link that turns a reading into catalog records doesn't exist:
@@ -438,6 +478,12 @@ folding in whenever the public catalog replaces it.
   indexes, the `COALESCE` expression index, `jsonb` and partial indexes don't
   exist in SQLite. `docker/postgres/init-test-db.sh` creates `diecast_testing`
   on first volume creation; an existing environment needs it made by hand.
+
+- **Cloud sessions have PHP 8.3; the lock file needs 8.4** (Symfony 8.1). To run
+  the suite there, `composer update` resolves Laravel 13 onto Symfony 7.4, then
+  `git checkout composer.lock` — **never commit the 8.3 lock**. Also `cp
+  .env.example .env`, point `db` at 127.0.0.1 in `/etc/hosts` (phpunit.xml forces
+  `DB_HOST=db`), and create the `diecast`/`diecast_testing` databases.
 
 - **`p7zip` is in the Dockerfile for the wiki dump.** `DumpPageSource` shells out
   to `7z` and streams the archive; there is no usable pure-PHP 7-Zip reader. If
@@ -824,21 +870,24 @@ in the [session log](docs/session-log.md).*
   `OCR_MAX_TOKENS` covers thinking as well as the JSON — thinking is on by
   default on Opus 5, and a limit sized for the answer alone truncates mid-read.
 
-### Catalog import (Hot Wheels Wiki)
+### Catalog import (Fandom wikis)
 
 *Settled 2026-08-09 as a decisions-only session, then built and run the same
-day. Verified live against the wiki. Reasoning in the
-[session log](docs/session-log.md).*
+day. Verified live against the wiki. Widened to every year and to the Matchbox
+wiki on 2026-11-03. Reasoning in the [session log](docs/session-log.md).*
 
 The catalog can't grow to useful coverage from photographs alone, so the bulk of
-it comes from [hotwheels.fandom.com](https://hotwheels.fandom.com) and the
-capture pipeline adds what the wiki lacks. This also gives the Comparison Agent
+it comes from [hotwheels.fandom.com](https://hotwheels.fandom.com) and
+[matchbox.fandom.com](https://matchbox.fandom.com), and the capture pipeline and
+manual entry add what the wikis lack. This also gives the Comparison Agent
 a populated DB to diff against — without it, duplicate detection is being built
 against an empty table.
 
-- **Use the dump, not a crawler.** `https://s3.amazonaws.com/wikia_xml_dumps/h/
-  ho/hotwheels_pages_current.xml.7z` — 16.5 MB, current revisions, last modified
-  2026-03-13. The API (MediaWiki 1.43.9 at `/api.php`) is only for the delta
+- **Use the dump, not a crawler.** `Wiki::dumpUrl()` —
+  `…/wikia_xml_dumps/h/ho/hotwheels_pages_current.xml.7z` (17.6 MB, 195 MB
+  decompressed, last modified 2026-10-20) and `…/m/ma/matchbox_pages_current.xml.7z`
+  (3.75 MB, last modified 2026-09-25). S3 answers `HEAD` with 403 and `GET`
+  normally. The API (MediaWiki 1.43.9 at `/api.php`) is only for the delta
   since the dump's `Last-Modified`, via revision timestamps. That's 1 download
   plus a small delta instead of 11,041 requests. Re-check `Last-Modified` before
   each run; if the dump has moved on, re-pull rather than widening the delta.
@@ -879,9 +928,16 @@ against an empty table.
 - **The importer must create `CastingVersion` 1 explicitly** — nothing does it
   automatically (see [Current state](#current-state)). It is the first bulk
   writer, so it is the first place this bites.
-- **Single-brand by construction.** This wiki is Hot Wheels only, so every
-  imported `series.brand_id` is Hot Wheels. Other brands need other sources —
-  and needing zero schema changes to add them is the point of the design.
+- **One brand per wiki, one `Wiki` per site.** Each Fandom wiki covers one
+  brand, so the brand is a property of the source (`Wiki::$brand`), not read off
+  a page. What differs between wikis — host, `record_sources.source`, brand,
+  year-index title, series rule — lives on `App\Services\Import\FandomWiki\Wiki`
+  and nowhere else; every constructor defaults to Hot Wheels. Matchbox needed
+  **zero schema changes**, which is the design working.
+- **Each wiki is its own provenance source** (`hotwheels_fandom`,
+  `matchbox_fandom`). Page ids restart from 1 on every wiki, so `page:2602` is a
+  different article on each, and `CatalogImporter` refuses a page from another
+  wiki rather than overwrite a casting that shares its id.
 
 **Rules learned building it** (2026-08-09). Each came from a bug that failed
 silently; all are now regression-tested against verbatim live wikitext under
@@ -918,6 +974,66 @@ silently; all are now regression-tested against verbatim live wikitext under
   best match key a card has, which is why `variations.toy_number` exists and
   carries a trigram index.
 
+**Rules learned going wide** (2026-11-03, running every year of both dumps).
+Regression-tested on verbatim pages under `tests/Fixtures/hotwheels-wiki/` and
+`tests/Fixtures/matchbox-wiki/`:
+
+- **Year indexes come in three shapes.** Tables with a casting column (headed
+  `Model Name`, or `Car Name` in the 1980s), `<gallery>` blocks (the early
+  1970s — prefer the caption's link over `link=`, which sometimes points
+  elsewhere), and rows rendered by `{{List…|toy|col|[[Model]]|…}}` templates
+  (late 1990s). Reading only the first left **21 of 60 Hot Wheels years
+  yielding nothing**. Survey every index before trusting a range run.
+- **An empty title list must never reach a page source.** `DumpPageSource`
+  treats an empty want-list as "every page" (that's what `all()` is), so an
+  index that parsed to nothing silently began importing the **entire wiki** as
+  that year. `pages([])` now yields nothing and the command says so.
+- **Which headings count as Versions sections is now effectively frozen.** Row
+  numbers are counted across the page's Versions sections in document order, and
+  provenance keys are built from them — recognise a new section *before* an
+  existing one and every later row renumbers, so a re-import overwrites car A
+  with car B. The 2026-11-03 widening (bold headings, singular `Version`, a
+  trailing parenthetical like `Versions (MB168)`) was checked against both dumps
+  first: Matchbox renumbered nothing, Hot Wheels 5 pages none of which were in
+  the 2011 import. Any further change needs the same measurement.
+- **Matchbox writes series as range plus segment** — `[[1-75]]: [[Wheeled
+  Envy]]`, `5-Pack: [[…|VIP Parking]]`, position sometimes on the same line —
+  and the first link alone would file every mainline car under "1-75". So
+  `Wiki::$compoundSeries` names the series by the whole line. It is **off for
+  Hot Wheels and must stay off**: 1,002 Hot Wheels cells carry text beside the
+  link, and re-keying them would duplicate every series already imported.
+- **A wheel written as a picture is recorded by its file name** (`M002f`), the
+  wiki's own wheel code — 8,969 Matchbox cells, 1 Hot Wheels cell. Dropping it
+  made cars that differ only by wheels identical. The image is never fetched.
+- **A caption line (`|+`) is not a data row.** Read as one, it started the body
+  early and the table lost its header row (Baja Bug).
+- **`N/A` in Col # means no number**, not collector number "N". Underscored index
+  links (`[[Fisker_Karma_(2011)|…]]`) are normalised to spaces.
+- **What still parses empty is mostly not a casting:** track sets, monster
+  trucks and playsets carry `{{casting}}` but no Versions table. Matchbox's
+  seven `==Version 1 (With Gun)==`-style pages are a known gap, left alone for
+  the renumbering reason above.
+
+**Measured, both wikis, every year, from the dumps** (cloud session 2026-11-03,
+fresh database, both wikis in one DB):
+
+| | Hot Wheels | Matchbox |
+|---|---|---|
+| Index titles → castings | 2,287 → 2,073 | 1,900 → 1,569 |
+| Casting versions | 2,290 | 1,587 |
+| Series | 4,245 | 2,325 |
+| Releases (years) | 22,631 (1968–2027) | 12,045 (1960–2027) |
+| Variations | 33,744 | 13,449 |
+| Provenance rows | 64,983 | 30,975 |
+| Skipped rows/pages | 539 | 209 |
+| Time | 448 s | 190 s |
+
+Index titles exceed castings because 243 / 377 of them are redirects. Skips are
+overwhelmingly rows identical in every column read — the Notes-only
+sub-variants, deliberately not distinguished. Every casting lands `pending`
+(3,642), as designed. A second Matchbox run created nothing and updated
+everything (163 s) — idempotent at full scale.
+
 **Parsing notes** (verified 2026-08-09): casting pages carry a `{{casting}}`
 infobox and a `==Versions==` wikitable with columns *Col # · Year · Series ·
 Color · Tampo · Base Color/Type · Window Color · Interior Color · Wheel Type ·
@@ -926,6 +1042,34 @@ Year indexes exist as `List of YYYY Hot Wheels`, 1968–2027. Two gotchas: `Col 
 arrives as `032/244`, and Series as `[[2011 New Models]]<br>32/50` — both need
 splitting, and Series being a wiki-link means series identity is resolvable
 rather than a bare string.
+
+### Data sources
+
+*Settled 2026-11-03, when the request was to copy HWPriceGuide's whole database
+and photos. Measured, not assumed — details in the [session log](docs/session-log.md).*
+
+- **HWPriceGuide (hwpriceguide.com) is not a source — not its catalog, its
+  prices or its photos.** It is a commercial competitor: ~33,500 `/item/` pages,
+  paid memberships, prices it derives from sales data and puts partly behind
+  "Upgrade to view", a metered search ("5 searches left"), and its own car photos
+  under `/dist/images/cars/`. Its robots.txt doesn't forbid `/item/` and it
+  publishes no terms page, but neither of those makes copying a competitor's
+  compiled product and photographs acceptable. The photos are someone's
+  copyright; the prices are the product; and mirroring the catalog contradicts
+  [priority 1](#data-acquisition-priorities), an original database. Its
+  *organisation* — category, sub-series, chase/Treasure Hunt status, first
+  casting — is an idea and fair to learn from when the public catalog is built.
+- **The same facts come from sources that allow it.** Year, series, colour,
+  wheels and toy number for Hot Wheels and Matchbox are in the Fandom wikis,
+  CC-BY-SA, with published dumps. That is where catalog breadth comes from.
+- **Photos: ours, not theirs.** No source's images are imported — not the
+  wikis' (settled 2026-08-09) and not HWPriceGuide's. Catalog photos come from
+  capture and manual entry, which is what makes them unencumbered.
+- **Prices need a source that permits reuse**, or our own observations. None is
+  chosen; `price_histories` stays empty until one is.
+- **Every new source gets this check first**: terms, robots.txt, whether the
+  data is facts or someone's product, and whether images are involved. A source
+  for Schuco, Mini GT, TSM, Inno64 or Para64 is a decision, not just a parser.
 
 ### Make/Model inference
 
@@ -1054,6 +1198,44 @@ the [session log](docs/session-log.md).*
   `<meta name="viewport">` — no doctype, so every page rendered in quirks mode —
   which also left `<link rel="manifest">` nowhere valid to sit. Don't strip it
   back to a fragment.
+
+### Manual entry
+
+*Landed 2026-11-03. The reasoning is in the [session log](docs/session-log.md).*
+
+- **What an admin types goes live** — the admin *is* the reviewer, so there is no
+  proposal and no queue. It still publishes through `promoteWithDependencies()`,
+  so nothing goes live under an invisible parent, and it still checks
+  `approvalBlockers()`: a variation added to an imported casting nobody has
+  identified is **saved and held**, with the reason shown. Hand-made records
+  carry no `record_sources` row and no proposal, which is how the rest of the
+  app tells them apart.
+- **A new car must say what it is** — make + model, or "fantasy". The form
+  refuses a real car with no model rather than saving something that would sit
+  pending looking lost. A make typed with "fantasy" ticked is dropped, not
+  stored (`exclude_if`), because the CHECK forbids the combination.
+- **Lookups are exact and case-insensitive, never fuzzy.** Brands and makes by
+  name (hard-unique); models by `(make, name, generation start year)`, the same
+  key the Metadata Agent uses, so a hand-entered RX-7 lands on the row the
+  pipeline would choose; series by name within the brand, preferring a live row.
+  A miss costs a near-duplicate an admin can see; a fuzzy hit files a car as a
+  different car. Generation is one claim — a chassis code or end year without a
+  start year is refused, not half-stored.
+- **New castings and new variations are separate entry points.** "Add a car"
+  always mints a casting; a new colour or year is added from the existing
+  casting's page. Matching a typed casting name to an existing one would merge
+  different brands' tools that share a name — exactly what one-casting-per-tool
+  forbids.
+- **A duplicate variation is refused with the id it duplicates**, checked
+  through `attributeSignature()` so the check and the unique index agree.
+- **Photos reuse the capture slots and disk** (`TakesPhotoSlots`,
+  `catalog.capture.disk`), get unguessable ULID paths, and clean up after a
+  failed write like `CaptureController`. Removing a photo **keeps the bytes when a
+  `submission_photos` row shares them** — `promoteTo()` references rather than
+  copies. Photos are stored after the catalog rows commit: a photo failure
+  leaves a correctly entered car without photos, not a lost entry.
+- **No JavaScript involved.** Plain multipart forms with visible file inputs, so
+  manual entry keeps working if the bundle breaks.
 
 ### Delivery
 

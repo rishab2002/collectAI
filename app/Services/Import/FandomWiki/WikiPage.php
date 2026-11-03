@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Import\HotWheelsWiki;
+namespace App\Services\Import\FandomWiki;
 
 /**
  * One page as a source hands it over, before anything has been read out of it.

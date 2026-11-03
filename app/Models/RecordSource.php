@@ -39,6 +39,14 @@ class RecordSource extends Model
     public const SOURCE_HOT_WHEELS_FANDOM = 'hotwheels_fandom';
 
     /**
+     * matchbox.fandom.com. A separate source from Hot Wheels for exactly the
+     * reason above: both wikis number their pages from 1, so `page:12345` names
+     * a different article on each, and the `(source, source_key)` unique index
+     * is what keeps them apart.
+     */
+    public const SOURCE_MATCHBOX_FANDOM = 'matchbox_fandom';
+
+    /**
      * The catalog record these facts were imported into.
      */
     public function sourceable(): MorphTo

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Import\HotWheelsWiki;
+namespace App\Services\Import\FandomWiki;
 
 /**
  * One line of a casting article's Versions table: a single sellable variant of

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Import\HotWheelsWiki;
+namespace App\Services\Import\FandomWiki;
 
 use RuntimeException;
 
@@ -46,6 +46,14 @@ final class DumpPageSource implements PageSource
      */
     public function pages(array $titles): iterable
     {
+        // Asking for no pages gets no pages. stream() reads an empty want-list
+        // as "everything", which is right for all() and catastrophic here: a
+        // year index the parser couldn't read used to arrive as an empty list
+        // and quietly start importing the entire wiki.
+        if ($titles === []) {
+            return;
+        }
+
         // Titles are matched after normalising underscores to spaces, which is
         // how MediaWiki treats them: a link to `List_of_2011_Hot_Wheels` and the
         // page titled `List of 2011 Hot Wheels` are the same page.

@@ -1,12 +1,26 @@
 <x-layouts.app title="Review queue">
     <div class="flex items-baseline justify-between gap-4">
         <h1 class="text-xl font-semibold">Review queue</h1>
-        <a
-            href="{{ route('admin.capture') }}"
-            class="rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white dark:bg-white dark:text-neutral-900"
-        >
-            New capture
-        </a>
+        <div class="flex items-baseline gap-2">
+            <a
+                href="{{ route('admin.catalog.index') }}"
+                class="rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium dark:border-neutral-700"
+            >
+                Catalog
+            </a>
+            <a
+                href="{{ route('admin.castings.create') }}"
+                class="rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium dark:border-neutral-700"
+            >
+                Add a car
+            </a>
+            <a
+                href="{{ route('admin.capture') }}"
+                class="rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white dark:bg-white dark:text-neutral-900"
+            >
+                New capture
+            </a>
+        </div>
     </div>
 
     @if ($inferredCount > 0)

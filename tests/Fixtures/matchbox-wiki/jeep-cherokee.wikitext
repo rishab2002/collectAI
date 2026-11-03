@@ -1,0 +1,632 @@
+{{Casting
+|name=Jeep Cherokee
+|series=[[1-75]]
+|years=1986 - 2014<br> (Original)<br>1997 - 2021<br> (Retool)
+|number=MB168 (Original) <ref>[http://www.mbxforum.com/11-Catalogs/00-Software/jnmb75nda.php?uSleutel=168 JEEP CHEROKEE, www.mbxforum.com] Retrieved 7 February 2017</ref> <br> MB574 (Roof Lights) <ref>[http://www.mbxforum.com/11-Catalogs/00-Software/jnmb75nda.php?uSleutel=576 JEEP CHEROKEE with Triang Roof Light, www.mbxforum.com] Retrieved 7 February 2017</ref>
+|scale=1:58
+|image=SPORTsilverBlue.jpg}}
+
+==Versions (MB168)==
+This model has been issued in the following versions:
+{| class="wikitable sortable" style="font-size: 85%; text-align: center;" width="100%"
+! style="border-style: none none solid solid|'''Col #'''
+! style="border-style: none none solid solid|'''Year'''
+! style="border-style: none none solid solid|'''Series'''
+! style="border-style: none none solid solid|'''Color'''
+! style="border-style: none none solid solid|'''Tampo'''
+! style="border-style: none none solid solid|'''Base Color / Type'''
+! style="border-style: none none solid solid|'''Window Color'''
+! style="border-style: none none solid solid|'''Interior Color'''
+! style="border-style: none none solid solid|'''Wheel Type'''
+! style="border-style: none none solid solid|'''Toy #'''
+! style="border-style: none none solid solid|'''Country'''
+! style="border-style: none none solid solid|'''Notes / Variations'''
+! style="border-style: none none solid solid|'''Photo'''
+|-
+| colspan="13"  style="text-align: center;" |'''MB168 (with no roof lights)'''
+|-
+|MB27
+|[[List of 1986 Matchbox|1986]]<br>[[List of 1987 Matchbox|1987]]
+|[[1-75]]
+|White
+|QUADTRAK; Blue, Green and Yellow stripes
+|Black / Metal
+|Clear
+|Black
+|[[image: 8-Spoke Industrial - 4740cf.jpg|65px]]
+|
+|Macau
+|
+|[[File:MB168 - 1986-1987 1-75.jpg|100px]]
+|-
+|TP-116
+|[[List of 1987 Matchbox|1987]]<br>[[List of 1988 Matchbox|1988]]
+|[[Twin Packs]]
+|Yellow, green & black
+|Holiday Club <ref>[https://www.mbxforum.com/ME-Catalog/jnmMCmenuManNumberE.php www.mbxforum.com, Your Text: Cherokee] Retrieved 21 November 2020</ref>
+|Black / Metal
+|Clear
+|Black
+|[[image: 8-Spoke Industrial - 4740cf.jpg|65px]]
+|
+|Macau
+|''Came with [[Caravan]]''
+|[[File:MB168 - 1987-1988 Twin Pack TP-116.jpg|100px]]
+|-
+| rowspan="3" |MB27
+|[[List of 1988 Matchbox|1988]]
+| rowspan="3" |[[1-75]]
+| rowspan="3" |Yellow
+| rowspan="3" |MR. FIXER
+|Matte or Gloss Black / Metal
+| rowspan="3" |Clear
+| rowspan="3" |Dark Gray
+| rowspan="3" |[[File:8-Spoke Industrial - 4740cf.jpg|65px]]
+| 
+| rowspan="2" |Macau
+| 
+| rowspan="3" |[[File:Jeep Cherokee (MB168, Mr. Fixer).JPG|100px]]
+|-
+|[[List of 1989 Matchbox|1989]]<br>[[List of 1990 Matchbox|1990]]
+| rowspan="2" |Black / Plastic
+| 
+| JEEP CHEROKEE on base.
+|-
+|[[List of 1991 Matchbox|1991]]
+|
+|Thailand
+|
+|-
+|MB27 (ROW)
+|[[List of 1988 Matchbox|1988]] <ref>Matchbox 1988 (UK edition collectors catalog)</ref>
+|[[1-75]]
+|Yellow
+|Green sections, FOREST RANGER
+|Black / Metal
+|Clear
+|Dark Gray
+|[[File:8-Spoke Industrial - 4740cf.jpg|65px]]
+|
+|Macau
+|''ROW only''
+|[[File:665O - 1988 1-75 ROW.jpg|100px]]
+|-
+|N/A
+|[[List of 1988 Matchbox|1988]]
+|Promotional BP
+|Yellow
+|BP, Chief
+|Black / Plastic
+|Clear
+|Gray
+|[[File:8-Spoke Industrial - 4740cf.jpg|65px]]
+|
+|Macau
+|''Dutch Edit''
+|[[File:MB168-OVP-1988-BP.jpg|100px]]
+|-
+|N/A
+|[[List of 1988 Matchbox|1988]]
+|Super Color Changers
+|Brown
+|MR. FIXER
+|Black / Plastic
+|Clear
+|Gray
+|[[File:8-Spoke Industrial - 4740cf.jpg|65px]]
+|1706<br>Triple Bonus 6-Pack buy 3 get 3 bonus
+|Macau
+|
+|[[File:MB168-OVP-1988-SuperColorChangers.jpg|100px]]
+|-
+|MB27
+|[[List of 1991 Matchbox|1991]]
+|[[1-75]]
+|White
+|NATIONAL SKI PATROL
+|Grey / Plastic
+|Clear
+|Dark Gray
+|[[File:8-Spoke Industrial - 4740cf.jpg|65px]]
+|
+|Thailand
+|''USA only''
+|[[File:Jeep_Cherokee_(1991_NTP_USA).jpg|100px]]
+|-
+| rowspan="2" |MB27
+|[[List of 1992 Matchbox|1992]]
+| rowspan="2" |[[1-75]]
+| rowspan="2" |Silver
+|SPORT, JEEP, black ® on hood
+| rowspan="2" |Black / Plastic
+| rowspan="2" |Clear
+| rowspan="2" |Black
+| rowspan="2" |[[File:8-Spoke Industrial - 4740cf.jpg|65px]]
+| rowspan="2" |
+| rowspan="2" |Thailand
+| rowspan="2" |''USA Only''
+| rowspan="2" |[[File:SPORTsilverBlue.jpg|100px]]
+|-
+|[[List of 1993 Matchbox|1993]]
+|SPORT, JEEP, blue ® on hood
+|-
+|
+|[[List of 1993 Matchbox|1993]]
+|Belgium Chrysler Dealers Promotional
+|Green
+|
+|Dark Grey / Plastic
+|Clear
+|Dark Grey
+|[[File:8-Spoke Industrial - 4740cf.jpg|65px]]
+|
+|
+|Belgium Only
+|[[File:BelgiumPromo.jpg|100px]]
+|-
+|
+|[[List of 1993 Matchbox|1993]]
+|[[Super Sparkers (1993)|Super Sparkers]]
+|Red 
+|Black bordered Yellow bars
+|Transparent Pink/Plastic 
+|Transparent Pink/Plastic
+|N/A
+|[[File:65px-8-Spoke_Industrial_-_4740cf.jpg|65px]]
+|
+|Thailand
+|''Exposed Engine''
+|[[File:SS07.png|100px]]
+|-
+|
+|[[List of 1993 Matchbox|1993]]
+|[[Super Sparkers (1993)|Super Sparkers]]
+|Black
+|Yellow lightning bolts, Red "STORM"
+|Transparent Yellow / Plastic 
+|Transparent Yellow / Plastic
+|N/A
+|[[File:65px-8-Spoke_Industrial_-_4740cf.jpg|65px]]
+|
+|Thailand
+|''Exposed Engine''
+|[[File:SparkerBlack.jpg|100px]]
+|-
+| rowspan="3" |MB73 (USA) MB51 (ROW)
+|[[List of 1994 Matchbox|1994]] 
+| rowspan="3" |[[1-75]]
+| rowspan="3" |Dark Purple
+| rowspan="3" |White and Orange flames
+| rowspan="3" |Black / Plastic
+| rowspan="3" |Clear
+| rowspan="3" |Orange
+| rowspan="3" |[[File:8-Spoke Industrial - 4740cf.jpg|65px]]
+| rowspan="3" |
+| rowspan="3" |China 
+| rowspan="3" |''1994 USA only''
+| rowspan="3" |[[File:Jeep_Cherokee_(1994-97).jpg|100px]]
+|-
+|[[List of 1995 Matchbox|1995]] 
+|-
+|[[List of 1996 Matchbox|1996]]
+|-
+|MB51 (ROW)
+|[[List of 1997 Matchbox|1997]]
+|[[1-75]]
+|Black 
+|White and orange flames
+|Maroon / Plastic
+|Clear
+|Maroon
+|[[File:8-Spoke Industrial - 4740cf.jpg|65px]]
+|
+|China
+|
+|[[File:MB168 - 1997 1-75 ROW.jpg|100px]]
+|-
+|N/A
+|[[List of 1997 Matchbox|1997]]
+|5-Pack: [[List of 1997 5-Packs#Rugged Riders|Rugged Riders]]
+|Dark Green
+|N/A
+|Tan / Plastic
+|Clear
+|Tan
+|[[File:8-Spoke Industrial - 4740cf.jpg|65px]]
+|
+|China
+|
+|[[File:665G - 1997 5-Pack USA.jpg|100px]]
+|-
+|N/A
+|[[List of 2000 Matchbox|2000]]
+|Hilti Series 1 of 3
+|Red
+|HILTI, expertise. in every case. 
+|Black / Plastic
+|Smoke
+|Red
+|[[File:8-Spoke Industrial - 4740cf.jpg|65px]]
+|95191
+|China
+|
+|[[File:Hilti Jeep Cherokee.jpg|100px]]
+|-
+|N/A
+|[[List of 2000 Matchbox|2000]]
+|[[Fanta (Matchbox Series)|Fanta Series]]
+|Orange
+|ENJOY FANTA
+|Orange / Plastic
+|Clear 
+|Orange
+|[[File:8-Spoke Industrial - 4740cf.jpg|65px]]
+|
+|China
+|
+|[[File:Jeep_Cherokee_(2000_Fanta).jpg|100px]]
+|-
+|N/A
+|[[List of 2005 Matchbox|2005]]
+|5-Pack: [[List of 2005 5-Packs|Pirates]]
+|Turquoise
+|Palm trees, pirate flag
+|Champagne / Plastic
+|Smoke
+|Indigo
+|[[File:7SpokeSawblade.jpg|65px]]
+|H3380
+|China
+|
+|[[File:JeepCherokeePirateslightblue.jpg|100px]]
+|-
+| rowspan="2" |N/A
+|[[List of 2012 Matchbox|2012]]
+| rowspan="2" |[[Hitch 'n' Haul]]: Vacation Day
+| rowspan="2" |Dark Red
+| rowspan="2" |Gold stripes, 4, Team Leader, Base Camp
+| rowspan="2" |Black / Plastic
+| rowspan="2" |Smoke
+| rowspan="2" |Gold
+| rowspan="2" |[[File:M007_-_6909bf.jpg|65px]]
+| rowspan="2" |
+| rowspan="2" |Thailand
+| rowspan="2" |
+| rowspan="2" |[[File:2012-2013MatchboxJeepCherokeeHitchn'HaulVacationDay.png|100px]]
+|-
+|[[List of 2013 Matchbox|2013]]
+|-
+|N/A
+|[[List of 2013 Matchbox|2013]]
+|3-Pack: [[List of 2013 Licensed 3-Packs#Batman|Batman]]
+|Black
+|Armored Batman 
+|Black / Plastic 
+|Orange Tint
+|Orange
+|[[File:RingedGearRed.jpg|65px]]
+|Y2968
+|Thailand
+|[[Base Codes|Base Code(s):]] F13
+|[[File:Jeep_Cherokee_(2013_Batman).jpg|100px]]
+|-
+|N/A
+|[[List of 2014 Matchbox|2014]]
+|5-Pack: [[List_of_2014_5-Packs#Sea_Rescue|Sea Rescue]]
+|Dark Green
+|JEEP, Cherokee
+|Black / Plastic
+|Smoke
+|Gray
+|[[File:Ringed Flower.png|65px]]
+|BFN06
+|Thailand 
+|Base Code(s): G27
+|[[File:Jeep_Cherokee_2014.jpg|100px]] 
+|-
+| colspan="13"  style="text-align: center;" |'''MB574 (with roof lights)'''
+|-
+|PC7
+|[[List of 1997 Matchbox|1997]]
+|Premiere: Fire Collection
+|White and Red
+|Fire Chief, FD No.1, Gold stripe
+|Black / Plastic
+|Clear
+|White and Black
+|[[File:65px-Goodyear_rubber.jpg|65px]]
+|
+|China
+|
+|[[File:Jeep_Cherokee_Fire_Chief_MB27-D23_Premiere_World_Class.JPG|100px]]
+|-
+|N/A
+|[[List of 1997 Matchbox|1997]]
+|5-Pack: [[List of 1997 5-Packs#City Streets|City Streets]]
+|White 
+|Orange and Blue striping, RESCUE EMT
+|Black / Plastic
+|Clear
+|Dark Blue
+|[[File:8-Spoke Industrial - 4740cf.jpg|65px]]
+|
+|China
+|
+|[[File:Jeep_Cherokee_Fly_Car_20120525_JSCC.jpg|100px]]
+|-
+|N/A
+|[[List of 1997 Matchbox|1997]]
+|5-Pack: [[List of 1997 5-Packs#Fire .28ROW.29|Fire]]
+|Red
+|FIRE CHIEF
+|Black / Plastic
+|Clear
+|Black
+|[[File:8-Spoke Industrial - 4740cf.jpg|65px]]
+|
+|China
+|''ROW only''
+|[[File:Jeep_Cherokee_1986_Matchbox_2_01.JPG|100px]]
+|-
+|N/A
+|[[List of 1997 Matchbox|1997]]
+|5-Pack: [[List of 1997 5-Packs#Fire .28U.S.29|Fire]]
+|Red
+|MATCHBOX FIRE CHIEF
+|Black / Plastic
+|Clear
+|Black
+|[[File:8-Spoke Industrial - 4740cf.jpg|65px]] 
+|
+|China
+|''USA only''
+|[[File:JEEP CHEROKEE FIRE CHIEF.jpg|100px]]
+|-
+|MB97
+|[[List of 1999 Matchbox|1999]]
+|[[1-100]]: At Your Service<br>2/5
+|White 
+|WATER WORKS CITY DIVISION, Green wave
+|Blue / Plastic
+|Yellow Tint
+|Blue
+|[[File:8-Spoke Industrial - 4740cf.jpg|65px]]
+|36271
+|China
+|''USA only''
+|[[File:Jeep Cherokee Police 1999.jpg|100px]]
+|-
+|N/A
+| rowspan="2" |[[List of 1999 Matchbox|1999]] 
+|5-Pack: [[List of 1999 5-Packs#.231 Airport|Airport]]
+| rowspan="2" |Red
+| rowspan="2" |Gold and White stripes, 4 stars on fenders
+| rowspan="2" |Blue / Plastic
+| rowspan="2" |Clear
+| rowspan="2" |Blue
+| rowspan="2" |[[File:8-Spoke Industrial - 4740cf.jpg|65px]]
+|37625
+| rowspan="2" |China
+|
+| rowspan="2" |[[File:Jeep_Cherokee_(2000).jpg|100px]]
+|-
+|MB23
+|[[1-75]]: Notfall Team (Germany)
+|37702 ([[INT]])
+|''Fire Chief Jeep Cherokee on German card''
+|-
+|MB36 (Aus)
+|[[List of 2000 Matchbox|2000]]
+|[[1-75]] 
+|Green, yellow & blue
+|ANIMAL RESCUE
+|Black / Plastic
+|Smoke 
+|Blue
+|[[File:8-Spoke_Industrial_-_4740cf.jpg|65px]]
+|96202 
+|China
+|''Australia only''
+|[[File:Jeep_Cherokee_(2000_AUS).jpg|100px]]
+|-
+|N/A
+|[[List of 2000 Matchbox|2000]]
+|5-Pack: [[List of 2000 5-Packs#.232 Camp Jeep|Camp Jeep]]
+|Dark Blue
+|CAMP JEEP 2000, Mud Design
+|Black / Plastic 
+|Smoke
+|Black
+|[[File:8-Spoke_Industrial_-_4740cf.jpg|65px]]
+|96724
+|China
+|
+|[[File:Jeep_Cherokee_2000.jpg|100px]]
+|-
+| rowspan="2" |N/A
+| rowspan="2" |[[List of 2002 Matchbox|2002]] 
+| rowspan="2" |5-Pack: [[List of 2002 5-Packs#.235 Rescue Chiefs|Rescue Chiefs]]
+|White
+| rowspan="2" |557, CHIEF, HQ
+|Red / Plastic
+|rowspan="2" |Smoke
+|Red
+| rowspan="2" |[[File:7SpokeSawblade_2002.jpg|65px]] 
+| rowspan="2" |97227 (USA)<br>97316 (ROW)
+| rowspan="2" |China
+| rowspan="2" |
+|[[File:Jeep_Cherokee_(2002_Chief).jpg|100px]]
+|-
+|Red
+|Orange / Plastic
+|Orange
+|[[File:RescueChiefRED.jpg|100px]]
+|-
+|N/A
+|[[List of 2005 Matchbox|2005]]
+|[[Hitch 'n' Haul|Hitch 'n Haul]]: Grizzly Lake
+|White
+|Blue and Silver design<br>Unit 7, 168
+|Gray / Plastic 
+|Blue Tint
+|White
+|[[File:7SpokeSawblade_2002.jpg|65px]]
+|H8459
+|China
+|
+|[[File:665E - 2005 Hitch’n’Haul.jpg|100px]]
+|-
+|N/A
+|[[List of 2006 Matchbox|2006]]
+|5-Pack: [[List of 2006 5-Packs#.233Coast Guard|Coast Guard]]
+|White
+|MBX COAST GUARD
+|Black / Plastic
+|Orange
+|Black
+|[[File:7SpokeSawblade_2002.jpg|65px]]
+|J4673
+|Thailand
+|
+|[[File:Jeep_Cherokee_2006.jpg|100px]]
+|-
+|N/A
+|[[List of 2018 Matchbox|2018]]
+|5-Pack: [[List_of_2018_5-Packs#Texas Patrol (FMV35)|Texas Patrol]]
+|Black
+|STATE TROOPER, TEXAS HIGHWAY PATROL
+|Gray / Plastic
+|Blue Tint
+|Grey
+|[[File:Wheel_Grey.jpg|65px]]
+|FMV35
+|Thailand
+|FMV35 (5-Pack toy number) cast into the base.<br>Base Code(s): L22, L26, L40, L45, M06
+|[[File:Jeep_Cherokee_(2018_5_Pack_Texas_Patrol).jpg|100px]]
+|-
+|MB51
+|[[List of 2019 Matchbox|2019]]
+|[[1-100]]: MBX Rescue<br>12/20
+|Metalflake Red
+|River Valley Fire Rescue
+|Dark Gray / Plastic
+|Smoke
+|Black
+|[[File:M007_-_6909bf.jpg|65px]]
+|FYR17 (USA)<br>GCF34 (ROW)
+|Thailand
+|Base Code(s): L37, L38, L39, L40
+|[[File:Jeep_Cherokee_(2019_Fire).jpg|100px]]
+|-
+|5/6
+|[[List of 2019 Matchbox|2019]]
+|[[Jeep Series (2019)|Jeep Series]]
+|Mint Green
+|[[National Parks|NATIONAL PARKS]], PARK PATROL, U.S. 574 
+|Black / Plastic
+|Smoke
+|Light Gray
+|[[File:M007_-_6909bf.jpg|65px]]
+|GMM12
+|Thailand
+|Base Code(s): M26
+|[[File:Jeep Cherokee (2019 Series).jpg|100px]]
+|-
+|N/A 
+|[[List of 2020 Matchbox|2020]]
+|5-Pack: [[List_of_2020_5-Packs#Rocky Peaks (GKJ09)|Rocky Peaks]] 
+|Blue
+|Cliff Adventure Tours
+|Black / Plastic
+|Blue Tint
+|Brown
+|[[File:6SpokeUtilityWhite.jpg|65px]]
+|GKJ09
+|Thailand
+|Base Code(s):  N32, N40
+|[[File:Jeep Cherokee Rocky Peaks.jpg|100px]] 
+|-
+|10/24
+|[[List of 2021 Matchbox|2021]]
+|[[Retro Series (2021)|Retro Series]] 
+|Mint Green
+|[[National Parks|NATIONAL PARKS]], PARK PATROL, U.S. 574
+|Black / Plastic
+|Smoke
+|Light Gray
+|[[File:M007_-_6909bf.jpg|65px]]
+|GWJ43
+|Thailand
+|Base Code(s): P03, P04
+|[[File:Jeep Cherokee Throwback National Parks.jpg|100px]]
+|}
+
+==Gallery==
+<gallery  position=center captionalign=center>
+MB27 Jeep Cherokee.jpg|1986-1987 1-75 version
+Jeep Cherokee 1.JPG|1986-1987 1-75 version
+Jeep Cherokee (1988 MP-805 Hobby).jpg|Jeep Cherokee (1987 MP-805 Hobby)
+Jeep Cherokee Fire (2019 MB574).jpg
+Jeep Cherokee (2006 5 Pack).jpg
+Jeep Cherokee (2005 5 Pack).jpg
+Jeep Cherokee & Caravan (TP-116).jpeg
+Jeep Cherokee Police (1999 5 Pack).jpg
+Jeep Cherokee Police (2000 5 pack).jpg
+Jeep Cherokee - 5.jpg|1991 Mainline Version
+Jeep Cherokee - 4.jpg|2000 Camp Jeep 5-Pack
+Jeep Cherokee 2.JPG|2014 Sea Rescue 5-Pack
+Jeep Cherokee 3.JPG|2018 MBX Rescue - Texas Patrol 5-Pack
+19 MBX Jeep Cherokee Front.jpg
+Screenshot 2026-04-30 153438.png|2003
+Jeep Cherokee (2014 5 Pack).jpg
+SS08.png
+</gallery>
+
+==References==
+<references />
+
+{{DEFAULTSORT:Jeep Cherokee}}
+
+[[Category:1986 New Models]]
+[[Category:Jeep Cherokee|#]]
+[[Category:SUVs]]
+[[Category:Two/Three-door]]
+[[Category:Off Road]]
+[[Category:Trailer hitch]]
+[[Category:American vehicles]]
+[[Category:Double Versions]]
+[[Category:Retooled castings]]
+[[Category:Fire vehicles]]
+[[Category:Emergency Vehicles]]
+[[Category:Mainline by model name (J)]]
+[[Category:1:58]]
+[[Category:Bruce Baur designs]]
+[[Category:Promotional]]
+[[Category:Super Sparkers]]
+[[Category:5-Packs]]
+[[Category:Pirates]]
+[[Category:Hitch 'n' Haul]]
+[[Category:3 Packs]]
+[[Category:Premiere]]
+[[Category:At Your Service]]
+[[Category:Coast Guard]]
+[[Category:Police Vehicles]]
+[[Category:MBX Rescue]]
+[[Category:Jeep Series]]
+[[Category:National Parks]]
+[[Category:Retro Series]]
+[[Category:1986 Matchbox]]
+[[Category:1997 Matchbox]]
+[[Category:1999 Matchbox]]
+[[Category:2000 Matchbox]]
+[[Category:2002 Matchbox]]
+[[Category:2005 Matchbox]]
+[[Category:2006 Matchbox]]
+[[Category:2012 Matchbox]]
+[[Category:2013 Matchbox]]
+[[Category:2014 Matchbox]]
+[[Category:2014 5 packs]]
+[[Category:2018 Matchbox]]
+[[Category:2019 Matchbox]]
+[[Category:2020 Matchbox]]
+[[Category:2021 Matchbox]]
