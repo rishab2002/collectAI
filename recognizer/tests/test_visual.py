@@ -135,6 +135,17 @@ class TrainingTest(unittest.TestCase):
         kept, keys = build.dedupe(rows, ["x", "x", "x"])
         self.assertEqual([1, 2], [r["casting_id"] for r in kept])
 
+    def test_rows_labelled_only_by_key_are_kept(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "manifest.jsonl").write_text(
+                json.dumps({"key": "url:abc", "source": "ref_inno64", "casting_key": "inno64|item:IN64-X"}) + "\n"
+                + json.dumps({"key": "url:def", "source": "x"}) + "\n")
+            rows = build.read_manifests([tmp])
+        self.assertEqual(["inno64|item:IN64-X"], [r["casting_key"] for r in rows])
+        self.assertIsNone(rows[0]["path"])
+        kept, _ = build.dedupe(rows + rows, ["url:abc", "url:abc"])
+        self.assertEqual(1, len(kept))
+
     def test_split_keeps_every_class_in_training_and_singletons_out_of_test(self):
         labels = np.array([1, 1, 1, 1, 1, 2, 3, 3])
         train, test = build.split(labels, 0.2)

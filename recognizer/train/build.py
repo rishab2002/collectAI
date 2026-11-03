@@ -50,11 +50,14 @@ def read_manifests(dirs: list[str]) -> list[dict]:
     rows = []
     for d in dirs:
         base = Path(d)
+        if not (base / "manifest.jsonl").is_file():
+            print(f"  note: {base} has no manifest.jsonl yet — skipped", flush=True)
+            continue
         for line in (base / "manifest.jsonl").read_text(encoding="utf-8").splitlines():
             if not line.strip():
                 continue
             row = json.loads(line)
-            if not row.get("casting_id"):
+            if not row.get("casting_key") and not row.get("casting_id"):
                 continue
             # A row has an image file, or (wiki photos, never kept) only the
             # key of a vector train.collect already put in the cache.
@@ -68,9 +71,10 @@ def dedupe(rows: list[dict], keys: list[str]) -> tuple[list[dict], list[str]]:
     sit on both sides of the held-out split and flatter the measurement."""
     seen, out_rows, out_keys = set(), [], []
     for row, key in zip(rows, keys):
-        if (key, row["casting_id"]) in seen:
+        label = row.get("casting_key") or row.get("casting_id")
+        if (key, label) in seen:
             continue
-        seen.add((key, row["casting_id"]))
+        seen.add((key, label))
         out_rows.append(row)
         out_keys.append(key)
     return out_rows, out_keys

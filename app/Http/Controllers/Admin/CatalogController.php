@@ -8,10 +8,12 @@ use App\Http\Requests\StoreVariationRequest;
 use App\Models\Brand;
 use App\Models\Casting;
 use App\Models\Make;
+use App\Models\ReferenceItem;
 use App\Services\Catalog\CastingSummaries;
 use App\Services\Catalog\ManualCatalogEntry;
 use App\Services\Catalog\ManualEntryResult;
 use App\Services\Catalog\VariationPhotos;
+use App\Services\Reference\ReferenceSuggestions;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -55,9 +57,22 @@ class CatalogController extends Controller
         ]);
     }
 
-    public function create(): View
+    /**
+     * `?find=` searches the reference products; `?ref=` pre-fills the form
+     * from one (see ReferenceSuggestions).
+     */
+    public function create(Request $request, ReferenceSuggestions $suggestions): View
     {
-        return view('admin.catalog.create', $this->vocabularies());
+        $reference = $request->integer('ref') ? ReferenceItem::find($request->integer('ref')) : null;
+        $prefill = $reference ? $suggestions->prefill($reference) : [];
+
+        return view('admin.catalog.create', [
+            ...$this->vocabularies($suggestions, old('brand', $prefill['brand'] ?? null)),
+            'find' => (string) $request->query('find', ''),
+            'found' => $suggestions->search((string) $request->query('find', '')),
+            'prefill' => $prefill,
+            'reference' => $reference,
+        ]);
     }
 
     public function store(StoreCarRequest $request, ManualCatalogEntry $entry, VariationPhotos $photos): RedirectResponse
@@ -67,7 +82,7 @@ class CatalogController extends Controller
         return $this->finish($result, $request->photos(), $photos);
     }
 
-    public function show(Casting $casting): View
+    public function show(Request $request, Casting $casting, ReferenceSuggestions $suggestions): View
     {
         $casting->load([
             'model.make',
@@ -80,9 +95,16 @@ class CatalogController extends Controller
             'versions.releases.variations.photos' => fn ($query) => $query->orderByDesc('is_primary')->orderBy('id'),
         ]);
 
+        // "Add this version here", from a reference product whose casting the
+        // catalog already has: the add-variation form starts filled in.
+        $reference = $request->integer('ref') ? ReferenceItem::find($request->integer('ref')) : null;
+        $prefill = $reference ? $suggestions->prefill($reference) : [];
+
         return view('admin.catalog.show', [
             'casting' => $casting,
-            ...$this->vocabularies(),
+            'prefill' => $prefill,
+            'reference' => $reference,
+            ...$this->vocabularies($suggestions, old('brand', $prefill['brand'] ?? null)),
         ]);
     }
 
@@ -133,10 +155,14 @@ class CatalogController extends Controller
      *
      * @return array<string, list<string>>
      */
-    private function vocabularies(): array
+    private function vocabularies(ReferenceSuggestions $suggestions, ?string $brand = null): array
     {
         return [
-            'brands' => Brand::query()->orderBy('name')->pluck('name')->all(),
+            // Every brand, line and series the catalog or the reference list
+            // knows, so the admin picks rather than types (and mistypes).
+            'brands' => $suggestions->brands(),
+            'lines' => $suggestions->lines($brand),
+            'seriesOptions' => $suggestions->series($brand),
             'makes' => Make::query()->orderBy('name')->pluck('name')->all(),
         ];
     }

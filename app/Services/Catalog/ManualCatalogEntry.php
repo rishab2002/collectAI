@@ -6,6 +6,8 @@ use App\Models\Brand;
 use App\Models\Casting;
 use App\Models\CastingVersion;
 use App\Models\Make;
+use App\Models\ReferenceItem;
+use App\Models\ReferenceLink;
 use App\Models\Release;
 use App\Models\Series;
 use App\Models\Variation;
@@ -56,7 +58,10 @@ final class ManualCatalogEntry
                 'version_number' => 1,
             ]);
 
-            return $this->addRelease($version, $data);
+            $result = $this->addRelease($version, $data);
+            $this->linkReference($data, $casting, $result);
+
+            return $result;
         });
     }
 
@@ -79,8 +84,51 @@ final class ManualCatalogEntry
                 'version_number' => 1,
             ]);
 
-            return $this->addRelease($version, $data);
+            $result = $this->addRelease($version, $data);
+            $this->linkReference($data, null, $result);
+
+            return $result;
         });
+    }
+
+    /**
+     * A car added from a reference product (Add a car → find the model) is
+     * linked to it, under the key the visual model learned that product's
+     * photos as — so the scanner can name it from the moment it exists.
+     *
+     * Only a new casting takes the product's casting key; an existing casting
+     * already has its own. A key already linked to another record (the same
+     * product added twice) stays with the first.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function linkReference(array $data, ?Casting $newCasting, ManualEntryResult $result): void
+    {
+        $item = isset($data['reference_item_id']) ? ReferenceItem::find($data['reference_item_id']) : null;
+
+        if ($item === null) {
+            return;
+        }
+
+        $links = [[$result->variation, $item->variationKey()]];
+
+        if ($newCasting !== null) {
+            $links[] = [$newCasting, $item->castingKey()];
+        }
+
+        foreach ($links as [$record, $key]) {
+            if (ReferenceLink::where('stable_key', $key)->exists()
+                || ReferenceLink::where('linkable_type', $record->getMorphClass())->where('linkable_id', $record->getKey())->exists()) {
+                continue;
+            }
+
+            ReferenceLink::create([
+                'reference_item_id' => $item->id,
+                'linkable_type' => $record->getMorphClass(),
+                'linkable_id' => $record->getKey(),
+                'stable_key' => $key,
+            ]);
+        }
     }
 
     /**
@@ -88,7 +136,7 @@ final class ManualCatalogEntry
      */
     private function addRelease(CastingVersion $version, array $data): ManualEntryResult
     {
-        $series = $this->series($this->brand($data['brand']), $data['series']);
+        $series = $this->series($this->brand($data['brand']), $data['series'], $data['line'] ?? null);
 
         // The release's natural key is this tool, this series, this year — the
         // same unique index the importer relies on. A second colour of a car
@@ -169,17 +217,44 @@ final class ManualCatalogEntry
      * preferred, then the oldest, so repeated entry keeps landing on the same
      * series rather than spreading across its twins.
      */
-    private function series(Brand $brand, string $name): Series
+    private function series(Brand $brand, string $name, ?string $line = null): Series
     {
         $name = trim($name);
+        $existing = $this->namedSeries($brand, $name);
 
+        if ($existing !== null) {
+            // Never moved: an existing series keeps the line it was placed in.
+            return $existing;
+        }
+
+        $line = trim((string) $line);
+        $parent = null;
+
+        // A new series under a main line ("Car Culture" › "AutoStrasse"): the
+        // line is a series with no parent, found or made, one level deep.
+        if ($line !== '' && mb_strtolower($line) !== mb_strtolower($name)) {
+            $parent = Series::query()->where('brand_id', $brand->getKey())->whereNull('parent_id')
+                ->whereRaw('LOWER(name) = LOWER(?)', [$line])->orderBy('id')->first()
+                ?? Series::create(['brand_id' => $brand->getKey(), 'name' => $line]);
+        }
+
+        $series = Series::create(['brand_id' => $brand->getKey(), 'name' => $name]);
+
+        if ($parent !== null) {
+            $series->forceFill(['parent_id' => $parent->getKey()])->save();
+        }
+
+        return $series;
+    }
+
+    private function namedSeries(Brand $brand, string $name): ?Series
+    {
         return Series::query()
             ->where('brand_id', $brand->getKey())
             ->whereRaw('LOWER(name) = LOWER(?)', [$name])
             ->orderByRaw("CASE WHEN status = 'live' THEN 0 ELSE 1 END")
             ->orderBy('id')
-            ->first()
-            ?? Series::create(['brand_id' => $brand->getKey(), 'name' => $name]);
+            ->first();
     }
 
     /**

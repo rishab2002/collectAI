@@ -16,7 +16,8 @@ use Illuminate\Support\Facades\DB;
  * translates labels to the serving database's ids through the index. Records
  * typed in by hand have no provenance; they are labelled `id:<n>`, which is
  * only meaningful in the database they came from (where such photos are
- * trained anyway).
+ * trained anyway) — unless they were added from a reference product, whose
+ * key they then carry (reference_links).
  */
 final class StableKeys
 {
@@ -52,9 +53,16 @@ final class StableKeys
         $keys = [];
 
         foreach (array_chunk(array_values(array_unique($ids)), 5000) as $chunk) {
+            // Records added from a reference product (Add a car) first: that
+            // product's key is what the model learned their photos under.
+            foreach (DB::table('reference_links')->where('linkable_type', $type)->whereIn('linkable_id', $chunk)
+                ->get(['linkable_id', 'stable_key']) as $row) {
+                $keys[(int) $row->linkable_id] = $row->stable_key;
+            }
+
             foreach (DB::table('record_sources')->where('sourceable_type', $type)->whereIn('sourceable_id', $chunk)
                 ->get(['sourceable_id', 'source', 'source_key']) as $row) {
-                $keys[(int) $row->sourceable_id] = self::compose($row->source, $row->source_key);
+                $keys[(int) $row->sourceable_id] ??= self::compose($row->source, $row->source_key);
             }
         }
 

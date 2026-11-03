@@ -23,6 +23,12 @@ trait DescribesAVariation
         return [
             'brand' => ['required', 'string', 'max:255'],
             'series' => ['required', 'string', 'max:255'],
+            // The main line the series sits under ("Car Culture"), used only
+            // when the series is new; an existing series keeps its placement.
+            'line' => $short,
+            // Picked with "find the model": links the new record to that
+            // reference product so the visual model recognises it.
+            'reference_item_id' => ['nullable', 'integer', 'exists:reference_items,id'],
             // Matches releases_year_range.
             'year' => ['required', 'integer', 'between:1900,2100'],
             'collector_number' => $short,
