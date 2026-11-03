@@ -5,10 +5,10 @@ domain model, conventions and current state only have to be explained once.
 **Treat this file as the source of truth, not the conversation history** —
 update it whenever a convention changes.
 
-**Last edited:** 2026-11-03 (public catalog: brand → main line → sub-series →
-car; series grouped into lines; one licensed, credited wiki photo per casting
-where one exists; manual entry; every wiki year + Matchbox. **Still nothing
-deployed** — the apex is unchanged)
+**Last edited:** 2026-11-03 (collector accounts and collections; monthly prices
+from eBay's official APIs with MSRP fallback; security headers and hardening;
+Tomica/Mini GT/Lesney imports; public catalog. **Still nothing deployed** — the
+apex is unchanged)
 
 ## Start here
 
@@ -54,7 +54,7 @@ The five things most likely to trip you up, each expanded below:
 - [How to work in this repo](#how-to-work-in-this-repo) — conventions, traps
 - [Domain model](#domain-model) — [Make/Model splitting](#makemodel-splitting-rules) · [field definitions](#field-definitions)
 - [AI agent pipeline](#ai-agent-pipeline) — [example flow](#example-flow) · [acquisition priorities](#data-acquisition-priorities)
-- [Settled decisions](#settled-decisions) — [schema](#schema) · [approval](#approval--submissions) · [capture](#capture) · [AI pipeline](#ai-pipeline) · [catalog import](#catalog-import-fandom-wikis) · [data sources](#data-sources) · [main lines](#main-lines) · [Make/Model inference](#makemodel-inference) · [review](#review) · [manual entry](#manual-entry) · [delivery](#delivery) · [deployment](#deployment)
+- [Settled decisions](#settled-decisions) — [schema](#schema) · [approval](#approval--submissions) · [capture](#capture) · [AI pipeline](#ai-pipeline) · [catalog import](#catalog-import-fandom-wikis) · [data sources](#data-sources) · [main lines](#main-lines) · [Make/Model inference](#makemodel-inference) · [review](#review) · [manual entry](#manual-entry) · [accounts](#accounts-and-security) · [delivery](#delivery) · [deployment](#deployment)
 - [Open questions](#open-questions)
 - [Session log](docs/session-log.md) — narrative and rationale, loaded on demand
 
@@ -67,8 +67,8 @@ honest — it's the fastest way for a new session to avoid assuming something
 exists.*
 
 **Running:** `docker compose up -d` brings up `app` (:8000), `db` (Postgres 16,
-:5432), `redis` (:6379), `meilisearch` (:7700). `php artisan test` → **285
-passed, 977 assertions** (re-measured 2026-11-03).
+:5432), `redis` (:6379), `meilisearch` (:7700). `php artisan test` → **313
+passed, 1,124 assertions** (re-measured 2026-11-03).
 
 **The dev database holds the import *plus* seed data, so its counts are not the
 import's counts.** `CatalogSeeder` and `SubmissionSeeder` contribute 9 castings
@@ -144,7 +144,7 @@ There is still no CI: no `.github/workflows`, and a deploy is `git pull` plus
 queue worker, `APP_URL=http://localhost` — reachable only from this Mac on
 `localhost:8000`.
 
-**The entire HTTP surface is twenty-five routes** (`routes/web.php`, counted with `route:list` 2026-11-03):
+**The HTTP surface is thirty-six routes** (`routes/web.php`, counted with `route:list` 2026-11-03). The table lists the catalog and admin ones; the collector routes are `/register`, `/collection` (GET/POST/PATCH/DELETE), `/wishlist`, `/account` (GET/PUT password/DELETE):
 
 | Route | State |
 |---|---|
@@ -260,6 +260,21 @@ queue worker, `APP_URL=http://localhost` — reachable only from this Mac on
   `apple-touch-icon.png`, and registration in `resources/js/app.js`. The layout
   is now a real HTML document (it used to start at `<meta name="viewport">`, so
   every page rendered in quirks mode).
+- **Collector accounts and collections** (`RegisterController`,
+  `Account\CollectionController`, `Account\AccountController`,
+  `resources/views/account/`). Register, My collection (quantity, condition,
+  acquired), wishlist, password change, account deletion. Every lookup is
+  scoped through the user's own relation; only live variations can be
+  collected. See [Accounts](#accounts-and-security).
+- **Monthly prices** (`app/Services/Prices/`, `catalog:update-prices`, scheduled
+  daily 03:17, `price_checks` table, `price_histories.kind/sample_size/url`,
+  `config/catalog_prices.php`). eBay sold → eBay asking → MSRP, official APIs
+  only. **Never run against real eBay** — no keys exist here; tests fake HTTP.
+  See [Data sources](#data-sources).
+- **Security hardening** (`SecurityHeaders` middleware: strict CSP, nosniff,
+  frame-deny, HSTS in production; standalone error pages; password policy and
+  rate limits in `AppServiceProvider`). Checked in Chromium: no CSP violations
+  on 12 pages.
 - **The public catalog** (`CatalogBrowseController`, `CatalogBrowser`,
   `resources/views/catalog/`). Brand → main line → sub-series → car, with a year
   filter on each line, a photo grid per sub-series, and a car page listing every
@@ -326,8 +341,11 @@ queue worker, `APP_URL=http://localhost` — reachable only from this Mac on
   end to end. Note `pg_trgm` and Meilisearch are not substitutes: trigram
   similarity is the Comparison Agent's DB-side duplicate check, Meilisearch is
   user-facing typo-tolerant search.
-- **No public search, collections, wishlists, price charts, or barcode
-  scanning.** The public catalog is browse-only.
+- **No public search, price charts, barcode scanning, password reset (needs
+  outgoing email) or community photo uploads.** Community uploads — collectors
+  photographing their own cars under a licence they grant, admin-approved — are
+  the measured answer to "photos for every car"; see
+  [Data sources](#data-sources).
 - Nothing creates a `CastingVersion` automatically alongside a `Casting`.
   `CatalogSeeder::casting()` and `CatalogImporter::castingVersions()` both do it
   explicitly. This is deliberate: a model `created` hook would collide with
@@ -1165,6 +1183,20 @@ and photos. Measured, not assumed — details in the [session log](docs/session-
   terms (all rights reserved by default). robots.txt allowing a crawl is not
   permission to reuse. `docs/source-permissions.md` is the request to send; a
   written yes is what would change this, and gets recorded here.
+- **Prices come only through eBay's official APIs.** Marketplace Insights for
+  sold prices (granted by eBay on application — `EBAY_INSIGHTS`), Browse for
+  asking prices (`EBAY_LISTINGS_FALLBACK`, always labelled "asking"), then the
+  admin's MSRP table. Scraping eBay's pages breaks eBay's User Agreement;
+  **hobbyDB blocks automated access** (Cloudflare 403 even on its terms page,
+  2026-11-03) and is not a source; retailer pages for MSRP are not scraped
+  either. A sold, an asking and a list price are never shown as one thing —
+  `price_histories.kind` + `PriceHistory::label()`.
+- **"Search the internet for reusable photos" was measured, not assumed**
+  (2026-11-03). Openverse (CC search across Flickr, Commons and others): 0 of 15
+  sampled castings had any licensed photo, and its one hit for "Bone Shaker" was
+  the full-size real car. Commons was rate-limited from the cloud network.
+  An automated photo finder would find almost nothing and risk wrong-car
+  photos, so none was built.
 - **Tomica, Mini GT and Inno64 wiki images carry no reuse licence** (150 of 150
   sampled on each; 4 on Mini GT are `{{Self}}` only), so those brands get no
   imported photos.
@@ -1361,6 +1393,31 @@ the [session log](docs/session-log.md).*
   leaves a correctly entered car without photos, not a lost entry.
 - **No JavaScript involved.** Plain multipart forms with visible file inputs, so
   manual entry keeps working if the bundle breaks.
+
+### Accounts and security
+
+*Settled 2026-11-03, when collector accounts arrived. Reasoning in the
+[session log](docs/session-log.md).*
+
+- **Registration is public; admin is not.** `is_admin` is not fillable, and
+  `AdminAccessTest` proves a smuggled `is_admin=1` creates a collector.
+  (Before 2026-11-03 there was no registration at all; that test was rewritten,
+  not deleted.)
+- **Collections are scoped through `$user->collectionItems()`**, never route
+  model binding — another collector's id is a 404, not a 403, and can't be
+  probed.
+- **Only live variations can be collected**, so collecting can't reveal that a
+  pending record exists.
+- **Passwords: `Password::defaults()`** — 12+, letters and numbers; HIBP
+  `uncompromised()` in production only (it needs the network).
+- **Rate limits**: `register` 5/hour/IP, `account` 60/min, login 5 per
+  email+IP (unchanged).
+- **The CSP forbids inline script and style, so views must have none.**
+  `SecurityHeadersTest::test_no_view_relies_on_inline_script_or_style` enforces
+  it. Error pages are standalone views because Laravel's built-ins are inline
+  CSS, and they don't touch the session or database.
+- **HSTS and `upgrade-insecure-requests` only in production**; sending them
+  from localhost would lock browsers out of `http://localhost`.
 
 ### Delivery
 

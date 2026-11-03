@@ -14,6 +14,56 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-11-03 (final) — Accounts and collections, monthly prices, security; photo search measured and declined
+
+The request: photos for every model "using wikis for those brands and search
+the internet for reusable photos"; a live price for each model from its last
+eBay sale, refreshed monthly, falling back to hobbyDB or store MSRPs; security
+measures; and accounts that save a personal collection.
+
+### Measured first
+
+- **Photos.** Openverse, which searches openly licensed images across Flickr,
+  Wikimedia Commons and more, found **no** licensed photo for 15 of 15 sampled
+  castings across all four brands. The other 5 queries timed out. Its only
+  result in an earlier spot check, for "Bone Shaker", was the full-size
+  real-life car: exactly the wrong-car photo an automated matcher would
+  publish. Commons answered 429 from this network. Combined with the wiki
+  sampling, no automated photo finder was built. The scalable route is
+  collectors photographing their own cars, now that accounts exist; it is
+  offered, not built.
+- **Prices.** eBay's Marketplace Insights endpoint is live and wants an OAuth
+  token: sold data exists through eBay's official API, on application.
+  hobbyDB answered a Cloudflare "Sorry, you have been blocked" even for its
+  terms page, so it is not a source. Retail MSRP pages were not scraped either.
+
+### What was built
+
+- **Accounts and collections.** Registration, collection, wishlist, password
+  change and account deletion. Admin rights can't be obtained through
+  registration; the old "no registration route" test was turned into a test
+  of exactly that. The first wiring-up broke the car page: a block
+  replacement matched an inner `@endforeach`. The suite caught it, as the
+  ParseError surfacing as a 500.
+- **Prices.** A daily budgeted run, so each car refreshes about monthly. The
+  first default budget (1,000 calls) was too small for that: at ~3 calls a
+  car it reaches ~10,000 cars a month against ~51,000 variations. It is now
+  4,500, under eBay's 5,000 default, with the formula in config. The budget
+  test also showed it can overshoot by one car's calls, and both config and
+  test now say so.
+- **Security.** A strict CSP with nosniff, frame-deny and HSTS. A Chromium
+  pass over 12 pages found no violations except on Laravel's own error pages,
+  whose inline CSS the policy blocks, so the app now ships its own. npm audit
+  found 5 dev-tool advisories (2 critical), all fixed without major upgrades.
+  Composer is clean.
+
+### Not done
+
+Password reset (needs outgoing email); community photo uploads; any real eBay
+call (no keys here). Deploying still needs the owner's Cloudflare access.
+
+---
+
 ## 2026-11-03 (latest) — Tomica, Mini GT, the Lesney years; manufacturer sites declined; deploy not possible from here
 
 The request: "add all the minigt/true scale models … from the minigt official
