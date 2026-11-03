@@ -82,6 +82,7 @@ class ScanTest extends TestCase
                     'text' => ['lines' => []], 'read' => ['brand' => null, 'copyright_year' => null, 'codes' => []],
                     'confident' => false,
                     'match' => ['confident' => false, 'casting_id' => null, 'confidence' => 0.0, 'reasons' => [], 'variations' => [], 'candidates' => []],
+                    'looks' => ['sure' => false, 'candidates' => [['casting_id' => $this->casting->id, 'score' => 0.71]]],
                     'crop_jpeg' => base64_encode('CROP-2'),
                 ],
             ],
@@ -125,8 +126,18 @@ class ScanTest extends TestCase
         $this->actingAs($this->user)->get(route('scan.show', $scan))
             ->assertOk()
             ->assertSeeInOrder(['Identified — confirm each one', 'Bone Shaker', '98% sure', 'Red', 'colour matches', 'Black',
-                'Found, but not sure what they are', 'Name it'])
+                'Found, but not sure what they are', 'Looks most like', 'Name it'])
             ->assertDontSee('Maybe');
+    }
+
+    public function test_a_lookalike_hint_never_names_a_car_still_in_review(): void
+    {
+        $scan = $this->scan();
+        $this->casting->forceFill(['status' => 'pending'])->save();
+
+        $this->actingAs($this->user)->get(route('scan.show', $scan))
+            ->assertOk()
+            ->assertDontSee('Looks most like');
     }
 
     public function test_confirming_adds_the_chosen_version_and_counts_duplicates(): void
@@ -223,7 +234,8 @@ class ScanTest extends TestCase
         $this->artisan('catalog:export-training-data', ['dir' => $dir])->expectsOutputToContain('Wrote 2')->assertSuccessful();
 
         $lines = array_map('json_decode', file($dir.'/manifest.jsonl', FILE_IGNORE_NEW_LINES));
-        $this->assertSame(['confirmed_suggestion', 'named_by_collector'], array_column($lines, 'source'));
+        $this->assertSame(['scan', 'scan'], array_column($lines, 'source'));
+        $this->assertSame(['confirmed_suggestion', 'named_by_collector'], array_column($lines, 'labelled'));
         $this->assertSame($this->cars['Red']->id, $lines[0]->variation_id);
         $this->assertSame('CROP-1', file_get_contents($dir.'/'.$lines[0]->image));
         $this->assertSame('5SP', $lines[0]->wheel_type);

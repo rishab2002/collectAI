@@ -5,7 +5,9 @@ domain model, conventions and current state only have to be explained once.
 **Treat this file as the source of truth, not the conversation history** —
 update it whenever a convention changes.
 
-**Last edited:** 2026-11-03 late (hosting: Cloudflare Tunnel mode and the
+**Last edited:** 2026-11-03, last (recognition phase 3: the trained visual model,
+`recognizer/train/`, `catalog:export-training-data` sources; unlicensed wiki
+photos ruled out by Fandom's ToU. Before that, hosting: Cloudflare Tunnel mode and the
 DigitalOcean plan in README §8.2–8.3; fixed an nginx allow-list that would have
 403'd every visitor, and backups that would have been public. Before that:
 recognition phase 1: the local `recognizer/`
@@ -72,9 +74,9 @@ exists.*
 
 **Running:** `docker compose up -d` brings up `app` (:8000), `db` (Postgres 16,
 :5432), `redis` (:6379), `meilisearch` (:7700), `recognizer` (:8090).
-`php artisan test` → **358 passed, 1,448 assertions**; the recognizer's own
-`python -m unittest discover -s tests -t .` (in `recognizer/`) → **22 passed**
-(both re-measured 2026-11-03 night). The `recognizer` Docker image has not been
+`php artisan test` → **361 passed, 1,466 assertions**; the recognizer's own
+`python -m unittest discover -s tests -t .` (in `recognizer/`) → **33 passed**
+(both re-measured 2026-11-03, last). The `recognizer` Docker image has not been
 built yet — the Python ran in a venv with the same pinned versions.
 
 **The dev database holds the import *plus* seed data, so its counts are not the
@@ -346,13 +348,21 @@ queue worker, `APP_URL=http://localhost` — reachable only from this Mac on
   6,810 imported castings: 2,851 published-grade, 311 for review, 44 fantasy,
   3,604 unknown.
 
+- **Recognition phase 3 — the visual model** (`recognizer/collectai_recognizer/visual.py`,
+  `recognizer/train/`, `trainer` compose service, profile `training`).
+  DINOv2-small (Apache 2.0, pinned revision) exported to ONNX; training embeds
+  labelled photos, fits a WCCN head only if it beats plain on held-out top-1,
+  calibrates thresholds, and writes `storage/app/recognition/model/`
+  (gitignored, 85 MB). Trained here on the 157 licensed wiki photos + 6 test
+  scans: one photo per casting, so nothing to hold out — **visual-only is off**
+  and looks only corroborate, order versions and hint. Sanity check (altered
+  copies of the same photos, *not* accuracy): 152/157 top-1.
+
 **Not built — do not assume these exist:**
 
-- **No trained model.** "Our own distilled model" is phase 3 of
-  `docs/multi-car-recognition.md` and needs consented, labelled scan crops that
-  don't exist yet. Phase 1 reads text; it cannot name a loose car seen from
-  above. Real-photo accuracy of base reading is **unmeasured** — only rendered
-  test images have been through it.
+- **No measured visual accuracy.** Nothing real to measure it on: every
+  casting has one photo. Real-photo accuracy of base reading is also
+  **unmeasured** — only rendered test images have been through it.
 - **Two of the seven agents exist, and they are not yet joined up.** OCR reads
   packaging text into `submissions.ocr_output`; Metadata attributes *imported
   castings* from their names. Nothing connects the two: Metadata is driven by
@@ -1481,6 +1491,23 @@ measurements in the [session log](docs/session-log.md).*
   never claims a generation. Ordinary-word nameplates (`needs_make`) count only
   beside their make; run-together matching only for phrases with a digit.
   Measure precision on the full catalog before changing any of this.
+- **Visual-only answers exist only when training measured them**:
+  `manifest.thresholds.visual_only` is set by `train.build`'s calibration
+  (≥ 95% precision on ≥ 30 held-out answers, defaults). Never hand-edit it to
+  true; add photos and retrain. Below that bar looks give +0.03 to a matching
+  text candidate, order versions, and hint — and the hint shows live castings
+  only.
+- **Training sources are `scan` (consented), `own` (photos with no licence),
+  `wiki_licensed`.** Unlicensed wiki photos are **not** a source: Fandom's
+  Terms of Use (fandom.com/terms-of-use) forbid using its content to train an
+  ML/AI system without Fandom's express prior written consent, and forbid
+  scrapers. The owner's lawyer cleared training under copyright (2026-11-03);
+  this contract term is separate and was raised with the owner. A written
+  consent would make them addable as another `--data` folder, no code change.
+  `manifest.json` records sources and licences of every trained model.
+- **Training and serving share one preprocessing function**
+  (`visual.preprocess`); the recognizer image has onnxruntime only, the
+  `train` Dockerfile stage adds CPU PyTorch. Services build `target: runtime`.
 - **A recognizer that is down is an error, not "no text"**:
   `RecognizerUnavailableException` propagates so the capture job retries.
 

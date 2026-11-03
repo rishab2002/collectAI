@@ -24,6 +24,7 @@ def main(argv: list[str] | None = None) -> int:
     d = env_defaults()
     p = argparse.ArgumentParser(prog="collectai_recognizer", description=f"collectAI local car recognizer {__version__}")
     p.add_argument("--index", default=d["index"], help="catalog index JSON (php artisan catalog:export-recognition-index)")
+    p.add_argument("--model", default=d["model"], help="trained visual model directory (python -m train.build); optional")
     p.add_argument("--min-confidence", type=float, default=d["min_confidence"])
     p.add_argument("--min-margin", type=float, default=d["min_margin"])
     sub = p.add_subparsers(dest="command", required=True)
@@ -46,7 +47,7 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
 
     if args.command == "serve":
-        serve(args.host, args.port, args.index, args.min_confidence, args.min_margin)
+        serve(args.host, args.port, args.index, args.min_confidence, args.min_margin, args.model)
         return 0
 
     if ocr.available() is None:
@@ -58,13 +59,19 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print(f"warning: no index at {args.index}; cars will be found but not identified", file=sys.stderr)
 
+    from .visual import VisualModel
+
+    visual = VisualModel.load(args.model) if Path(args.model).is_dir() else None
+    if visual is None:
+        print(f"note: no trained model at {args.model}; using text and colour only", file=sys.stderr)
+
     if args.command == "card":
         print(json.dumps(read_card(decode(Path(args.photo).read_bytes()), index,
                                    min_confidence=args.min_confidence, min_margin=args.min_margin), indent=2))
         return 0
 
     for photo in args.photos:
-        result = recognise(decode(Path(photo).read_bytes()), index, crops=bool(args.save_crops), layout=args.layout,
+        result = recognise(decode(Path(photo).read_bytes()), index, crops=bool(args.save_crops), layout=args.layout, visual=visual,
                            min_confidence=args.min_confidence, min_margin=args.min_margin)
         if args.save_crops:
             out = Path(args.save_crops)

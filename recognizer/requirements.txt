@@ -1,3 +1,5 @@
 # Pinned exactly. Tesseract itself is a system package (apt install tesseract-ocr).
 numpy==2.2.6
 opencv-python-headless==4.11.0.86
+# Runs the trained visual model (phase 3). Training needs requirements-train.txt.
+onnxruntime==1.21.0

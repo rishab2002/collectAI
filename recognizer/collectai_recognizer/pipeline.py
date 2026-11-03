@@ -41,18 +41,29 @@ def recognise(
     max_objects: int = 40,
     crops: bool = True,
     layout: str = "auto",
+    visual=None,
 ) -> dict:
+    """`visual` is a loaded visual.VisualModel, or None to use text and colour only."""
     work, scale = working_copy(bgr)
-    found = find_objects(work, layout=layout)
+    everything = find_objects(work, layout=layout)
+    found = everything[:max_objects]
     matcher = Matcher(index, min_confidence, min_margin) if index else None
     detections = []
 
-    for n, obj in enumerate(found[:max_objects]):
+    # One batch through the image model for every car in the photo.
+    looks = []
+    if visual is not None and found:
+        vectors = visual.embed([padded_crop(work, obj.box) for obj in found])
+        allowed = set(index.castings) if index else None
+        looks = [visual.match(v, allowed) for v in vectors]
+
+    for n, obj in enumerate(found):
         distribution = classify_pixels(work, obj.foreground)
         family, share = dominant(distribution)
         reading = ocr.read(aligned_crop(work, obj)) if read_text else ocr.Reading()
         evidence = Evidence.from_words(reading.words)
-        match = matcher.match(evidence, family).as_dict() if matcher else None
+        seen = looks[n] if looks else None
+        match = matcher.match(evidence, family, seen).as_dict() if matcher else None
 
         x, y, w, h = obj.box
         detections.append({
@@ -67,6 +78,7 @@ def recognise(
                 "codes": evidence.codes,
             },
             "match": match,
+            "looks": seen.as_dict() if seen else None,
             "confident": bool(match and match["confident"]),
             "crop_jpeg": jpeg_base64(padded_crop(work, obj.box)) if crops else None,
         })
@@ -74,10 +86,11 @@ def recognise(
     return {
         "width": bgr.shape[1],
         "height": bgr.shape[0],
-        "found": len(found),
-        "truncated": len(found) > max_objects,
+        "found": len(everything),
+        "truncated": len(everything) > max_objects,
         "confident": sum(1 for d in detections if d["confident"]),
         "index": index.summary() if index else None,
+        "model": visual.summary() if visual else None,
         "detections": detections,
     }
 

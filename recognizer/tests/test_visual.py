@@ -1,0 +1,148 @@
+import json
+import tempfile
+import unittest
+from pathlib import Path
+from unittest import mock
+
+import cv2
+import numpy as np
+
+from collectai_recognizer.catalog import Matcher
+from collectai_recognizer.evidence import Evidence
+from collectai_recognizer.pipeline import recognise
+from collectai_recognizer.visual import Head, VisualModel, normalise, preprocess
+from train import build
+
+from .synthetic import pile
+from .test_recognizer import index
+
+
+class ColourEncoder:
+    """Stand-in for the ONNX model: a crop's mean colour, so red looks like red."""
+
+    def embed(self, images):
+        out = []
+        for im in images:
+            b, g, r = im.reshape(-1, 3).mean(axis=0) / 255.0
+            out.append([r, g, b, 0.05])
+        return np.array(out, dtype=np.float32)
+
+
+def model(visual_only: bool, min_similarity=0.9, min_margin=0.02) -> VisualModel:
+    # Gallery: casting 13 (Bone Shaker) is red, variation 131; casting 10 is blue.
+    vectors = normalise(np.array([[0.78, 0.12, 0.16, 0.05], [0.12, 0.35, 0.75, 0.05]], dtype=np.float32))
+    manifest = {"thresholds": {"visual_only": visual_only, "min_similarity": min_similarity, "min_margin": min_margin}}
+    return VisualModel(ColourEncoder(), Head(), vectors, np.array([13, 10]), np.array([131, 0]), manifest)
+
+
+class VisualMatchTest(unittest.TestCase):
+    def test_preprocess_letterboxes_without_cropping(self):
+        x = preprocess(np.zeros((100, 300, 3), np.uint8))
+        self.assertEqual((3, 224, 224), x.shape)
+
+    def test_nearest_casting_and_version(self):
+        m = model(visual_only=True)
+        red = np.full((50, 120, 3), (40, 30, 200), np.uint8)
+        result = m.match(m.embed([red])[0])
+        self.assertEqual(13, result.top.casting_id)
+        self.assertIn(131, result.top.variations)
+        self.assertTrue(result.sure)
+
+    def test_looks_alone_never_name_a_car_unless_training_measured_it(self):
+        red = np.full((50, 120, 3), (40, 30, 200), np.uint8)
+        for visual_only, expected in ((False, False), (True, True)):
+            m = model(visual_only=visual_only)
+            seen = m.match(m.embed([red])[0])
+            match = Matcher(index()).match(Evidence.from_text(""), colour="red", visual=seen)
+            self.assertEqual(expected, match.confident)
+            if expected:
+                self.assertEqual(13, match.best.casting_id)
+                self.assertEqual(131, match.variations[0]["variation_id"], "the version it looks like comes first")
+
+    def test_looks_break_a_tie_between_same_named_castings(self):
+        m = model(visual_only=False)
+        seen = m.match(m.embed([np.full((50, 120, 3), (40, 30, 200), np.uint8)])[0])
+        without = Matcher(index()).match(Evidence.from_text("BONE SHAKER"))
+        with_looks = Matcher(index()).match(Evidence.from_text("BONE SHAKER"), visual=seen)
+        self.assertFalse(without.confident)
+        self.assertEqual(13, with_looks.best.casting_id)
+        self.assertTrue(any("looks like it" in r for r in with_looks.best.reasons))
+        # +0.03 is a nudge, not a verdict: still short of the margin.
+        self.assertFalse(with_looks.confident)
+
+    def test_the_pipeline_uses_the_model_on_every_crop(self):
+        img = pile([("red", (300, 250), 10), ("blue", (900, 260), -20)])
+        result = recognise(img, index(), read_text=False, crops=False, visual=model(visual_only=True, min_similarity=0.5))
+        self.assertEqual([13, 10], [d["looks"]["candidates"][0]["casting_id"] for d in result["detections"]])
+        self.assertTrue(result["detections"][0]["confident"])
+
+    def test_load_returns_none_without_a_model(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertIsNone(VisualModel.load(tmp))
+
+
+class TrainingTest(unittest.TestCase):
+    def clusters(self, classes=40, per=5, noise=0.15, seed=0):
+        rng = np.random.default_rng(seed)
+        centres = rng.normal(size=(classes, 32))
+        x = np.concatenate([c + noise * rng.normal(size=(per, 32)) for c in centres]).astype(np.float32)
+        return x, np.repeat(np.arange(classes), per)
+
+    def test_split_keeps_every_class_in_training_and_singletons_out_of_test(self):
+        labels = np.array([1, 1, 1, 1, 1, 2, 3, 3])
+        train, test = build.split(labels, 0.2)
+        self.assertEqual(set(labels), set(labels[train]))
+        self.assertNotIn(2, labels[test])
+        self.assertEqual(set(), set(train) & set(test))
+
+    def test_evaluate_and_calibrate_on_separable_data(self):
+        x, y = self.clusters()
+        x = normalise(x)
+        train, test = build.split(y, 0.2)
+        r = build.evaluate(x[train], y[train], x[test], y[test])
+        self.assertGreater(r["top1"], 0.95)
+        t = build.calibrate(r["_best"], r["_margin"], r["_correct"], precision=0.95, min_support=20)
+        self.assertTrue(t["visual_only"])
+        self.assertGreaterEqual(t["precision"], 0.95)
+
+    def test_no_trust_without_enough_held_out_answers_or_precision(self):
+        t = build.calibrate(np.array([0.9] * 5), np.array([0.2] * 5), np.array([True] * 5), 0.95, 30)
+        self.assertFalse(t["visual_only"])
+        self.assertIn("only 5", t["reason"])
+        rng = np.random.default_rng(1)
+        coin = rng.random(200) > 0.5
+        t = build.calibrate(rng.random(200), rng.random(200) * 0.1, coin, 0.95, 30)
+        self.assertFalse(t["visual_only"])
+
+    def test_wccn_needs_enough_repeated_classes(self):
+        x, y = self.clusters(classes=10)
+        self.assertIsNone(build.fit_wccn(x, y))
+        x, y = self.clusters(classes=40)
+        head = build.fit_wccn(x, y)
+        self.assertEqual((32, 32), head.matrix.shape)
+
+    def test_build_end_to_end_writes_a_model_the_recognizer_loads(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            data, out = Path(tmp) / "data", Path(tmp) / "model"
+            (data / "images").mkdir(parents=True)
+            out.mkdir()
+            rows = []
+            for i, (cid, bgr) in enumerate([(13, (40, 30, 200))] * 3 + [(10, (190, 90, 30))] * 3):
+                f = f"images/{i}.png"
+                cv2.imwrite(str(data / f), np.full((40, 90, 3), bgr, np.uint8))
+                rows.append({"image": f, "casting_id": cid, "variation_id": 100 + i, "source": "own"})
+            (data / "manifest.jsonl").write_text("\n".join(json.dumps(r) for r in rows))
+
+            with mock.patch.object(build, "Encoder", lambda path: ColourEncoder()):
+                self.assertEqual(0, build.main(["--data", str(data), "--model-dir", str(out), "--min-support", "50"]))
+
+            manifest = json.loads((out / "manifest.json").read_text())
+            self.assertEqual({"own": 6}, manifest["sources"])
+            self.assertFalse(manifest["thresholds"]["visual_only"], "2 held-out photos can't establish precision")
+            loaded = VisualModel.load(out, encoder=ColourEncoder())
+            self.assertEqual(6, loaded.summary()["images"])
+            self.assertTrue((out / "embeddings-cache.npz").is_file())
+
+
+if __name__ == "__main__":
+    unittest.main()

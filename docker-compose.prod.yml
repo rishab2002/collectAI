@@ -94,11 +94,26 @@ services:
   # compose network (no `ports:`): it has no authentication of its own. The
   # scheduler refreshes its catalog index nightly.
   recognizer:
-    build: ./recognizer
+    build:
+      context: ./recognizer
+      target: runtime
     image: collectai-recognizer:prod
     restart: unless-stopped
     volumes:
       - recognition:/data:ro
+
+  # Trains the visual model into the recognition volume (README §5.10). Only
+  # with --profile training; the recognizer picks the new model up by itself.
+  # Runs as root because the web entrypoint re-owns storage/ on every boot.
+  trainer:
+    build:
+      context: ./recognizer
+      target: train
+    image: collectai-trainer:prod
+    profiles: ["training"]
+    user: "0"
+    volumes:
+      - recognition:/data
 
   db:
     image: postgres:16-alpine

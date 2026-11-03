@@ -1,0 +1,6 @@
+# Training only — never installed in the recognizer image, which runs the result
+# with onnxruntime alone. Pinned exactly. PyTorch's CPU build is enough:
+#   pip install --index-url https://download.pytorch.org/whl/cpu torch==2.6.0
+#   pip install -r requirements.txt -r requirements-train.txt
+transformers==4.48.3
+onnx==1.18.0

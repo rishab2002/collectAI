@@ -82,12 +82,21 @@ class ScanController extends Controller
 
         $labelling = $request->integer('label') ?: null;
 
+        // "Looks most like…" for cars it couldn't name: live castings only, so
+        // a hint can't reveal a record still in review.
+        $lookalikeIds = $scan->detections->where('confident', false)
+            ->map(fn (ScanDetection $d) => $d->match['looks']['candidates'][0]['casting_id'] ?? null)
+            ->filter()->unique()->all();
+        $lookalikes = Casting::query()->whereIn('id', $lookalikeIds ?: [0])
+            ->where('status', Casting::STATUS_LIVE)->pluck('name', 'id');
+
         return view('scan.show', [
             'scan' => $scan,
             'confident' => $scan->detections->where('confident', true),
             'unnamed' => $scan->detections->where('confident', false),
             'variations' => $variations,
             'labelling' => $labelling,
+            'lookalikes' => $lookalikes,
             'search' => $labelling ? $this->search((string) $request->query('q', '')) : collect(),
             'owned' => $request->user()->collectionItems()->whereIn('variation_id', $variations->keys())->pluck('quantity', 'variation_id'),
         ]);
