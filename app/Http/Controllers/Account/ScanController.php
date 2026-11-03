@@ -163,9 +163,7 @@ class ScanController extends Controller
 
     public function destroy(Request $request, int $scan): RedirectResponse
     {
-        $record = $request->user()->scans()->findOrFail($scan);
-        $record->detections()->get()->each->deleteCrop();
-        $record->delete();
+        $request->user()->scans()->findOrFail($scan)->deleteWithPhotos();
 
         return redirect()->route('scan.index')->with('status', 'Scan and its photos deleted.');
     }

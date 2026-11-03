@@ -202,7 +202,9 @@ class TrainingTest(unittest.TestCase):
                 img = np.full((40, 90, 3), bgr, np.uint8)
                 img[0, i] = 255          # distinct files: identical ones are de-duplicated
                 cv2.imwrite(str(data / f), img)
-                rows.append({"image": f, "casting_id": cid, "variation_id": 100 + i, "source": "own"})
+                # Half the rows carry only a stable key, as reference photos do.
+                rows.append({"image": f, "casting_key": f"ref|item:{cid}", "source": "own"} if i % 2
+                            else {"image": f, "casting_id": cid, "variation_id": 100 + i, "source": "own"})
             (data / "manifest.jsonl").write_text("\n".join(json.dumps(r) for r in rows))
 
             with mock.patch.object(build, "Encoder", lambda path: ColourEncoder()):

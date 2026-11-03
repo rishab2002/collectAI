@@ -98,6 +98,22 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Privacy policy (/privacy)
+    |--------------------------------------------------------------------------
+    |
+    | The address people write to about their data, shown on the policy, and
+    | the date the policy last changed — bump it whenever the text changes.
+    | App Store Connect asks for the policy's URL: https://collectai.club/privacy
+    |
+    */
+
+    'privacy' => [
+        'contact' => env('PRIVACY_CONTACT_EMAIL', 'privacy@collectai.club'),
+        'updated' => '2026-11-04',
+    ],
+
     'recognition' => [
         'url' => rtrim((string) env('RECOGNIZER_URL', 'http://recognizer:8080'), '/'),
         'timeout' => (int) env('RECOGNIZER_TIMEOUT', 120),

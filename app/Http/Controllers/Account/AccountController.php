@@ -48,6 +48,10 @@ class AccountController extends Controller
 
         $user = $request->user();
         Auth::logout();
+
+        // Scan pictures are files, not rows: the database cascade would leave
+        // them on disk. The privacy policy promises they go with the account.
+        $user->scans()->get()->each->deleteWithPhotos();
         $user->delete();
 
         $request->session()->invalidate();
