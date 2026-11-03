@@ -14,6 +14,49 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-11-03 (last) — Recognition phase 3: the trained visual model
+
+**Asked:** build phase 3 with consented scans and licensed wiki photos — and
+also the ~98% of wiki photos with no licence, which the owner's lawyer said was
+fine for training only.
+
+**The unlicensed wiki photos were not used, and why.** Checking before building
+the downloader: Fandom's Terms of Use bar using its content "to train a machine
+learning or AI system" without Fandom's express prior written consent, and bar
+robots/scrapers without permission (search result quoting fandom.com/terms-of-use;
+the live page and the archive both refused automated reads from here). That is
+a contract term with Fandom, separate from the copyright question the lawyer
+answered. Raised with the owner rather than built; if Fandom consents, the
+photos are another `--data` folder.
+
+**Built:**
+
+- `visual.py`: DINOv2-small (Meta, Apache 2.0, revision `ed25f3a`) exported to
+  ONNX (88 MB; parity with PyTorch 4e-5; 0.09 s per crop on CPU), a learned
+  head, a labelled gallery, nearest-neighbour by casting.
+- `train/build.py`: embed (cached by hash) → hold out → WCCN head kept only if
+  it beats plain by ≥ 1 point top-1 → calibrate similarity + margin for ≥ 95%
+  precision on ≥ 30 answers → `model.npz` + `manifest.json` (sources, licences,
+  metrics, thresholds). `python -m train` does export + build;
+  `trainer` compose service (profile `training`) runs it on the server.
+- Matcher: looks corroborate (+0.03 to a matching text candidate), order
+  versions (`looks_match`), and name a car alone only when `visual_only`.
+- `catalog:export-training-data` now exports `scan`, `own` and `wiki_licensed`
+  with licence and credit; the Scan page shows "Looks most like …" (live
+  castings only) as a one-tap search hint.
+
+**Measured:** 163 images (157 licensed wiki, 6 test scans), 158 castings — one
+photo per casting, so 1 held-out image and **visual-only stays off**, as
+designed. Sanity check only: altered copies (mirror, crop, light, blur) of the
+157 photos found their own casting top-1 152/157, top-5 157/157 — proves the
+plumbing, says nothing about phone photos. Training run: 17 s.
+
+**Not done:** no real-photo accuracy (no real photos); Docker images not built
+here (no Docker); the 6 "scan" images in the scratch DB were synthetic test
+renders.
+
+---
+
 ## 2026-11-03 (late) — Hosting on Cloudflare and DigitalOcean; two pre-deployment bugs
 
 **Asked:** update the README with how to host on Cloudflare; then, mid-way,

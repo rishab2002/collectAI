@@ -58,6 +58,14 @@ final class ScanProcessor
                     }
 
                     $match = $found['match'] ?? null;
+
+                    // What the trained model thinks it looks like — a hint for
+                    // naming it by hand, never an answer on its own (the
+                    // recognizer only marks a looks-only match confident when
+                    // training measured it).
+                    if ($match !== null && isset($found['looks'])) {
+                        $match['looks'] = $found['looks'];
+                    }
                     $confident = (bool) ($found['confident'] ?? false) && ! empty($match['casting_id']);
 
                     $scan->detections()->create([

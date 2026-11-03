@@ -122,7 +122,8 @@ class Matcher:
         self.min_confidence = min_confidence
         self.min_margin = min_margin
 
-    def match(self, ev: Evidence, colour: str | None = None) -> Match:
+    def match(self, ev: Evidence, colour: str | None = None, visual=None) -> Match:
+        """`visual` is a visual.VisualResult for the same crop, or None."""
         scores: dict[int, Candidate] = {}
 
         if len(ev.text) >= 3:
@@ -182,6 +183,8 @@ class Matcher:
                     c.reasons.append(f"© {ev.copyright_year} is long before its first release {first}")
             c.score = max(0.0, min(1.0, c.score))
 
+        self._apply_visual(scores, visual)
+
         ranked = sorted(scores.values(), key=lambda c: (-c.score, -len(c.alias)))
         ranked = self._without_dominated(ranked)
         if not ranked:
@@ -190,8 +193,42 @@ class Matcher:
         best = ranked[0]
         runner = ranked[1].score if len(ranked) > 1 else 0.0
         confident = best.score >= self.min_confidence and best.score - runner >= self.min_margin
-        variations = self.variations_for(best.casting_id, colour, ev.codes) if confident else []
+        looks = {}
+        if visual is not None:
+            for m in visual.candidates:
+                if m.casting_id == best.casting_id:
+                    looks = m.variations
+        variations = self.variations_for(best.casting_id, colour, ev.codes, looks) if confident else []
         return Match(confident, ranked, variations)
+
+    def _apply_visual(self, scores: dict[int, Candidate], visual) -> None:
+        """Looks corroborate; they name a car alone only at the measured bar.
+
+        - A text candidate that is also the closest-looking casting gets +0.03 —
+          enough to break a tie between same-named castings, never enough to
+          lift a weak reading over the confidence bar by itself.
+        - When training measured that looks alone reach the target precision
+          (`visual.sure`), the top casting is offered at the calibrated score,
+          and it must still beat any text rival by the usual margin.
+        """
+        if visual is None or visual.top is None:
+            return
+        top = visual.top
+        if top.casting_id not in self.index.castings:
+            return
+        reason = f"looks like it ({top.score:.2f})"
+        if top.casting_id in scores:
+            scores[top.casting_id].score = min(1.0, scores[top.casting_id].score + 0.03)
+            scores[top.casting_id].reasons.append(reason)
+        if visual.sure:
+            calibrated = max(self.min_confidence, 0.9)
+            c = scores.get(top.casting_id)
+            if c is None:
+                scores[top.casting_id] = Candidate(top.casting_id, self.index.castings[top.casting_id]["name"], calibrated,
+                                                   "", [reason + ", above the measured bar"])
+            elif c.score < calibrated:
+                c.score = calibrated
+                c.reasons.append("above the measured bar")
 
     @staticmethod
     def _numbers_agree(alias: str, tokens: set[str]) -> bool:
@@ -216,7 +253,8 @@ class Matcher:
             kept.append(c)
         return kept
 
-    def variations_for(self, casting_id: int, colour: str | None, codes: list[str], limit: int = 12) -> list[dict]:
+    def variations_for(self, casting_id: int, colour: str | None, codes: list[str],
+                       looks: dict[int, float] | None = None, limit: int = 12) -> list[dict]:
         pal = palette()
         out = []
         for v in self.index.variations.get(casting_id, []):
@@ -237,6 +275,9 @@ class Matcher:
                 "colour_match": max(body, base),
                 "colour_matched_on": None if max(body, base) == 0 else ("body" if body >= base else "base"),
                 "code_match": bool(code) and code in codes,
+                # Similarity to a labelled photo of this exact version, if the
+                # trained model has one.
+                "looks_match": round((looks or {}).get(int(v["id"]), 0.0), 3),
             })
-        out.sort(key=lambda v: (-int(v["code_match"]), -v["colour_match"], -(v["year"] or 0)))
+        out.sort(key=lambda v: (-int(v["code_match"]), -v["looks_match"], -v["colour_match"], -(v["year"] or 0)))
         return out[:limit]

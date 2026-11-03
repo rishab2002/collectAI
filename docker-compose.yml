@@ -36,11 +36,23 @@ services:
   # reloads it when it changes. Published on 8090 so you can also call it from
   # your own machine; the app reaches it as http://recognizer:8080.
   recognizer:
-    build: ./recognizer
+    build:
+      context: ./recognizer
+      target: runtime
     ports:
       - "8090:8080"
     volumes:
       - ./storage/app/recognition:/data:ro
+
+  # Trains the visual model (README §5.10). Not started by `up`; run it with
+  #   docker compose --profile training run --rm trainer
+  trainer:
+    build:
+      context: ./recognizer
+      target: train
+    profiles: ["training"]
+    volumes:
+      - ./storage/app/recognition:/data
 
   db:
     image: postgres:16-alpine

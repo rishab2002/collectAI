@@ -101,6 +101,11 @@
                             @if ($best = $detection->match['candidates'][0] ?? null)
                                 <span class="block text-xs text-neutral-500">Maybe {{ $best['name'] }}? Not sure enough to say.</span>
                             @endif
+                            @if ($lookalike = $lookalikes[$detection->match['looks']['candidates'][0]['casting_id'] ?? 0] ?? null)
+                                <span class="block text-xs text-neutral-500">Looks most like
+                                    <a href="{{ route('scan.show', ['scan' => $scan, 'label' => $detection->id, 'q' => $lookalike]) }}#d{{ $detection->id }}" class="underline">{{ $lookalike }}</a>
+                                    — not sure enough to say.</span>
+                            @endif
                         </div>
                     </div>
                     @if ($detection->isPending())

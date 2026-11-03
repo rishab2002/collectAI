@@ -56,7 +56,7 @@
         <ul class="mt-2 list-disc space-y-1 pl-5">
             <li><strong>Bases:</strong> the casting name, © year and code printed underneath are read, so upside-down cars are identified best.</li>
             <li><strong>Cards:</strong> the name and toy number on the card are read.</li>
-            <li><strong>Loose cars right way up:</strong> each one is found and its colour noted, but colour and wheels alone aren't enough to name a car yet — flip them over, or name them yourself on the next screen.</li>
+            <li><strong>Loose cars right way up:</strong> each one is found and its colour noted, and the scanner shows what it looks most like — but it won't name a car by looks alone until it has learned enough to be sure. Flip them over, or name them yourself on the next screen.</li>
             <li>Everything runs on collectAI's own server. No photo is sent to any outside service.</li>
         </ul>
     </div>

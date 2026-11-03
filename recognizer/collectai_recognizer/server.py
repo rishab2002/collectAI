@@ -31,6 +31,33 @@ from .segment import LAYOUTS
 MAX_BODY = 25 * 1024 * 1024
 
 
+class ModelCache:
+    """The trained visual model, reloaded when manifest.json changes. Optional."""
+
+    def __init__(self, directory: str):
+        self.directory = Path(directory)
+        self._model = None
+        self._mtime = None
+        self._lock = threading.Lock()
+
+    def get(self):
+        from .visual import VisualModel
+
+        with self._lock:
+            try:
+                mtime = (self.directory / "manifest.json").stat().st_mtime
+            except FileNotFoundError:
+                self._model, self._mtime = None, None
+                return None
+            if mtime != self._mtime:
+                try:
+                    self._model = VisualModel.load(self.directory)
+                except Exception as e:  # a half-copied model: keep the old one
+                    print(f"could not load the model in {self.directory}: {e}", flush=True)
+                self._mtime = mtime
+            return self._model
+
+
 class IndexCache:
     def __init__(self, path: str):
         self.path = Path(path)
@@ -61,7 +88,7 @@ class IndexCache:
         return self._error
 
 
-def make_handler(cache: IndexCache, defaults: dict):
+def make_handler(cache: IndexCache, defaults: dict, models: ModelCache | None = None):
     class Handler(BaseHTTPRequestHandler):
         server_version = f"collectai-recognizer/{__version__}"
 
@@ -86,6 +113,7 @@ def make_handler(cache: IndexCache, defaults: dict):
                 "tesseract": ocr.available(),
                 "index": index.summary() if index else None,
                 "index_error": cache.error,
+                "model": model.summary() if (model := models.get() if models else None) else None,
             })
 
         def do_POST(self):
@@ -115,7 +143,8 @@ def make_handler(cache: IndexCache, defaults: dict):
                 layout = q.get("layout", "auto")
                 if layout not in LAYOUTS:
                     return self._send(422, {"error": f"layout must be one of {', '.join(LAYOUTS)}"})
-                result = recognise(image, index, crops=q.get("crops", "1") != "0", layout=layout, **options)
+                result = recognise(image, index, crops=q.get("crops", "1") != "0", layout=layout,
+                                   visual=models.get() if models else None, **options)
                 result["index_error"] = cache.error
             result["seconds"] = round(time.monotonic() - started, 2)
             self._send(200, result)
@@ -123,10 +152,13 @@ def make_handler(cache: IndexCache, defaults: dict):
     return Handler
 
 
-def serve(host: str, port: int, index_path: str, min_confidence: float, min_margin: float) -> None:
+def serve(host: str, port: int, index_path: str, min_confidence: float, min_margin: float, model_dir: str | None = None) -> None:
     cache = IndexCache(index_path)
     cache.get()
-    handler = make_handler(cache, {"min_confidence": min_confidence, "min_margin": min_margin})
+    models = ModelCache(model_dir) if model_dir else None
+    model = models.get() if models else None
+    print(f"visual model: {model.summary() if model else 'none (text and colour only)'}", flush=True)
+    handler = make_handler(cache, {"min_confidence": min_confidence, "min_margin": min_margin}, models)
     httpd = ThreadingHTTPServer((host, port), handler)
     print(f"collectAI recognizer {__version__} on http://{host}:{port} · index {index_path}"
           f" ({cache.error or 'loaded'}) · tesseract: {ocr.available() or 'MISSING'}", flush=True)
@@ -136,6 +168,7 @@ def serve(host: str, port: int, index_path: str, min_confidence: float, min_marg
 def env_defaults() -> dict:
     return {
         "index": os.environ.get("RECOGNIZER_INDEX", "/data/catalog-index.json"),
+        "model": os.environ.get("RECOGNIZER_MODEL_DIR", "/data/model"),
         "min_confidence": float(os.environ.get("RECOGNIZER_MIN_CONFIDENCE", "0.9")),
         "min_margin": float(os.environ.get("RECOGNIZER_MIN_MARGIN", "0.08")),
     }

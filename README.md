@@ -146,7 +146,8 @@ Open **http://localhost:8000** for the public site and
 | `db` | 5432 | PostgreSQL 16 — database `diecast`, plus `diecast_testing` for the tests |
 | `redis` | 6379 | Queue and cache |
 | `meilisearch` | 7700 | Not used yet (search isn't built) |
-| `recognizer` | 8090 | The local car recognizer (§5.8) — Python, OpenCV, Tesseract. `curl localhost:8090/health` |
+| `recognizer` | 8090 | The local car recognizer (§5.8) — Python, OpenCV, Tesseract, and the trained model if there is one (§5.10). `curl localhost:8090/health` |
+| `trainer` | — | Not started by `up`. Trains the visual model on demand (§5.10) |
 
 **Every `php artisan …` command in this README runs inside the app container**
 — that's why each one starts with `docker compose exec app`.
@@ -717,21 +718,103 @@ version, and with `--all` the ones it isn't. `--json` prints everything;
 .venv/bin/python -m unittest discover -s tests -t .
 ```
 
-**About training "our own model".** Phase 1 (this) needs no training: it reads
-text and matches it against the catalog file. Naming a *loose car seen from
-above* by its shape, colour and wheels needs a model trained on many labelled
-photos of real cars — and the only lawful source of those is collectors'
-consented scans (§5.8, step 5). Once there are a few thousand, export them:
+**Training the model that recognises cars by their looks** is §5.10.
+
+### 5.10 Train the visual model (phase 3)
+
+Phase 1 reads text. Phase 3 adds a model that recognises a car **by how it
+looks**: shape, colour, tampos, wheels. That's what a loose car seen right way
+up needs. It runs on your own server, with no outside API.
+
+**How it works.** A small, openly licensed image model (**DINOv2-small** by Meta,
+Apache 2.0) turns each photo of a car into 384 numbers. Training learns from
+labelled photos — *this photo is that casting and version* — and keeps a
+reference set of them. A scanned car is then recognised by which labelled photos
+it is closest to. (This is "our own model" in the sense that matters: the
+recognition is learned from collectAI's photos and runs on collectAI's server.
+The base image model is reused rather than trained from scratch, which would
+need millions of photos.)
+
+**What it learns from** (`catalog:export-training-data`):
+
+| Source | What | Count today |
+|---|---|---|
+| `scan` | Cars collectors confirmed or named in a scan, **only with "Help teach the scanner" ticked** | grows with use |
+| `own` | Your own catalog photos — *Add a car* and approved captures | grows as you add photos |
+| `wiki_licensed` | Wiki photos imported because they carry a reuse licence, with their licence and credit | 157 |
+
+**Not a source: the wiki photos with no licence.** Fandom's Terms of Use
+forbid using its content to train a machine-learning or AI system without
+Fandom's express written consent, and forbid scrapers. That is a contract with
+Fandom, separate from the copyright question. If Fandom gives written consent
+(the request can go with [docs/source-permissions.md](docs/source-permissions.md)),
+those photos can be added to training without code changes: any folder of
+images plus a `manifest.jsonl` in the same format can be passed with another
+`--data`.
+
+**It refuses to guess until it has proven itself.** Training keeps back some
+photos and tests itself on them. It picks the similarity a match must reach for
+**95% of its answers to be right**, on at least 30 test answers. Until it can
+show that, looks alone never name a car. They only:
+
+- put the version that looks most alike first;
+- nudge a text match (e.g. between two castings with the same name);
+- show "Looks most like …" as a hint, with a one-tap search, on cars it
+  couldn't name.
+
+Today every car has one photo, so there is nothing to test on, and it is in
+this hint-only mode. **Your own photos change that.** Two or three photos of the
+same car, from different angles, are what let it test itself. Real accuracy has
+not been measured yet; there are no real photos to measure with.
+
+**Run a training** (after adding photos or confirming scans):
 
 ```bash
-docker compose exec app php artisan catalog:export-training-data storage/app/training
+docker compose exec app php artisan catalog:export-training-data storage/app/recognition/training-data
 ```
 
-That writes `images/<variation>/<n>.jpg` and `manifest.jsonl` (variation,
-casting, colour, wheel type, and whether the collector confirmed a suggestion
-or named the car). Training and running that model on this server is phase 3 of
-[docs/multi-car-recognition.md](docs/multi-car-recognition.md); nothing has been
-trained yet because there is no data yet.
+```bash
+docker compose --profile training run --rm trainer
+```
+
+The first run downloads the base model (88 MB, pinned revision) and builds the
+training image (CPU PyTorch, about 1 GB, used only for training). It prints how
+many photos it learned from, its measured top-1 and top-5 accuracy, and whether
+looks alone are trusted yet. The result goes to
+`storage/app/recognition/model/`, and the recognizer switches to it by itself.
+157 photos take about 20 seconds; each new photo adds about 0.1 s, and photos
+already seen are cached.
+
+In production, use the same two commands with the production files; the
+trainer writes into the shared `recognition` volume:
+
+```bash
+cd /opt/collectai && docker compose -f docker-compose.prod.yml run --rm web php artisan catalog:export-training-data storage/app/recognition/training-data
+```
+
+```bash
+cd /opt/collectai && docker compose -f docker-compose.prod.yml --profile training run --rm trainer
+```
+
+**On your own computer** (Python venv from §5.9):
+
+```bash
+cd recognizer && .venv/bin/pip install --index-url https://download.pytorch.org/whl/cpu torch==2.6.0 && .venv/bin/pip install -r requirements-train.txt
+```
+
+```bash
+.venv/bin/python -m train.export_encoder --out ../storage/app/recognition/model/encoder.onnx
+```
+
+```bash
+.venv/bin/python -m train.build --data ../storage/app/recognition/training-data --model-dir ../storage/app/recognition/model
+```
+
+Then `scan` with `--model ../storage/app/recognition/model` uses it.
+`manifest.json` in the model folder records what the model learned from
+(sources and licences), its measured accuracy and its thresholds.
+`--precision 0.98` asks for a stricter bar. `--exclude-source scan` leaves a
+source out.
 
 ---
 
@@ -1364,8 +1447,8 @@ docker compose exec app php artisan test
 docker compose exec app vendor/bin/pint --test
 ```
 
-The first runs the 358 tests; the second checks code formatting (drop `--test`
-to fix it). The recognizer has its own 22 tests, run from `recognizer/` (see
+The first runs the 361 tests; the second checks code formatting (drop `--test`
+to fix it). The recognizer has its own 33 tests, run from `recognizer/` (see
 §5.9 for the one-time setup):
 
 ```bash
@@ -1467,7 +1550,7 @@ or `docker compose -f docker-compose.prod.yml run --rm web php artisan <command>
 | `catalog:import-wiki-photos {wiki}` | One licensed, credited photo per imported car | `--dump=`, `--limit=`, `--dry-run` |
 | `catalog:identify-castings` | Work out each car's real make/model — locally from `vehicles.json`, or with Claude if `CATALOG_AI_DRIVER=claude` | `--limit=`, `--dry-run`, `--threshold=`, `--regenerate` (Claude only) |
 | `catalog:export-recognition-index` | Write the catalog file the recognizer matches against (nightly on its own) | `--path=`, `--include-pending` |
-| `catalog:export-training-data {dir}` | Export consented, confirmed scan pictures with their labels | — |
+| `catalog:export-training-data {dir}` | Export labelled photos for training: consented scans, your own and licensed catalog photos (§5.10) | `--source=scan --source=own --source=wiki_licensed` |
 | `catalog:prune-scans` | Delete pictures of unconsented scans past their window (hourly on its own) | — |
 | `catalog:publish-imported` | Publish imported releases/variations whose parents are live | `--dry-run` |
 | `catalog:update-prices` | Refresh prices (runs daily on its own via the scheduler) | `--limit=`, `--msrp-only`, `--dry-run` |
