@@ -2,10 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Services\Import\HotWheelsWiki\CastingPage;
-use App\Services\Import\HotWheelsWiki\CastingPageParser;
-use App\Services\Import\HotWheelsWiki\VersionRow;
-use App\Services\Import\HotWheelsWiki\YearIndexParser;
+use App\Services\Import\FandomWiki\CastingPage;
+use App\Services\Import\FandomWiki\CastingPageParser;
+use App\Services\Import\FandomWiki\VersionRow;
+use App\Services\Import\FandomWiki\YearIndexParser;
 use Tests\TestCase;
 
 /**

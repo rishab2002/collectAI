@@ -118,6 +118,38 @@ final class Wikitext
     }
 
     /**
+     * The file names a cell's images point at, without the extension, in order.
+     *
+     * Only for a cell where the image *is* the value. The Matchbox wiki writes
+     * most wheel types as a picture of the wheel — `[[File:M002f.jpg|65px]]` —
+     * and the file name is the identifier its editors use for that wheel.
+     * Dropping it would make two cars that differ only in wheels identical.
+     * The image itself is never fetched.
+     *
+     * @return list<string>
+     */
+    public static function mediaNames(string $wikitext): array
+    {
+        preg_match_all('/\[\[\s*(?:File|Image)\s*:\s*([^|\]]+)/i', $wikitext, $matches);
+
+        $names = [];
+
+        foreach ($matches[1] as $file) {
+            $name = self::normalizeWhitespace(html_entity_decode(
+                preg_replace('/\.(?:jpe?g|png|gif|webp|svg)$/i', '', trim($file)) ?? $file,
+                ENT_QUOTES | ENT_HTML5,
+                'UTF-8',
+            ));
+
+            if ($name !== '' && ! in_array($name, $names, true)) {
+                $names[] = $name;
+            }
+        }
+
+        return $names;
+    }
+
+    /**
      * Null rather than an empty string, so "the wiki didn't say" and "the wiki
      * said nothing useful" arrive at the database as the same thing — a NULL the
      * variation uniqueness index already knows how to compare.

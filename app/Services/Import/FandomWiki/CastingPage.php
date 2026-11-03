@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Import\HotWheelsWiki;
+namespace App\Services\Import\FandomWiki;
 
 use App\Models\RecordSource;
 
@@ -20,7 +20,16 @@ final class CastingPage
         public readonly string $name,
         public readonly ?string $designer,
         public readonly array $versions,
-    ) {}
+        ?Wiki $wiki = null,
+    ) {
+        $this->wiki = $wiki ?? Wiki::hotWheels();
+    }
+
+    /**
+     * The site this page was read from, which decides its URL and the brand its
+     * releases were sold under.
+     */
+    public readonly Wiki $wiki;
 
     /**
      * Provenance key for the casting itself. Its releases and variations key off
@@ -33,7 +42,7 @@ final class CastingPage
 
     public function sourceUrl(): string
     {
-        return 'https://hotwheels.fandom.com/wiki/'.str_replace('%2F', '/', rawurlencode(str_replace(' ', '_', $this->title)));
+        return $this->wiki->articleUrl($this->title);
     }
 
     /**

@@ -9,9 +9,9 @@ use App\Models\RecordSource;
 use App\Models\Release;
 use App\Models\Series;
 use App\Models\Variation;
-use App\Services\Import\HotWheelsWiki\CastingPage;
-use App\Services\Import\HotWheelsWiki\CastingPageParser;
-use App\Services\Import\HotWheelsWiki\CatalogImporter;
+use App\Services\Import\FandomWiki\CastingPage;
+use App\Services\Import\FandomWiki\CastingPageParser;
+use App\Services\Import\FandomWiki\CatalogImporter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
