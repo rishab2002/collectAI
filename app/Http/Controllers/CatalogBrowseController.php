@@ -6,6 +6,7 @@ use App\Models\Brand;
 use App\Models\Casting;
 use App\Models\Series;
 use App\Services\Catalog\CatalogBrowser;
+use App\Services\Catalog\VariationPrices;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -96,9 +97,16 @@ class CatalogBrowseController extends Controller
 
         abort_if($model === null, 404);
 
+        $variationIds = $model->versions->flatMap->releases->flatMap->variations->pluck('id');
+        $user = $request->user();
+
         return view('catalog.casting', [
             'casting' => $model,
             'preview' => $this->previewing($request),
+            'prices' => app(VariationPrices::class)->latestFor($variationIds),
+            // What this collector already has and wants, for the buttons.
+            'owned' => $user === null ? collect() : $user->collectionItems()->whereIn('variation_id', $variationIds)->get()->keyBy('variation_id'),
+            'wanted' => $user === null ? collect() : $user->wishlist()->whereIn('variations.id', $variationIds)->pluck('variations.id')->flip(),
         ]);
     }
 

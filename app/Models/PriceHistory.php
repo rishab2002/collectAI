@@ -13,10 +13,33 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * No approval status: a price is an observation attached to an already-approved
  * variation, not a catalog entity the pipeline proposes into existence.
  */
-#[Fillable(['variation_id', 'price', 'currency', 'source', 'observed_at'])]
+#[Fillable(['variation_id', 'price', 'currency', 'kind', 'sample_size', 'source', 'url', 'observed_at'])]
 class PriceHistory extends Model
 {
     use HasFactory;
+
+    public const KIND_SOLD = 'sold';
+
+    public const KIND_LISTING = 'listing';
+
+    public const KIND_MSRP = 'msrp';
+
+    /**
+     * How the figure reads to a person — the three kinds are never shown as
+     * the same thing.
+     */
+    public function label(): string
+    {
+        return match ($this->kind) {
+            self::KIND_SOLD => $this->sample_size > 1
+                ? "eBay sold · median of last {$this->sample_size} sales"
+                : 'eBay sold · last sale',
+            self::KIND_LISTING => $this->sample_size > 1
+                ? "eBay asking · median of {$this->sample_size} listings"
+                : 'eBay asking price',
+            default => 'MSRP (list price)',
+        };
+    }
 
     public function variation(): BelongsTo
     {

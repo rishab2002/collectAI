@@ -18,6 +18,7 @@
 
 <x-layouts.app :title="$casting->name">
     <x-catalog.preview-banner :preview="$preview" />
+    <x-catalog.flash />
     @if ($home)
         <x-catalog.crumbs :items="[
             'Catalog' => route('home'),
@@ -71,6 +72,8 @@
                 </header>
                 <ul class="divide-y divide-neutral-200 dark:divide-neutral-800">
                     @foreach ($release->variations as $variation)
+                        @php($price = $prices[$variation->id] ?? null)
+                        @php($item = $owned[$variation->id] ?? null)
                         <li class="px-4 py-3">
                             <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-sm">
                                 @foreach ($labels as $attribute => $label)
@@ -80,6 +83,47 @@
                                     @endif
                                 @endforeach
                             </dl>
+
+                            @if ($price)
+                                {{-- The kind of price is always shown with it: a sold
+                                     price, an asking price and an MSRP are three
+                                     different claims. --}}
+                                <p class="mt-2 text-sm">
+                                    <strong>${{ number_format($price->price, 2) }}</strong>
+                                    <span class="text-xs text-neutral-500">
+                                        {{ $price->label() }} · {{ $price->observed_at->format('M Y') }}
+                                        @if ($price->url) · <a href="{{ $price->url }}" class="underline" rel="noopener nofollow" target="_blank">see listings</a> @endif
+                                    </span>
+                                </p>
+                            @endif
+
+                            <div class="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                                @auth
+                                    @if ($item)
+                                        <a href="{{ route('collection.index') }}" class="rounded-lg bg-green-100 px-3 py-1 text-green-800 dark:bg-green-950 dark:text-green-200">In your collection ×{{ $item->quantity }}</a>
+                                    @else
+                                        <form method="POST" action="{{ route('collection.store') }}">
+                                            @csrf
+                                            <input type="hidden" name="variation_id" value="{{ $variation->id }}">
+                                            <button type="submit" class="rounded-lg bg-neutral-900 px-3 py-1 font-medium text-white dark:bg-white dark:text-neutral-900">Add to my collection</button>
+                                        </form>
+                                        @if (isset($wanted[$variation->id]))
+                                            <form method="POST" action="{{ route('wishlist.destroy', $variation->id) }}">
+                                                @csrf @method('DELETE')
+                                                <button type="submit" class="rounded-lg border border-neutral-300 px-3 py-1 dark:border-neutral-700">★ Wanted</button>
+                                            </form>
+                                        @else
+                                            <form method="POST" action="{{ route('wishlist.store') }}">
+                                                @csrf
+                                                <input type="hidden" name="variation_id" value="{{ $variation->id }}">
+                                                <button type="submit" class="rounded-lg border border-neutral-300 px-3 py-1 dark:border-neutral-700">☆ Want it</button>
+                                            </form>
+                                        @endif
+                                    @endif
+                                @else
+                                    <a href="{{ route('register') }}" class="text-neutral-500 underline">Join to track this car in your collection</a>
+                                @endauth
+                            </div>
                         </li>
                     @endforeach
                 </ul>

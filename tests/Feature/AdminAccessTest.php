@@ -82,18 +82,30 @@ class AdminAccessTest extends TestCase
         RateLimiter::clear(mb_strtolower($admin->email).'|127.0.0.1');
     }
 
-    public function test_there_is_no_registration_route(): void
+    public function test_registration_can_never_create_an_admin(): void
     {
-        // The only privileged account comes from AdminUserSeeder; a public
-        // registration endpoint on a single-admin app is surface with no user.
-        $this->post('/register', [])->assertNotFound();
+        // Collector accounts exist since 2026-11-03. What this test always
+        // guarded still holds: the only privileged account comes from
+        // AdminUserSeeder, and no public form can make another — even when the
+        // field is smuggled into the request.
+        $this->post(route('register.store'), [
+            'name' => 'Mallory',
+            'email' => 'mallory@example.test',
+            'password' => 'correct horse battery 42',
+            'password_confirmation' => 'correct horse battery 42',
+            'is_admin' => '1',
+        ])->assertRedirect(route('collection.index'));
+
+        $user = User::where('email', 'mallory@example.test')->sole();
+        $this->assertFalse($user->is_admin);
+        $this->get(route('admin.dashboard'))->assertNotFound();
     }
 
     public function test_signing_out_ends_the_session(): void
     {
         $this->actingAs(User::factory()->admin()->create())
             ->post(route('logout'))
-            ->assertRedirect(route('login'));
+            ->assertRedirect(route('home'));
 
         $this->assertGuest();
     }
