@@ -14,6 +14,55 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-11-03 (late) — Hosting on Cloudflare and DigitalOcean; two pre-deployment bugs
+
+**Asked:** update the README with how to host on Cloudflare; then, mid-way,
+host with DigitalOcean (Spaces), with the most cost-effective plans, paired with
+Cloudflare if needed, DigitalOcean alone if cheaper.
+
+**What "host on Cloudflare" can mean, measured:** Cloudflare's compute can't run
+this stack. Workers/Pages don't run PHP or Postgres, and Cloudflare Containers'
+disk is ephemeral — wiped when an instance sleeps (Cloudflare FAQ, checked
+today), which would erase the database. So the app runs on one machine and a
+**Cloudflare Tunnel** connects it: `docker-compose.tunnel.yml` adds `cloudflared`
+(pinned 2026.10.0) and publishes no web ports. README §8.2.
+
+**DigitalOcean, priced (digitalocean.com, cloudflare.com, today):** Spaces is
+object storage — it cannot run the app either. Cheapest working setup: Basic
+Regular Droplet 2 GB / 1 vCPU / 50 GB at **$12**, Cloudflare Free in front,
+photos and backups on R2 ($0 to 10 GB, $0.015/GB after, no egress). Spaces is
+$5/month minimum (250 GB + 1 TB transfer included, $0.02/GB stored after), so
+R2 is cheaper at every size and is already working; a DigitalOcean-only setup
+costs more ($17+) and loses the free edge. $4/$6 Droplets are too small for the
+stack plus the image build (estimate, not measured on a Droplet). README §8.3.
+
+**Bug 1 — the production allow-list would have refused every visitor.**
+`cloudflare-allow.conf` used `allow <Cloudflare range>; deny all;` alongside
+`set_real_ip_from` + `real_ip_header CF-Connecting-IP`. The realip module
+rewrites the client address before the access phase, so `allow` compared the
+*visitor's* IP against Cloudflare's ranges. Reproduced with nginx 1.24 and the
+repo's own files (loopback standing in for an edge): old config 200 without the
+header, **403 with it**; error log "access forbidden by rule, client:
+203.0.113.9". Fixed with `geo $realip_remote_addr $from_cloudflare` and a
+server-level 403. New config: 200 with the header, a non-Cloudflare peer still
+403. The 2026-08-10 local verification couldn't see it — no request carried the
+header — and deploy.md's "403 on every request" row blamed stale ranges.
+
+**Bug 2 — nightly database backups into the public photo bucket.**
+`pg-dump-to-r2.sh` uploaded to `R2_BUCKET/backups/diecast-<timestamp>.sql.gz`.
+That bucket is world-readable through `img.collectai.club`, and the timestamp
+of a 03:17 cron is guessable to the minute. Now `R2_BACKUP_BUCKET` (a private
+bucket) is required and the script refuses the photo bucket; checked both
+refusals by running the script. Also pinned `amazon/aws-cli:2.27.0` (was
+`latest`).
+
+**Not done:** nothing was deployed, no Droplet created, and the tunnel compose
+file was validated as YAML only — Docker isn't available in the cloud session.
+Spaces support for photos was not added (it would cost more; it needs a disk
+with public-read uploads and a CSP entry).
+
+---
+
 ## 2026-11-03 (night) — Recognition phase 1, and no outside AI required
 
 **Asked:** phase 1 of multi-car recognition, with loose cars (a pile) as the main

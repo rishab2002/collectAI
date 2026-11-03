@@ -21,7 +21,11 @@ server that does not exist.
 
 ## What you are building
 
-One Lightsail instance running `docker-compose.prod.yml`:
+One Lightsail instance running `docker-compose.prod.yml`, connected to
+Cloudflare **directly** (ports 80/443, an origin certificate, A records). The
+simpler alternative — a Cloudflare Tunnel, with no open ports and no
+certificate, on this or any machine — is README §8.2 and
+`docker-compose.tunnel.yml`; it replaces steps 4, 6, 7 and 8 below, and step 1 opens no web ports.
 
 | Container | Role |
 |---|---|
@@ -310,8 +314,19 @@ no effect whatsoever.
 
 ## Backups
 
-Postgres runs on this box, so nothing else keeps a copy. Install the nightly
-dump to R2 — the bucket already exists and R2 charges no egress:
+Postgres runs on this box, so nothing else keeps a copy. The nightly dump goes
+to R2 — but to a **second, private bucket**, never the photo bucket. The photo
+bucket is public through `img.collectai.club`, and a dump contains every
+account's email and password hash.
+
+1. Cloudflare → **R2 → Create bucket** → name it `collectai-backups`. Don't
+   connect a custom domain and leave public `r2.dev` access off; R2 buckets are
+   private until you do either.
+2. Make sure the R2 API token in `.env` may write to it (R2 → *Manage API
+   tokens* → edit the token → add the bucket), and set
+   `R2_BACKUP_BUCKET=collectai-backups` in `.env`. The script refuses to run if
+   it's unset or names the photo bucket.
+3. Install the nightly run:
 
 ```bash
 crontab -e
@@ -336,7 +351,7 @@ mid-write, so a restored database has to replay WAL and may not come back.
 | **525** SSL handshake failed | Origin isn't speaking TLS on 443 | `docker compose -f docker-compose.prod.yml ps`; check 443 is open in the Lightsail firewall |
 | **526** Invalid SSL certificate | Self-signed fallback in use | Check `logs web` for the `WARNING` lines; mount a real Origin CA cert (step 4) |
 | **521** Web server is down | Container down or firewall closed | `logs web`; check the Lightsail firewall |
-| **403** on every request | Cloudflare IP ranges stale, or a grey-clouded record | `./docker/nginx/refresh-cloudflare-ips.sh`, rebuild; confirm records are Proxied |
+| **403** on every request | Cloudflare IP ranges stale, or a grey-clouded record. (Before 2026-11-03 the allow-list itself did this — it was checked against the visitor's address after the real-IP rewrite; it is now a `geo` on `$realip_remote_addr`) | `./docker/nginx/refresh-cloudflare-ips.sh`, rebuild; confirm records are Proxied |
 | Infinite redirect loop | Cloudflare SSL set to Flexible | Set Full (strict) |
 | Parking page still appears | A record added rather than replaced | Delete the leftover parking A records |
 | Upload fails on a big photo | Size limits out of step | `client_max_body_size`, `post_max_size` and `CAPTURE_MAX_PHOTO_KB` must be raised together |

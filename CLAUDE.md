@@ -5,7 +5,10 @@ domain model, conventions and current state only have to be explained once.
 **Treat this file as the source of truth, not the conversation history** —
 update it whenever a convention changes.
 
-**Last edited:** 2026-11-03 night (recognition phase 1: the local `recognizer/`
+**Last edited:** 2026-11-03 late (hosting: Cloudflare Tunnel mode and the
+DigitalOcean plan in README §8.2–8.3; fixed an nginx allow-list that would have
+403'd every visitor, and backups that would have been public. Before that:
+recognition phase 1: the local `recognizer/`
 service and the collector Scan page; **the Claude API is now optional** —
 `CATALOG_AI_DRIVER=local` is the default. Earlier the same day: accounts,
 prices, security, Tomica/Mini GT/Lesney, public catalog. **Still nothing
@@ -119,7 +122,10 @@ diagnosing the 525 as a misconfigured origin will look for a server that does
 not exist.
 
 **There is now deployment configuration, but it has never been run.** The
-target is a single AWS Lightsail box: `docker-compose.prod.yml` plus the
+recommended target (README §8.3, 2026-11-03) is a **$12 DigitalOcean Droplet
+reached through a Cloudflare Tunnel** (`docker-compose.tunnel.yml` on top of
+the prod file — no open ports, no origin certificate), photos and backups on
+R2. The original direct target is a single AWS Lightsail box: `docker-compose.prod.yml` plus the
 Dockerfile's `prod` stage (nginx + php-fpm under supervisord, a separate
 `queue:work` container, Postgres, Redis), with `docs/deploy.md` as the runbook.
 Nothing has been provisioned, so the table above is still exactly what is on the
@@ -307,7 +313,7 @@ queue worker, `APP_URL=http://localhost` — reachable only from this Mac on
   photo-library strings — **without them iOS terminates the app when capture
   opens the camera**. Built with Swift Package Manager (no CocoaPods). Capture
   verified in an emulated iPhone 15 (inputs, thumbnails, 201 upload, storage);
-  never run on a real device from here. README §8.2 is the TestFlight guide.
+  never run on a real device from here. README §8.4 is the TestFlight guide.
 - **Manual entry** (`CatalogController`, `VariationPhotoController`,
   `app/Services/Catalog/ManualCatalogEntry.php`, `VariationPhotos.php`, the
   `StoreCarRequest` / `StoreVariationRequest` / `StoreVariationPhotosRequest`
@@ -1574,11 +1580,24 @@ why it says what it says. None of it has run against real infrastructure yet.*
 - **The origin only accepts Cloudflare ranges.** The Lightsail IP is not secret
   — certificate transparency logs and old DNS records leak origins routinely —
   and without the allow-list it is a second front door past the edge's TLS
-  policy and rate limiting. `set_real_ip_from` and `allow` are different
+  policy and rate limiting. `set_real_ip_from` and the allow-list are different
   directives over the same list, so `cloudflare-ips.conf` and
   `cloudflare-allow.conf` are generated **together** by
   `docker/nginx/refresh-cloudflare-ips.sh`. Stale in only one and the failure is
   baffling: some visitors 403, others throttle against the wrong key.
+- **The allow-list is a `geo` on `$realip_remote_addr`, never `allow`/`deny`.**
+  The real-IP rewrite runs before the access phase, so `allow <Cloudflare
+  range>` was checked against the *visitor's* address and refused every real
+  visitor — found and fixed 2026-11-03 before any deployment, measured with
+  nginx 1.24 (old config: 403 for any request carrying `CF-Connecting-IP` from
+  a trusted edge; new: 200, strangers still 403). Local testing never sends that
+  header, which is why it survived. Test nginx changes with a request that does.
+- **Two origin modes, one variable.** `origin-mode.conf` (direct: `$origin_https`
+  is nginx's own `$https`) is built into the image; `docker-compose.tunnel.yml`
+  mounts `origin-mode-tunnel.conf` over it (trust the Docker ranges for real IP,
+  `$origin_https` on) **and** removes `web`'s published ports. Those two belong
+  together: trusting Docker ranges is safe only while `cloudflared` is the sole
+  way in. The tunnel routes to `http://web:80`, not 443.
 - **No HTTP→HTTPS redirect at the origin.** TLS is the edge's job. An
   origin-side redirect is precisely what turns a Cloudflare **Flexible** SSL
   setting into an infinite loop, and Flexible is the tempting wrong fix for the
@@ -1622,8 +1641,12 @@ why it says what it says. None of it has run against real infrastructure yet.*
 - **Postgres is not published to the host in production.** `docker-compose.yml`
   maps 5432 for psql and GUI clients; doing that on a public box exposes it to
   the internet.
-- **Backups are `pg_dump` to the R2 bucket that already holds the photos**, and
-  the script deliberately does **not** prune. Retention belongs in an R2
+- **Backups are `pg_dump` to a second, private R2 bucket (`R2_BACKUP_BUCKET`),
+  never the photo bucket.** The photo bucket is world-readable through
+  `img.collectai.club`, and backups used to go there under timestamp names a
+  03:17 cron makes guessable — every account's email and password hash, one URL
+  away. The script now refuses an unset or photo-bucket target. It deliberately
+  does **not** prune. Retention belongs in an R2
   lifecycle rule: server-side, no credentials on the box, and no delete loop
   running as root nightly. An instance snapshot is not a substitute — it catches
   the volume mid-write.

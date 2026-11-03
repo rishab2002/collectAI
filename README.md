@@ -894,12 +894,24 @@ docker compose exec app php artisan catalog:import-wiki hot-wheels --year=2027
 
 ## 8. Deploy to collectai.club
 
-Production is one AWS Lightsail server running `docker-compose.prod.yml`
-(nginx + PHP, a queue worker, a scheduler for the daily price run, PostgreSQL,
-Redis) behind Cloudflare. Put your eBay keys (§5.7) in the server's `.env` too. **Follow
-[docs/deploy.md](docs/deploy.md) step by step** — the order matters (in
-particular: test against the server's IP before touching DNS, and switch
-Cloudflare to *Full (strict)* only after the certificate is installed).
+Production is one server running `docker-compose.prod.yml` — nginx + PHP, a
+queue worker, a scheduler (prices, the nightly recognition index, scan
+pruning), the recognizer, PostgreSQL and Redis — behind Cloudflare. Put your
+eBay keys (§5.7) in the server's `.env` too.
+
+There are two ways to connect that server to Cloudflare. Pick one:
+
+| | **Cloudflare Tunnel** ([§8.2](#82-host-it-with-cloudflare-cloudflare-tunnel)) — easiest | **Direct** ([docs/deploy.md](docs/deploy.md)) |
+|---|---|---|
+| The server can be | Any machine with Docker, **including your own Mac** | A cloud server with a public IP |
+| Ports to open | None | 80 and 443 |
+| HTTPS certificate on the server | Not needed | A Cloudflare Origin Certificate |
+| DNS records | Created for you by Cloudflare | Two A records you edit |
+| Start command | `docker compose -f docker-compose.prod.yml -f docker-compose.tunnel.yml up -d --build` | `docker compose -f docker-compose.prod.yml up -d --build` |
+
+Either way the order matters: for the direct route, test against the server's
+IP before touching DNS, and switch Cloudflare to *Full (strict)* only after the
+certificate is installed.
 
 Once the site is up, fill it the same way as §3–4, with two differences:
 commands use `docker compose -f docker-compose.prod.yml run --rm web …`, and the
@@ -937,9 +949,22 @@ be passed directly; they are unpacked on the fly. In production
 cd /opt/collectai && git pull && docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-Migrations run automatically when the new container starts.
+With a tunnel, add the second file to every `docker compose` command — that
+one and all the `run --rm web …` commands above:
 
-### 8.1 Choosing where to host it (Porkbun, Lightsail, any server)
+```bash
+cd /opt/collectai && git pull && docker compose -f docker-compose.prod.yml -f docker-compose.tunnel.yml up -d --build
+```
+
+Migrations run automatically when the new container starts. After the first
+deploy, write the recognizer's catalog file once rather than waiting for the
+night (§5.8):
+
+```bash
+cd /opt/collectai && docker compose -f docker-compose.prod.yml run --rm web php artisan catalog:export-recognition-index
+```
+
+### 8.1 Choosing where to host it (Porkbun, DigitalOcean, Lightsail, any server)
 
 **Porkbun is where you bought the domain, not where the site runs.** Its
 hosting plans are for static sites and WordPress; this app needs a server that
@@ -953,11 +978,14 @@ it runs on:
 
 | Option | Effort | Notes |
 |---|---|---|
-| **AWS Lightsail** (recommended) | Follow [docs/deploy.md](docs/deploy.md) exactly | Already written and tested for this app. Pick an instance with at least 2 GB of RAM |
-| **Any Ubuntu server with Docker** — DigitalOcean, Hetzner, Linode, Vultr… | Same runbook | Only step 1 (creating the server and opening ports 80 and 443) differs; from step 2 on, the commands are identical |
+| **DigitalOcean Droplet + Cloudflare Tunnel** (cheapest, ~$12/month) | [§8.3](#83-host-it-on-digitalocean-the-most-cost-effective-setup) | The recommended plan, with costs. DigitalOcean *Spaces* is storage only and can't run the app |
+| **Cloudflare Tunnel** on any other machine | [§8.2](#82-host-it-with-cloudflare-cloudflare-tunnel) | No open ports, no certificate. Runs on a Lightsail/VPS server or on a Mac you leave on |
+| **AWS Lightsail**, direct | Follow [docs/deploy.md](docs/deploy.md) exactly | Pick an instance with at least 2 GB of RAM (4 GB is comfortable with the recognizer). Can also use the tunnel instead of steps 4, 7 and 8 |
+| **Any other Ubuntu server with Docker** — Hetzner, Linode, Vultr… | Same runbook | Only step 1 (creating the server and opening ports 80 and 443) differs; from step 2 on, the commands are identical |
+| Cloudflare Workers, Pages or Containers alone | Not possible | See §8.2 — they have nowhere to keep the database |
 | Managed Laravel platforms | Would need adapting | Not set up here — they run their own build, worker and database, so the Docker files don't apply |
 
-Whichever you choose, the short version of going live is:
+The short version of going live **directly** (for the tunnel, see §8.2):
 
 1. Create the server, open ports 80 and 443, install Docker (deploy.md §1–2).
 2. Clone the repo, fill in `.env` from `.env.production.example` (deploy.md §3).
@@ -971,12 +999,286 @@ Whichever you choose, the short version of going live is:
 
 The 525 error collectai.club shows today goes away at step 6.
 
-### 8.2 Test it as an iPhone app (TestFlight)
+### 8.2 Host it with Cloudflare (Cloudflare Tunnel)
+
+**What "on Cloudflare" can mean here.** Cloudflare already does most of the
+hosting for collectai.club: its DNS, its HTTPS certificate, caching and attack
+protection at the edge, and the photo storage (R2, `img.collectai.club`). What
+it cannot run is the app itself. PHP, PostgreSQL, Redis, the background worker,
+the scheduler and the recognizer need one computer whose disk survives a
+restart. Cloudflare Workers and Pages don't run PHP or databases, and Cloudflare
+Containers wipe their disk every time an instance goes to sleep (Cloudflare's own
+FAQ, checked 2026-11-03), which would erase the database.
+
+So the app runs on a machine you choose, and a **Cloudflare Tunnel** connects it
+to Cloudflare. A small program, `cloudflared`, runs next to the app and dials
+*out* to Cloudflare. Visitors reach Cloudflare, and Cloudflare sends their
+requests back down that connection. As a result:
+
+- **No ports are opened** on the machine and it needs no public IP. A home Mac
+  behind a router works.
+- **No certificate is installed on the machine.** HTTPS is Cloudflare's.
+- **Cloudflare creates the DNS records** for you.
+- Nobody can reach the server except through Cloudflare. The app container
+  publishes no ports in this mode.
+
+**Which machine?** For a site people rely on, a small cloud server (Lightsail
+2–4 GB, about $10–20 a month) that is always on. For trying it out, your own
+Mac with Docker Desktop: free, but the site is down whenever the Mac sleeps or
+is off, and every visitor uses your home upload bandwidth.
+
+#### Step 1 — Get the code and settings onto the machine
+
+On the machine (a cloud server: install Docker first, deploy.md §2; a Mac:
+install Docker Desktop and set it to start at login):
+
+```bash
+sudo mkdir -p /opt/collectai && sudo chown $USER /opt/collectai && git clone https://github.com/rishab2002/collectAI.git /opt/collectai
+```
+
+```bash
+cd /opt/collectai && cp .env.production.example .env
+```
+
+Fill in `.env` as [docs/deploy.md](docs/deploy.md) §3 describes (database
+password, `APP_KEY`, R2 keys, admin email). Keep `APP_URL=https://collectai.club`.
+Leave the `certs/` folder empty — a tunnel doesn't use it.
+
+On a cloud server, its firewall needs **only port 22 (SSH)**. Close 80 and 443
+if they are open.
+
+#### Step 2 — Create the tunnel in Cloudflare
+
+1. Cloudflare dashboard → **Networking → Tunnels → Create a tunnel**.
+2. Name it `collectai`, then **Create Tunnel**.
+3. On the install screen choose **Docker**. Cloudflare shows a command ending in
+   `--token eyJ…`. **Don't run it** — copy only the long token after `--token`.
+4. Put the token in the server's `.env`:
+
+```dotenv
+CLOUDFLARE_TUNNEL_TOKEN=eyJ...
+```
+
+Treat it like a password: anyone who has it can serve your domain.
+
+#### Step 3 — Remove the old parking records
+
+collectai.club still points at Porkbun's parking page. In **Cloudflare → DNS →
+Records**, delete the **A** records for `collectai.club` and `www`. Cloudflare
+won't create the tunnel's records over existing ones. **Leave
+`img.collectai.club` alone** — that's the photo bucket.
+
+#### Step 4 — Start everything
+
+```bash
+cd /opt/collectai && docker compose -f docker-compose.prod.yml -f docker-compose.tunnel.yml up -d --build
+```
+
+The first build takes several minutes. Then check that the tunnel connected:
+
+```bash
+cd /opt/collectai && docker compose -f docker-compose.prod.yml -f docker-compose.tunnel.yml logs cloudflared
+```
+
+Look for `Registered tunnel connection`. Back in the dashboard, the tunnel shows
+as **Healthy** — select **Continue**.
+
+#### Step 5 — Point the domain at the app
+
+In the tunnel, open **Routes → Add route → Published application**:
+
+| Field | Value |
+|---|---|
+| Subdomain | *(leave empty)* |
+| Domain | `collectai.club` |
+| Service URL | `http://web:80` |
+
+Select **Add route**, then add a second route the same way with Subdomain
+`www`. The address is `web`, the app's name inside Docker — **not**
+`localhost`, which would mean the `cloudflared` container itself.
+
+#### Step 6 — Always HTTPS
+
+**Cloudflare → SSL/TLS → Edge Certificates → Always Use HTTPS: On.** The app is
+told every request arrived over HTTPS, so visitors must really be on HTTPS.
+(The *Full (strict)* setting in deploy.md is for the direct setup. It doesn't
+apply to traffic arriving through a tunnel.)
+
+#### Step 7 — Check it, then fill it
+
+```bash
+curl -sI https://collectai.club/up
+```
+
+`HTTP/2 200` means it's live. Create the admin account and fill the catalog as
+in §3–4, adding `-f docker-compose.tunnel.yml` to each command, e.g.:
+
+```bash
+cd /opt/collectai && docker compose -f docker-compose.prod.yml -f docker-compose.tunnel.yml run --rm web php artisan db:seed --class=AdminUserSeeder
+```
+
+```bash
+cd /opt/collectai && docker compose -f docker-compose.prod.yml -f docker-compose.tunnel.yml run --rm web php artisan catalog:export-recognition-index
+```
+
+**Backups** work exactly as in deploy.md's *Backups* section: the database
+dumps nightly to a second, **private** R2 bucket — never the public photo bucket.
+
+**Two things not to do in tunnel mode:**
+
+- **Don't publish ports 80/443** (for example by starting without the second
+  `-f` file and then with it). In tunnel mode nginx trusts anything on the
+  Docker network to say who the visitor is, which is only safe while
+  `cloudflared` is the only way in.
+- **Don't route the tunnel to `https://web:443`.** Use `http://web:80`; the
+  tunnel already encrypts the traffic.
+
+| If you see… | It means |
+|---|---|
+| Cloudflare error **1033** | `cloudflared` isn't connected: it isn't running, or the token in `.env` is wrong. Check its logs (step 4) |
+| **502 Bad Gateway** | The tunnel works but can't reach the app. The Service URL must be `http://web:80`, and `web` must be healthy (`docker compose … ps`) |
+| Adding the route fails because a DNS record already exists | Step 3 — delete the old A record first |
+| `docker compose` complains about `!reset` | Compose is older than 2.24 — update Docker |
+
+### 8.3 Host it on DigitalOcean (the most cost-effective setup)
+
+**DigitalOcean Spaces can't host the site by itself.** Spaces is DigitalOcean's
+file storage, the same kind of service as the R2 bucket that already holds your
+photos (`img.collectai.club`). It stores and serves files. It can't run PHP,
+the database, the background worker or the recognizer. On DigitalOcean those
+run on a **Droplet** (a virtual server).
+
+**Recommended plan — about $12 a month in total** (prices checked on
+digitalocean.com and cloudflare.com, 2026-11-03):
+
+| Piece | Plan | Monthly |
+|---|---|---|
+| Server | **DigitalOcean Droplet, Basic › Regular: 2 GB RAM, 1 vCPU, 50 GB SSD, 2 TB transfer** | **$12** |
+| Domain, HTTPS, CDN, tunnel | Cloudflare **Free** plan (you already use it for DNS) | $0 |
+| Photos and database backups | Cloudflare **R2** (already set up) — first 10 GB free, then $0.015 per GB, **no download charges** | $0 at today's size |
+| Optional: Droplet weekly backups | 20% of the Droplet price | $2.40 |
+| **Total** | | **$12** (or $14.40 with Droplet backups) |
+
+Why these and not something else:
+
+- **Not the $4 or $6 Droplet.** The stack (PostgreSQL, Redis, nginx + PHP, a
+  queue worker, a scheduler and the OpenCV recognizer) plus building the image
+  (Composer and the asset build) won't fit in 0.5–1 GB. 2 GB with 2 GB of swap
+  should. This is an estimate: memory has not been measured on a Droplet yet.
+  If scans feel slow (the recognizer uses one CPU per photo), move to **Basic ›
+  Regular 4 GB / 2 vCPU, $24**. Resizing a Droplet keeps everything.
+- **No managed database or App Platform.** Both add a monthly fee on top, and
+  `docker-compose.prod.yml` already runs PostgreSQL on the Droplet, with nightly
+  backups to R2.
+- **R2, not Spaces, for photos.** Spaces costs **$5 a month minimum** (including
+  250 GB stored and 1 TB downloaded; then $0.02 per GB stored and $0.01 per GB
+  downloaded). R2 costs **$0** up to 10 GB, $0.015 per GB after that, and never
+  charges for downloads. That is cheaper at every size. For comparison, 250 GB on
+  R2 would be $3.60 against Spaces' $5. R2 is already working
+  (`capture:check-storage` passes), and the app is built for it. Switching to
+  Spaces would cost more and need code changes.
+- **Cloudflare stays in front.** It costs nothing, and it supplies the HTTPS
+  certificate, the tunnel, caching and attack protection. A DigitalOcean-only
+  setup (DigitalOcean DNS plus Spaces, no Cloudflare) would cost more ($17+),
+  not less. It would also need its own certificates, and this app's web server
+  is built to sit behind Cloudflare.
+
+The domain itself stays registered at Porkbun (renewal is billed there,
+separately).
+
+#### Step 1 — Create the Droplet
+
+1. Sign up at digitalocean.com → **Create → Droplets**.
+2. **Region:** the one nearest you and your visitors (e.g. New York or San
+   Francisco).
+3. **Image:** Ubuntu **24.04 (LTS) x64**.
+4. **Size:** **Basic → Regular → $12/mo (2 GB / 1 CPU / 50 GB SSD)**.
+5. **Authentication:** **SSH key**. On your Mac, show your public key (make one
+   first with `ssh-keygen -t ed25519` if this says "No such file"):
+
+```bash
+cat ~/.ssh/id_ed25519.pub
+```
+
+   Paste it into **New SSH Key**.
+6. Optional: tick **Backups** (weekly, +$2.40). The nightly database dump to R2
+   (step 5) is the backup that matters; this one also covers the server itself.
+7. **Hostname:** `collectai` → **Create Droplet**. Note its IP address.
+
+#### Step 2 — Firewall: SSH only
+
+The tunnel needs no open web ports. **Networking → Firewalls → Create
+Firewall**. Name it `collectai`. Under **Inbound Rules**, keep only **SSH (TCP
+22)** and delete anything else. Leave **Outbound Rules** as they are (allow
+all). Under **Apply to Droplets**, choose `collectai` → **Create Firewall**.
+
+#### Step 3 — Install Docker and swap
+
+From your Mac (replace the IP):
+
+```bash
+ssh root@203.0.113.10
+```
+
+Then, on the Droplet:
+
+```bash
+curl -fsSL https://get.docker.com | sh
+```
+
+```bash
+fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && echo '/swapfile none swap sw 0 0' | tee -a /etc/fstab
+```
+
+The swap is what stops the first image build from running out of memory on a
+2 GB Droplet.
+
+#### Step 4 — Connect it to Cloudflare with a tunnel
+
+Follow **§8.2 from Step 1** on the Droplet. Use the same commands; you're
+already root, so `sudo` is harmless. In short: clone, fill `.env`, create the
+tunnel and paste its token, delete the two parking A records, start with both
+compose files, add the `collectai.club` and `www` routes to `http://web:80`,
+and turn on Always Use HTTPS.
+
+#### Step 5 — Nightly database backup
+
+Follow the **Backups** section of [docs/deploy.md](docs/deploy.md). Create a
+second, **private** R2 bucket `collectai-backups`, set
+`R2_BACKUP_BUCKET=collectai-backups` in `.env`, then install the nightly run:
+
+```bash
+crontab -e
+```
+
+```
+17 3 * * * cd /opt/collectai && ./docker/backup/pg-dump-to-r2.sh >> /var/log/collectai-backup.log 2>&1
+```
+
+**Never point backups at the photo bucket.** It's public, and a dump holds
+every account's email and password hash. The script refuses to do it.
+
+#### Updating the site later
+
+```bash
+ssh root@203.0.113.10
+```
+
+```bash
+cd /opt/collectai && git pull && docker compose -f docker-compose.prod.yml -f docker-compose.tunnel.yml up -d --build
+```
+
+**Prefer to open ports instead of a tunnel?** Use the same Droplet and follow
+[docs/deploy.md](docs/deploy.md) from step 3. In the DigitalOcean firewall,
+allow **HTTP (80) and HTTPS (443)** as well as SSH. Everything in that runbook
+that mentions the Lightsail console applies the same way to the Droplet.
+
+### 8.4 Test it as an iPhone app (TestFlight)
 
 The app is the website in a native iPhone shell (Capacitor), so everything —
 the catalog, accounts, the camera upload — is the same code. The shell loads
 `https://collectai.club` (set in `capacitor.config.json`), so **deploy the site
-first** (§8.1). The iOS project is in `ios/`, with the camera and photo-library
+first** (§8.1–8.3). The iOS project is in `ios/`, with the camera and photo-library
 permission messages already set (iOS closes any app that opens the camera
 without them).
 
@@ -1062,8 +1364,15 @@ docker compose exec app php artisan test
 docker compose exec app vendor/bin/pint --test
 ```
 
-The first runs the 313 tests; the second checks code formatting (drop `--test`
-to fix it). Both must pass before merging. After any database change, also
+The first runs the 358 tests; the second checks code formatting (drop `--test`
+to fix it). The recognizer has its own 22 tests, run from `recognizer/` (see
+§5.9 for the one-time setup):
+
+```bash
+cd recognizer && .venv/bin/python -m unittest discover -s tests -t .
+```
+
+Both suites must pass before merging. After any database change, also
 prove the schema builds from nothing — **this wipes the development
 database**:
 

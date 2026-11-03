@@ -1,0 +1,42 @@
+# Cloudflare Tunnel mode — add this file on top of the production stack:
+#
+#   docker compose -f docker-compose.prod.yml -f docker-compose.tunnel.yml up -d --build
+#
+# What it changes (README §8.2 walks through the whole setup):
+#
+#   1. `web` publishes NO ports. The only way in is `cloudflared`, which dials
+#      out to Cloudflare and carries visitors back over that connection. So the
+#      box needs no inbound firewall holes, no public IP, no origin certificate
+#      and no Cloudflare IP allow-list maintenance — it can be a Lightsail
+#      instance, a VPS, or a Mac on your home network.
+#   2. nginx runs in tunnel mode (docker/nginx/origin-mode-tunnel.conf):
+#      cloudflared is trusted to state the visitor's IP, and PHP is told the
+#      request was HTTPS. Both are safe only because of (1).
+#
+# Needs Docker Compose 2.24 or newer (for `!reset`).
+#
+# CLOUDFLARE_TUNNEL_TOKEN goes in .env — the token from the Cloudflare
+# dashboard (Networking › Tunnels › your tunnel). It is a secret: anyone with it
+# can serve your hostname. Compose reads it for the substitution below; the app
+# ignores it.
+
+services:
+  web:
+    ports: !reset []
+    volumes:
+      - ./.env:/var/www/html/.env:ro
+      - appstorage:/var/www/html/storage/app/private
+      - recognition:/var/www/html/storage/app/recognition
+      - ./certs:/etc/nginx/certs:ro
+      - ./docker/nginx/origin-mode-tunnel.conf:/etc/nginx/origin-mode.conf:ro
+
+  cloudflared:
+    # Pinned, like every image here. Bump deliberately.
+    image: cloudflare/cloudflared:2026.10.0
+    restart: unless-stopped
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?CLOUDFLARE_TUNNEL_TOKEN must be set in .env — see README §8.2}
+    depends_on:
+      web:
+        condition: service_healthy
