@@ -29,7 +29,6 @@ What it does, in order:
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
@@ -39,6 +38,8 @@ import cv2
 import numpy as np
 
 from collectai_recognizer.visual import Encoder, Head, normalise
+
+from .cache import EmbeddingCache, file_hash
 
 
 # ---------------------------------------------------------------------------
@@ -55,55 +56,72 @@ def read_manifests(dirs: list[str]) -> list[dict]:
             row = json.loads(line)
             if not row.get("casting_id"):
                 continue
-            row["path"] = str(base / row["image"])
+            # A row has an image file, or (wiki photos, never kept) only the
+            # key of a vector train.collect already put in the cache.
+            row["path"] = str(base / row["image"]) if row.get("image") else None
             rows.append(row)
     return rows
 
 
-def embed_all(rows: list[dict], encoder, cache_path: Path) -> np.ndarray:
-    cache: dict[str, np.ndarray] = {}
-    if cache_path.is_file():
-        data = np.load(cache_path)
-        cache = dict(zip(data["keys"].tolist(), data["vectors"]))
-    keys, todo = [], []
-    for row in rows:
-        key = hashlib.sha1(Path(row["path"]).read_bytes()).hexdigest()
-        keys.append(key)
-        if key not in cache:
-            todo.append((key, row["path"]))
+def dedupe(rows: list[dict], keys: list[str]) -> tuple[list[dict], list[str]]:
+    """One row per (photo, casting): the same file labelled twice would otherwise
+    sit on both sides of the held-out split and flatter the measurement."""
+    seen, out_rows, out_keys = set(), [], []
+    for row, key in zip(rows, keys):
+        if (key, row["casting_id"]) in seen:
+            continue
+        seen.add((key, row["casting_id"]))
+        out_rows.append(row)
+        out_keys.append(key)
+    return out_rows, out_keys
+
+
+def embed_all(rows: list[dict], encoder, cache: EmbeddingCache) -> tuple[list[dict], list[str]]:
+    """Every row's cache key, embedding any image file not yet cached.
+    Rows whose vector can't be found (a key-only row from another encoder) are dropped."""
+    keys = [row.get("key") or file_hash(Path(row["path"])) for row in rows]
+    todo = [(k, r["path"]) for k, r in zip(keys, rows) if k not in cache and r["path"]]
+    todo = list(dict(todo).items())
     for i in range(0, len(todo), 32):
         chunk = todo[i:i + 32]
-        images = [cv2.imread(p, cv2.IMREAD_COLOR) for _, p in chunk]
-        ok = [(k, im) for (k, _), im in zip(chunk, images) if im is not None]
-        if ok:
-            vecs = encoder.embed([im for _, im in ok])
-            for (k, _), v in zip(ok, vecs):
-                cache[k] = v
+        loaded = [(k, cv2.imread(path, cv2.IMREAD_COLOR)) for k, path in chunk]
+        loaded = [(k, im) for k, im in loaded if im is not None]
+        if loaded:
+            for (k, _), v in zip(loaded, encoder.embed([im for _, im in loaded])):
+                cache.put(k, v)
         print(f"  embedded {min(i + 32, len(todo))}/{len(todo)} new images", flush=True)
-    if todo:
-        np.savez(cache_path, keys=np.array(list(cache)), vectors=np.stack(list(cache.values())))
-    missing = [r["path"] for r, k in zip(rows, keys) if k not in cache]
-    if missing:
-        raise SystemExit(f"could not read {len(missing)} image(s), e.g. {missing[0]}")
-    return np.stack([cache[k] for k in keys]).astype(np.float32)
+    cache.save()
+    kept = [(r, k) for r, k in zip(rows, keys) if k in cache]
+    if len(kept) < len(rows):
+        print(f"  {len(rows) - len(kept)} row(s) had no vector and were left out", flush=True)
+    return [r for r, _ in kept], [k for _, k in kept]
 
 
 # ---------------------------------------------------------------------------
 # Learning and measuring — pure functions, tested in tests/test_training.py
 
 
-def split(labels: np.ndarray, holdout: float, seed: int = 7) -> tuple[np.ndarray, np.ndarray]:
-    """Indices (train, test). Only classes with 2+ images give test images, and
-    every class keeps at least one training image."""
+def split(labels: np.ndarray, holdout: float, seed: int = 7, groups: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
+    """Indices (train, test), holding out whole *groups* within each class.
+
+    Groups are versions (variations): a held-out photo is then of a version of
+    the car the model never saw — a red one when it learned from the blue one —
+    which is the honest test. Only classes with 2+ groups give test images, and
+    every class keeps at least one group for training. Without groups, each
+    image is its own group."""
+    if groups is None:
+        groups = np.arange(len(labels))
     rng = np.random.default_rng(seed)
     train, test = [], []
     for label in np.unique(labels):
         idx = np.flatnonzero(labels == label)
-        rng.shuffle(idx)
-        n_test = int(len(idx) * holdout) if len(idx) >= 2 else 0
-        n_test = min(max(n_test, 1 if len(idx) >= 2 else 0), len(idx) - 1)
-        test.extend(idx[:n_test])
-        train.extend(idx[n_test:])
+        ids = np.unique(groups[idx])
+        rng.shuffle(ids)
+        n_test = int(len(ids) * holdout) if len(ids) >= 2 else 0
+        n_test = min(max(n_test, 1 if len(ids) >= 2 else 0), len(ids) - 1)
+        held = set(ids[:n_test].tolist())
+        for i in idx:
+            (test if groups[i] in held else train).append(i)
     return np.array(sorted(train), dtype=int), np.array(sorted(test), dtype=int)
 
 
@@ -123,11 +141,15 @@ def fit_wccn(x: np.ndarray, labels: np.ndarray, reg: float = 0.1, min_classes: i
 
 def evaluate(gallery: np.ndarray, gallery_labels: np.ndarray, queries: np.ndarray, query_labels: np.ndarray) -> dict:
     """Nearest-neighbour by casting: top-1/top-5, and each query's (best, margin, correct)."""
-    sims = queries @ gallery.T
-    classes = np.unique(gallery_labels)
-    per_class = np.full((len(queries), len(classes)), -2.0, dtype=np.float32)
-    for j, c in enumerate(classes):
-        per_class[:, j] = sims[:, gallery_labels == c].max(axis=1)
+    # Gallery sorted by class so each class is one contiguous block, then the
+    # best similarity per class with reduceat — in chunks of queries, so tens
+    # of thousands of photos never need the whole similarity matrix at once.
+    by_class = np.argsort(gallery_labels, kind="stable")
+    gallery, gallery_labels = gallery[by_class], gallery_labels[by_class]
+    classes, starts = np.unique(gallery_labels, return_index=True)
+    per_class = np.empty((len(queries), len(classes)), dtype=np.float32)
+    for i in range(0, len(queries), 256):
+        per_class[i:i + 256] = np.maximum.reduceat(queries[i:i + 256] @ gallery.T, starts, axis=1)
     order = np.argsort(-per_class, axis=1)
     ranked = classes[order]
     best = per_class[np.arange(len(queries)), order[:, 0]]
@@ -181,13 +203,18 @@ def main(argv: list[str] | None = None) -> int:
     if not rows:
         raise SystemExit("no labelled images found")
     encoder = Encoder(model_dir / "encoder.onnx")
+    cache = EmbeddingCache(model_dir / "embeddings-cache.npz", model_dir / "encoder.onnx")
 
+    rows, keys = embed_all(rows, encoder, cache)
+    rows, keys = dedupe(rows, keys)
     print(f"{len(rows)} labelled images, {len({r['casting_id'] for r in rows})} castings")
-    raw = embed_all(rows, encoder, model_dir / "embeddings-cache.npz")
+    raw = np.stack([cache[k] for k in keys]).astype(np.float32)
     labels = np.array([int(r["casting_id"]) for r in rows])
     variations = np.array([int(r.get("variation_id") or 0) for r in rows])
+    # Group = version where known, else the photo itself.
+    groups = np.array([f"v{v}" if v else f"k{k}" for v, k in zip(variations, keys)])
 
-    train_idx, test_idx = split(labels, args.holdout)
+    train_idx, test_idx = split(labels, args.holdout, groups=groups)
     plain = normalise(raw)
     results = {"plain": evaluate(plain[train_idx], labels[train_idx], plain[test_idx], labels[test_idx]) if len(test_idx) else None}
 
