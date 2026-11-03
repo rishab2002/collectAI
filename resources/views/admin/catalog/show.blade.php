@@ -174,9 +174,17 @@
 
         {{-- The usual reason to be on this form is the same series in a new
              colour, so the most recent release is the starting point. --}}
+        @if ($reference)
+            <p class="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800 dark:bg-green-950 dark:text-green-200">
+                Filled in from <strong>{{ $reference->name }}</strong> ({{ \App\Models\ReferenceItem::SOURCES[$reference->source] ?? $reference->source }}). Check every field before saving.
+            </p>
+        @endif
+
         <x-catalog.variation-fields
             :brands="$brands"
-            :defaults="[
+            :lines="$lines"
+            :series-options="$seriesOptions"
+            :defaults="$prefill ?: [
                 'brand' => $latest?->series->brand->name,
                 'series' => $latest?->series->name,
                 'year' => $latest?->year,

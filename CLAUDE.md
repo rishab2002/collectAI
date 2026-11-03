@@ -60,7 +60,7 @@ The five things most likely to trip you up, each expanded below:
 - [How to work in this repo](#how-to-work-in-this-repo) — conventions, traps
 - [Domain model](#domain-model) — [Make/Model splitting](#makemodel-splitting-rules) · [field definitions](#field-definitions)
 - [AI agent pipeline](#ai-agent-pipeline) — [example flow](#example-flow) · [acquisition priorities](#data-acquisition-priorities)
-- [Settled decisions](#settled-decisions) — [schema](#schema) · [approval](#approval--submissions) · [capture](#capture) · [AI pipeline](#ai-pipeline) · [recognition](#recognition) · [catalog import](#catalog-import-fandom-wikis) · [data sources](#data-sources) · [main lines](#main-lines) · [Make/Model inference](#makemodel-inference) · [review](#review) · [manual entry](#manual-entry) · [accounts](#accounts-and-security) · [delivery](#delivery) · [deployment](#deployment)
+- [Settled decisions](#settled-decisions) — [schema](#schema) · [approval](#approval--submissions) · [capture](#capture) · [AI pipeline](#ai-pipeline) · [recognition](#recognition) · [reference sources](#reference-sources) · [catalog import](#catalog-import-fandom-wikis) · [data sources](#data-sources) · [main lines](#main-lines) · [Make/Model inference](#makemodel-inference) · [review](#review) · [manual entry](#manual-entry) · [accounts](#accounts-and-security) · [delivery](#delivery) · [deployment](#deployment)
 - [Open questions](#open-questions)
 - [Session log](docs/session-log.md) — narrative and rationale, loaded on demand
 
@@ -74,8 +74,8 @@ exists.*
 
 **Running:** `docker compose up -d` brings up `app` (:8000), `db` (Postgres 16,
 :5432), `redis` (:6379), `meilisearch` (:7700), `recognizer` (:8090).
-`php artisan test` → **364 passed, 1,480 assertions**; the recognizer's own
-`python -m unittest discover -s tests -t .` (in `recognizer/`) → **40 passed**
+`php artisan test` → **378 passed, 1,539 assertions**; the recognizer's own
+`python -m unittest discover -s tests -t .` (in `recognizer/`) → **41 passed**
 (both re-measured 2026-11-03, last). The `recognizer` Docker image has not been
 built yet — the Python ran in a venv with the same pinned versions.
 
@@ -382,10 +382,10 @@ queue worker, `APP_URL=http://localhost` — reachable only from this Mac on
   and stay where they are. The rest of the photos have to come from capture and
   manual entry. **No price data** — HWPriceGuide is ruled out entirely; see
   [Data sources](#data-sources).
-- **Schuco, Para64, Inno64 and the TSM/Mini GT website are not sources** — their
-  terms forbid or reserve reuse (see [Data sources](#data-sources)). Mini GT
-  *is* imported, from its wiki (2018–2022 only). The others get in through
-  manual entry until a maker grants permission (`docs/source-permissions.md`).
+- **No public catalog data from HWPriceGuide, TSM/Mini GT, Inno64, Para64 or
+  Horizon Diecast.** The owner holds their written permission (2026-11-04) for
+  **training and the admin's Add a car suggestions only** — see
+  [Reference sources](#reference-sources). Schuco: not asked.
 
 - **No Meilisearch integration.** The container runs, but `laravel/scout` is not
   in `composer.json`, so nothing is indexed and cross-brand search doesn't work
@@ -1194,13 +1194,49 @@ arrives as `032/244`, and Series as `[[2011 New Models]]<br>32/50` — both need
 splitting, and Series being a wiki-link means series identity is resolvable
 rather than a bare string.
 
+### Reference sources
+
+*2026-11-04. The owner states written permission from HWPriceGuide, TSM/Mini
+GT, Inno64, Para64 and Horizon Diecast to use their images and labels for
+training; they keep the documents. This supersedes the "not a source" calls
+below for that use only.*
+
+- **What they're for: training labels/images and the Add a car suggestions.**
+  `reference_items` (private) holds each product's brand, line, series, year,
+  name, item code and image URLs; never published, never catalog records,
+  never public attribution.
+- **Bulk listings only** (`ReferenceSources`): Shopify `products.json`
+  (Para64 via paragonmodelstore.com, Horizon), WooCommerce Store API (Inno64),
+  Mini GT list pages (1-based `p`; "Full Collection" is id 13 and misses Kaido
+  House/QubeCarz, so every line list is walked), HWPriceGuide sitemap →
+  category → group pages (item pages never fetched). Measured: 607/8 requests,
+  224/2, 9,907/46, 1,250/153, ~33,000/~2,230. `PoliteClient`: identifying UA,
+  2 req/s/host, backs off on 429/503 and dropped connections.
+- **Labels tie a product to a catalog casting only when certain**
+  (`ReferenceLabels`): Mini GT item number = Mini GT import key; Hot Wheels name
+  (minus Chase/TH markers, then minus a trailing colour bracket only if the
+  full name found nothing) matching exactly one casting released within a year;
+  colour + year then pick the version when exactly one fits. Measured on 2,000
+  HWPriceGuide items: 66% tied to a casting, 21% to the version; 25 spot-checked
+  ties all correct. Otherwise the product is its own class, `source|item:<key>`.
+- **Add a car → "Find the model"** pre-fills the form; saving links the new
+  casting/variation to the product in **`reference_links`** (not
+  `record_sources`: that means imported, shows as public attribution, and is
+  how hand-made records are told apart). `StableKeys` reads links first, so the
+  trained model recognises the car at once. A product already tied to a
+  catalog casting sends the admin to add a version there instead.
+- **Main line on manual entry**: `line` files a *new* series under a line
+  (found or created, parent_id); an existing series is never moved.
+
 ### Data sources
 
 *Settled 2026-11-03, when the request was to copy HWPriceGuide's whole database
 and photos. Measured, not assumed — details in the [session log](docs/session-log.md).*
 
-- **HWPriceGuide (hwpriceguide.com) is not a source — not its catalog, its
-  prices or its photos.** It is a commercial competitor: ~33,500 `/item/` pages,
+- **HWPriceGuide (hwpriceguide.com) is not a source for the public catalog —
+  not its catalog, its prices or its photos.** (Since 2026-11-04 it is a
+  training/suggestion source under written permission — see
+  [Reference sources](#reference-sources).) It is a commercial competitor: ~33,500 `/item/` pages,
   paid memberships, prices it derives from sales data and puts partly behind
   "Upgrade to view", a metered search ("5 searches left"), and its own car photos
   under `/dist/images/cars/`. Its robots.txt doesn't forbid `/item/` and it

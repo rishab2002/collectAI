@@ -107,6 +107,7 @@ git clone https://github.com/rishab2002/collectAI.git && cd collectAI && ./colle
 | `./collectai publish` | After approving things in `/admin/proposals`: publishes them and refreshes the scanner |
 | `./collectai train` | Trains the scanner's visual model (§5.10) |
 | `./collectai model-pull` | Fetches the already-trained model and its data from the `training-data` branch (§5.10) |
+| `./collectai reference` | Refreshes the reference products behind Add a car's suggestions (§5.1) |
 | `./collectai test` | Every test and formatting check |
 | `./collectai status` | What's running, and the recognizer's health |
 | `./collectai deploy` | **On the server:** pull the latest code, rebuild, restart (§8.5) |
@@ -214,10 +215,11 @@ into main lines and attaches the photos that are licensed for reuse.
 | Tomica | Tomica Wiki (API) | 2,534 | Classic Tomica, Tomica Limited Vintage, TLV Neo, Tomica Premium, Tomica Limited |
 | Mini GT | Mini GT Wiki (API) | 440 | 2018–2022 only — the wiki stops there |
 
-Schuco, Para64, Inno64 and TrueScale/Mini GT's own websites are **not**
-sources — see [§11](#11-data-rules-you-must-not-break) for why and what to do
-about it. Each step is **safe to re-run**: it updates what it already created
-and never duplicates.
+HWPriceGuide, TrueScale/Mini GT, Inno64, Para64 and Horizon Diecast are **not**
+imported into the public catalog. You have their written permission to use
+their photos and listings **for training and for the Add a car suggestions**
+only; see §5.1, §5.10 and §11. Each step here is **safe to re-run**: it updates
+what it already created and never duplicates.
 
 Run the steps in this order.
 
@@ -495,6 +497,25 @@ Everything below is under **http://localhost:8000/admin** after signing in.
 
 ### 5.1 Add a car you have in hand — *Add a car*
 
+**Start with "Find the model"** at the top of the page. Search by name or item
+number ("Skyline R34", "MGT00123", "IN64-RS200-SL") across about 46,000
+products from HWPriceGuide, Mini GT/TSM, Inno64, Para64 and Horizon Diecast:
+
+- **"Use this"** fills the form in: name, the real car (from the vehicle
+  dictionary), brand, main line, series, year, colour and item number. Check
+  every field, then save. A car added this way is **linked to that product**,
+  so the scanner's trained model recognises it straight away (it has already
+  learned that product's photos).
+- **"Already here as … — add this version"** appears when the catalog already
+  has that casting. It takes you to the casting's page with the add-version form
+  filled in, so you don't create a duplicate casting.
+
+These products are a private reference list. Nothing from it appears on the
+public site, and its photos are never shown or stored. The **Brand**, **Main
+line** and **Series** boxes also suggest every name the catalog and the
+reference list know (series for the brand you've chosen), so you pick rather
+than type. Refresh the list with `./collectai reference` (§5.10).
+
 Fill in:
 
 - **Casting** — the toy's name ("'93 Mazda RX-7", "Bone Shaker"). Tick
@@ -502,8 +523,10 @@ Fill in:
 - **Real car** — make and model ("Mazda", "RX-7"), and optionally the
   generation (years and chassis code, e.g. 1992–2002, FD3S). Use the nameplate
   alone: "Corvette", not "Corvette Grand Sport".
-- **Release** — brand, series and year (e.g. Mini GT · Mini GT · 2024). New
-  brands and series are created for you.
+- **Release** — brand, main line, series and year (e.g. Hot Wheels · Car
+  Culture · AutoStrasse · 2022). New brands and series are created for you; a
+  new series is filed under the main line you give. An existing series keeps
+  its place.
 - **Variation** — colour, wheels, toy number, etc. Leave blank what you can't
   see.
 - **Photos** — card front, card back, and up to six loose shots.
@@ -778,6 +801,7 @@ in order.
 | `own` | Your own catalog photos — *Add a car* and approved captures | grows as you add photos |
 | `wiki_licensed` | Wiki photos imported because they carry a reuse licence, with their licence and credit | 157 |
 | `wiki_consented` | **Every** photo in the Hot Wheels and Matchbox wikis' Versions tables and infoboxes, used under Fandom's written consent **for training only** | ~43,700 photos of ~3,800 castings |
+| `ref_hwpriceguide`, `ref_tsm`, `ref_inno64`, `ref_para64`, `ref_horizon` | Product photos from HWPriceGuide, TSM/Mini GT, Inno64, Para64 and Horizon Diecast, under their written permission to you, **for training only** | ~33,000 + 1,250 + 607 + 224 + 9,907 products |
 
 **The wiki photos are for training only — never shown on the site.** They are
 used under Fandom's written consent to you (keep that document). They are never
@@ -1670,8 +1694,8 @@ docker compose exec app php artisan test
 docker compose exec app vendor/bin/pint --test
 ```
 
-The first runs the 364 tests; the second checks code formatting (drop `--test`
-to fix it). The recognizer has its own 40 tests, run from `recognizer/` (see
+The first runs the 378 tests; the second checks code formatting (drop `--test`
+to fix it). The recognizer has its own 41 tests, run from `recognizer/` (see
 §5.9 for the one-time setup):
 
 ```bash
@@ -1716,9 +1740,26 @@ docker compose exec app php artisan migrate:fresh --seed
 
 ## 11. Data rules you must not break
 
-### Why Schuco, Para64, Inno64 and the Mini GT website aren't imported
+### Sources used under written permission (training and form suggestions only)
 
-Their terms were read on 2026-11-03:
+You hold written permission from **Fandom** (the wikis' photos), and from
+**HWPriceGuide, TrueScale/Mini GT, Inno64, Para64 and Horizon Diecast** (their
+images and listings), to use them **for training the scanner**. Keep those
+documents. How they are used, and nothing more:
+
+- Their photos are downloaded, turned into the model's numbers and discarded.
+  They are never saved, never in the catalog, never on the public site.
+- Their product listings (name, brand, line, series, year, item number) are a
+  private reference list (`reference_items`). It feeds the training labels and
+  the **Add a car** suggestions an admin sees, and is never published.
+- Access is polite: an identifying user agent, about 2 requests a second, and
+  each site's bulk listing (Shopify and WooCommerce product feeds, Mini GT's
+  list pages, HWPriceGuide's series pages) instead of one request per product.
+  All five catalogs take about 2,500 requests, not 46,000.
+
+### Schuco, and asking a maker
+
+When the rules below were first written (2026-11-03), the makers' terms said:
 
 | Site | What its terms say |
 |---|---|
@@ -1727,13 +1768,10 @@ Their terms were read on 2026-11-03:
 | inno-models.com (Inno64) | "© INNO MODELS — All rights reserved"; no reuse terms |
 | schuco.de | No reuse terms at all, which by default means all rights reserved |
 
-So their catalogs and photos can't be copied **unless they give permission** —
-and manufacturers often will for a collector catalog that credits and links
-them. [docs/source-permissions.md](docs/source-permissions.md) has a short
-request you can send. If one says yes, keep the written permission and an
-importer can be built for that source.
-
-Until then, add their cars with **Add a car** (§5.1) and your own photos.
+Permission has since come from TSM/Mini GT, Inno64 and Para64 (above).
+Schuco hasn't been asked; [docs/source-permissions.md](docs/source-permissions.md)
+is a short request you can send. Their cars go in through **Add a car** with
+your own photos.
 
 ### The rules
 
@@ -1748,8 +1786,9 @@ These keep the catalog legal and original. The full reasoning is in
   not a licence.
 - **Imported data is credited to the wiki** at the bottom of every car page
   (the wikis are CC BY-SA). Don't remove that line.
-- **HWPriceGuide is not a source** — not its catalog, prices or photos. It's a
-  commercial competitor's product.
+- **Permitted sources stay inside their permission.** HWPriceGuide's and the
+  makers' photos and listings are for training and the admin's suggestions, not
+  for the public catalog, its photos or its prices.
 - **Don't scrape images from the wider web.** Photos you take are the ones the
   catalog can freely show.
 - **Check a new source's terms before writing an importer for it.**
@@ -1774,6 +1813,8 @@ or `docker compose -f docker-compose.prod.yml run --rm web php artisan <command>
 | `catalog:identify-castings` | Work out each car's real make/model — locally from `vehicles.json`, or with Claude if `CATALOG_AI_DRIVER=claude` | `--limit=`, `--dry-run`, `--threshold=`, `--regenerate` (Claude only) |
 | `catalog:export-recognition-index` | Write the catalog file the recognizer matches against (nightly on its own) | `--path=`, `--include-pending` |
 | `catalog:export-training-data {dir}` | Export labelled photos for training: consented scans, your own and licensed catalog photos (§5.10) | `--source=scan --source=own --source=wiki_licensed` |
+| `catalog:import-reference [source…]` | Read the permitted sources' product listings into the private reference list | `hwpriceguide`, `tsm`, `inno64`, `para64`, `horizon`; `--limit=`, `--rate=` |
+| `catalog:export-reference-labels` | List reference images with their training labels | `--images=2`, `--source=` |
 | `catalog:export-wiki-photo-labels {wiki}` | List every wiki photo of an imported car with its label, for training only (§5.10) | `--dump=`, `--out=` |
 | `catalog:prune-scans` | Delete pictures of unconsented scans past their window (hourly on its own) | — |
 | `catalog:publish-imported` | Publish imported releases/variations whose parents are live | `--dry-run` |

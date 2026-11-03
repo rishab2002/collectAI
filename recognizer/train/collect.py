@@ -1,4 +1,10 @@
-"""Download the wiki photos named in a labels file, embed them, keep only the vectors.
+"""Download the photos named in a labels file, embed them, keep only the vectors.
+
+Two kinds of label line: a wiki file (`api` + `file`, resolved to a thumbnail
+through the wiki's API, 50 at a time) from catalog:export-wiki-photo-labels,
+or a direct `image_url` from catalog:export-reference-labels (the permitted
+reference sources). Both are used under the owner's written permissions, for
+training only.
 
     python -m train.collect --labels wiki-labels-hot-wheels.jsonl --model-dir MODEL_DIR --out DATA_DIR
 
@@ -94,6 +100,10 @@ def describe(api: str, titles: list[str], width: int, limit: RateLimit) -> dict[
     return out
 
 
+def keyof(k, infos) -> str:
+    return f"url:{infos[k]['sha1']}" if k[0] == "url" else f"wiki:{infos[k]['sha1']}"
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--labels", action="append", required=True)
@@ -121,7 +131,9 @@ def main(argv: list[str] | None = None) -> int:
                 orphaned += 1
                 continue
             good.append(line)
-            if row.get("file"):
+            if row.get("image_url"):
+                done.add(("url", row["image_url"]))
+            elif row.get("file"):
                 done.add((row.get("api"), row["file"]))
         if orphaned:
             manifest_path.write_text("".join(l + "\n" for l in good), encoding="utf-8")
@@ -133,20 +145,21 @@ def main(argv: list[str] | None = None) -> int:
     for path in args.labels:
         for line in Path(path).read_text(encoding="utf-8").splitlines():
             row = json.loads(line)
-            labels[(row["api"], row["file"])].append(row)
+            labels[("url", row["image_url"]) if row.get("image_url") else (row["api"], row["file"])].append(row)
     # Placeholders ("Image Not Available.jpg", "INA.jpg") stand in for
     # thousands of different cars; one would teach the model that they all
     # look alike. A real photo shows one casting, so a file labelled for more
     # than a few castings is not a photo of any of them.
     placeholders = {k for k, rows in labels.items()
-                    if len({r["casting_id"] for r in rows}) > 3 or PLACEHOLDER.search(k[1])}
+                    if len({r.get("casting_key") or r.get("casting_id") for r in rows}) > 3
+                    or PLACEHOLDER.search(k[1].rsplit("/", 1)[-1] if k[0] == "url" else k[1])}
     for k in placeholders:
         del labels[k]
     if placeholders:
         print(f"skipping {len(placeholders)} placeholder/shared file(s)", flush=True)
 
     todo = [k for k in labels if k not in done]
-    print(f"{len(labels)} wiki files labelled, {len(labels) - len(todo)} already done, {len(todo)} to go"
+    print(f"{len(labels)} photos labelled, {len(labels) - len(todo)} already done, {len(todo)} to go"
           + (f", fetching {args.limit} this run" if args.limit else ""), flush=True)
     if args.limit:
         todo = todo[:args.limit]
@@ -160,13 +173,16 @@ def main(argv: list[str] | None = None) -> int:
     def prepare(chunk):
         """Look the files up and start downloading them; returns at once."""
         by_api = defaultdict(list)
-        for api, file in chunk:
-            by_api[api].append(file)
         infos = {}
+        for api, file in chunk:
+            if api == "url":             # a direct image: nothing to look up
+                infos[(api, file)] = {"thumb": file, "sha1": hashlib.sha1(file.encode()).hexdigest()}
+            else:
+                by_api[api].append(file)
         for api, files in by_api.items():
             for title, info in describe(api, files, args.width, limit).items():
                 infos[(api, title)] = info
-        wanted = [k for k in chunk if k in infos and f"wiki:{infos[k]['sha1']}" not in cache]
+        wanted = [k for k in chunk if k in infos and keyof(k, infos) not in cache]
         return chunk, infos, wanted, [pool.submit(fetch, infos[k]["thumb"], limit) for k in wanted]
 
     chunks = [todo[i:i + 50] for i in range(0, len(todo), 50)]
@@ -183,24 +199,29 @@ def main(argv: list[str] | None = None) -> int:
                 img = cv2.imdecode(np.frombuffer(blob, np.uint8), cv2.IMREAD_COLOR) if blob else None
                 if img is not None:
                     images.append(img)
-                    keys.append(f"wiki:{infos[k]['sha1']}")
+                    keys.append(keyof(k, infos))
             if images:
                 for key, vec in zip(keys, encoder.embed(images)):
                     cache.put(key, vec)
             del images, futures                   # the photos go here; only vectors stay
 
             for k in chunk:
-                key = f"wiki:{infos[k]['sha1']}" if k in infos else None
+                key = (f"url:{infos[k]['sha1']}" if k[0] == "url" else f"wiki:{infos[k]['sha1']}") if k in infos else None
                 if key is None or key not in cache:
                     missing.write(f"{k[0]}\t{k[1]}\n")
                     continue
                 for row in labels[k]:
-                    buffered.append(json.dumps({
-                        "key": key, "source": "wiki_consented", "licence": "Fandom written consent (training only)",
-                        "casting_id": row["casting_id"], "variation_id": row["variation_id"],
-                        "casting_key": row.get("casting_key"), "variation_key": row.get("variation_key"),
-                        "file": row["file"], "api": row["api"], "page_url": row["page_url"],
-                    }) + "\n")
+                    if k[0] == "url":
+                        out = {"key": key, "source": row.get("source", "reference"),
+                               "licence": "Written permission to the owner (training only)",
+                               "casting_key": row.get("casting_key"), "variation_key": row.get("variation_key"),
+                               "image_url": row["image_url"], "page_url": row.get("page_url")}
+                    else:
+                        out = {"key": key, "source": "wiki_consented", "licence": "Fandom written consent (training only)",
+                               "casting_id": row["casting_id"], "variation_id": row["variation_id"],
+                               "casting_key": row.get("casting_key"), "variation_key": row.get("variation_key"),
+                               "file": row["file"], "api": row["api"], "page_url": row["page_url"]}
+                    buffered.append(json.dumps(out) + "\n")
                 fetched += 1
             missing.flush()
             if n % 10 == 9 or n + 1 == len(chunks):

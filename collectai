@@ -175,6 +175,10 @@ cmd_train() {
     say "Your photos, consented scans and licensed photos"
     artisan catalog:export-training-data storage/app/recognition/training-data
 
+    say "Reference products (HWPriceGuide, Mini GT, Inno64, Para64, Horizon — written permission, training only)"
+    artisan catalog:import-reference
+    artisan catalog:export-reference-labels --images=2
+
     say "Base image model (first time only)"
     trainer sh -c 'test -s /data/model/encoder.onnx || python -m train.export_encoder --out /data/model/encoder.onnx'
 
@@ -183,8 +187,13 @@ cmd_train() {
         --labels /data/wiki-labels-hot-wheels.jsonl --labels /data/wiki-labels-matchbox.jsonl \
         --model-dir /data/model --out /data/wiki-training "$@"
 
+    say "Download and embed the reference images (resumable)"
+    trainer python -m train.collect --labels /data/reference-labels.jsonl \
+        --model-dir /data/model --out /data/reference-training "$@"
+
     say "Train, measure, calibrate"
-    trainer python -m train.build --data /data/training-data --data /data/wiki-training --model-dir /data/model
+    trainer python -m train.build --data /data/training-data --data /data/wiki-training \
+        --data /data/reference-training --model-dir /data/model
 
     echo "  The recognizer picks up the new model by itself. Results: storage/app/recognition/model/manifest.json"
 }
@@ -306,6 +315,13 @@ PLIST
 
 cmd_artisan() { artisan "$@"; }
 
+# The reference list behind Add a car's suggestions and "find the model":
+# re-read every permitted source (a few thousand requests, mostly HWPriceGuide).
+cmd_reference() {
+    say "Reference products"
+    artisan catalog:import-reference "$@"
+}
+
 cmd_help() {
     cat <<'HELP'
 ./collectai <command> [--dry-run]
@@ -317,6 +333,7 @@ On your computer
   train            Train the scanner's visual model (README §5.10). Extra options go to
                    train.collect, e.g. ./collectai train --limit 2000
   model-pull       Fetch the trained model and training data from the training-data branch
+  reference [src]  Refresh the reference products behind Add a car's suggestions (README §5.1)
   test             All tests and formatting checks
   status           What's running, and the recognizer's health
   ios              Open the iPhone project in Xcode (Mac)
@@ -345,6 +362,7 @@ case "$command" in
     ios-release) cmd_ios_release "$@" ;;
     artisan) cmd_artisan "$@" ;;
     model-pull) cmd_model_pull "$@" ;;
+    reference) cmd_reference "$@" ;;
     help|-h|--help) cmd_help ;;
     *) die "Unknown command: $command — try ./collectai help" ;;
 esac
