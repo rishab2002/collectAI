@@ -153,6 +153,7 @@ COPY docker/nginx/nginx.conf /etc/nginx/nginx.conf
 COPY docker/nginx/app.conf /etc/nginx/app.conf
 COPY docker/nginx/cloudflare-ips.conf /etc/nginx/cloudflare-ips.conf
 COPY docker/nginx/cloudflare-allow.conf /etc/nginx/cloudflare-allow.conf
+COPY docker/nginx/origin-mode.conf /etc/nginx/origin-mode.conf
 COPY docker/supervisord.conf /etc/supervisord.conf
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint
 RUN chmod +x /usr/local/bin/entrypoint
