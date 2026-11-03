@@ -39,6 +39,14 @@ final class VersionRow
         public readonly ?string $wheelType,
         public readonly ?string $toyNumber,
         public readonly ?string $country,
+        /**
+         * The files the row's Photo column shows. Never fetched by the import —
+         * only used to find which car an article's own image depicts. See
+         * WikiPhotoImporter.
+         *
+         * @var list<string>
+         */
+        public readonly array $photos = [],
     ) {}
 
     /**

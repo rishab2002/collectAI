@@ -19,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * inflector would work today but silently depends on that staying true.
  */
 #[Table('series')]
-#[Fillable(['brand_id', 'name'])]
+#[Fillable(['brand_id', 'parent_id', 'name'])]
 class Series extends Model
 {
     use HasApprovalStatus, HasFactory;
@@ -34,8 +34,45 @@ class Series extends Model
         return $this->hasMany(Release::class);
     }
 
+    /**
+     * The main line this sub-series belongs to — "Mainline" for "HW Art Cars",
+     * "1-100" for Matchbox's "Sports Cars". Null for a line itself, and for a
+     * sub-series nobody has classified yet.
+     */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_id');
+    }
+
+    /**
+     * The sub-series inside a main line.
+     */
+    public function children(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_id');
+    }
+
+    /**
+     * "Mainline / HW Art Cars", or the name alone when there is no line — or
+     * when the series shares its line's name, which makes it the line's own
+     * cars rather than a sub-series (the wiki links each year's mainline to its
+     * own anchor, so there are many rows called "Mainline").
+     */
+    public function path(): string
+    {
+        if ($this->parent === null || mb_strtolower($this->parent->name) === mb_strtolower($this->name)) {
+            return $this->parent->name ?? $this->name;
+        }
+
+        return "{$this->parent->name} / {$this->name}";
+    }
+
+    /**
+     * The line has to be public before a sub-series under it can be, or the
+     * browse tree would hold a branch with no visible root.
+     */
     public function approvalDependencies(): array
     {
-        return [$this->brand];
+        return [$this->brand, $this->parent];
     }
 }

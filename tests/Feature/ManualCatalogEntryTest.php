@@ -518,16 +518,24 @@ class ManualCatalogEntryTest extends TestCase
         // duplicate in the list.
         foreach (['Hot Wheels', 'Matchbox'] as $brandName) {
             $casting = Casting::factory()->unidentified()->pending()->create(['name' => 'Nissan Skyline GT-R (BNR34)']);
-            Release::factory()
-                ->for(CastingVersion::factory()->for($casting), 'castingVersion')
-                ->for(Series::factory()->for(Brand::firstOrCreate(['name' => $brandName])))
-                ->create();
+            $brand = Brand::firstOrCreate(['name' => $brandName]);
+            $line = Series::factory()->for($brand)->create(['name' => 'Mainline']);
+            $version = CastingVersion::factory()->for($casting)->create();
+
+            foreach ([2010, 2026] as $year) {
+                Release::factory()->for($version, 'castingVersion')
+                    ->for(Series::factory()->for($brand)->state(['name' => 'HW J-Imports', 'parent_id' => $line->id]))
+                    ->create(['year' => $year]);
+            }
         }
 
         $this->actingAs($this->admin())
             ->get(route('admin.catalog.index', ['q' => 'skyline']))
             ->assertOk()
-            ->assertSeeInOrder(['Hot Wheels ·', 'Not identified yet', 'Matchbox ·', 'Not identified yet']);
+            ->assertSeeInOrder([
+                'Not identified yet', 'Hot Wheels · 2010–2026', 'Mainline / HW J-Imports',
+                'Not identified yet', 'Matchbox · 2010–2026', 'Mainline / HW J-Imports',
+            ]);
     }
 
     public function test_the_entry_screens_render(): void

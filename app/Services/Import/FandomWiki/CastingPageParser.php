@@ -59,6 +59,11 @@ final class CastingPageParser
         'decals' => 'tampo',
         'labels' => 'tampo',
         'country' => 'country',
+        // Read only to find which row an article's own image depicts; the
+        // image is never imported as part of a version.
+        'photo' => 'photo',
+        'photos' => 'photo',
+        'picture' => 'photo',
     ];
 
     /**
@@ -93,7 +98,23 @@ final class CastingPageParser
             designer: $infobox['designer'] ?? null,
             versions: $this->versions($wikitext),
             wiki: $this->wiki,
+            image: $this->image($infobox['image'] ?? null),
         );
+    }
+
+    /**
+     * The infobox image as a bare file name: editors write it with and without
+     * a `File:` prefix, and occasionally as a full link.
+     */
+    private function image(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = trim(preg_replace('/^\s*(?:File|Image)\s*:/i', '', $value) ?? $value);
+
+        return $value === '' ? null : $value;
     }
 
     /**
@@ -349,6 +370,7 @@ final class CastingPageParser
             wheelType: $this->wheel($cells['wheel'] ?? ''),
             toyNumber: Wikitext::valueOrNull($cells['toy_number'] ?? ''),
             country: Wikitext::valueOrNull($cells['country'] ?? ''),
+            photos: Wikitext::mediaFiles($cells['photo'] ?? ''),
         );
     }
 

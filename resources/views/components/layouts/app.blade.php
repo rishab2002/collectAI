@@ -35,20 +35,28 @@
     {{-- Installed on an iPhone there is no browser chrome under the page, so
          the home indicator sits on top of whatever the last element is. --}}
     <div class="min-h-dvh bg-neutral-50 pb-[env(safe-area-inset-bottom)] text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
-        @auth
-            <header class="border-b border-neutral-200 dark:border-neutral-800">
-                <div class="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
-                    <a href="{{ route('admin.dashboard') }}" class="font-semibold">Diecast Catalog</a>
+        {{-- Shown to everyone now that there is a public catalog. The name goes
+             home; admins also get their way into the admin area. --}}
+        <header class="border-b border-neutral-200 dark:border-neutral-800">
+            <div class="mx-auto flex max-w-3xl items-center justify-between gap-4 px-4 py-3">
+                <a href="{{ route('home') }}" class="font-semibold">collectAI</a>
 
-                    <form method="POST" action="{{ route('logout') }}">
-                        @csrf
-                        <button type="submit" class="text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100">
-                            Sign out
-                        </button>
-                    </form>
-                </div>
-            </header>
-        @endauth
+                @auth
+                    <div class="flex items-center gap-4">
+                        @if (auth()->user()->is_admin)
+                            <a href="{{ route('admin.dashboard') }}" class="text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100">Admin</a>
+                        @endif
+
+                        <form method="POST" action="{{ route('logout') }}">
+                            @csrf
+                            <button type="submit" class="text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100">
+                                Sign out
+                            </button>
+                        </form>
+                    </div>
+                @endauth
+            </div>
+        </header>
 
         <main class="mx-auto max-w-3xl px-4 py-6">
             {{ $slot }}

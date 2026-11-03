@@ -130,11 +130,9 @@ final class Wikitext
      */
     public static function mediaNames(string $wikitext): array
     {
-        preg_match_all('/\[\[\s*(?:File|Image)\s*:\s*([^|\]]+)/i', $wikitext, $matches);
-
         $names = [];
 
-        foreach ($matches[1] as $file) {
+        foreach (self::mediaFiles($wikitext) as $file) {
             $name = self::normalizeWhitespace(html_entity_decode(
                 preg_replace('/\.(?:jpe?g|png|gif|webp|svg)$/i', '', trim($file)) ?? $file,
                 ENT_QUOTES | ENT_HTML5,
@@ -147,6 +145,22 @@ final class Wikitext
         }
 
         return $names;
+    }
+
+    /**
+     * The file names a cell's images point at, extension included, in order —
+     * `[[File:0916-LotusEvora.jpg|100px]]` gives "0916-LotusEvora.jpg".
+     *
+     * @return list<string>
+     */
+    public static function mediaFiles(string $wikitext): array
+    {
+        preg_match_all('/\[\[\s*(?:File|Image)\s*:\s*([^|\]]+)/i', $wikitext, $matches);
+
+        return array_values(array_unique(array_filter(array_map(
+            static fn (string $file): string => self::normalizeWhitespace(html_entity_decode($file, ENT_QUOTES | ENT_HTML5, 'UTF-8')),
+            $matches[1],
+        ))));
     }
 
     /**

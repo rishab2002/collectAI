@@ -14,6 +14,71 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-11-03 (later) — Public catalog, main lines, and what "a photo for every car" turned out to mean
+
+The request: show every casting's year range and series / sub-series ("Silver
+Series / 2026 Entertainment — Toy Story"); browse the site by brand → main
+series → sub-series; and "look up and add pictures for each database entry …
+scrape the internet / hot wheels wiki / other wikis … only one per model."
+
+### Photos: measured before promising
+
+The wiki dumps include every `File:` page, so the licence situation could be
+measured offline before any code was written. Of 9,186 casting-article infobox
+images (6,645 Hot Wheels, 2,541 Matchbox), most carry **no licence template at
+all**, and the next largest group is `{{Self}}`. Read on both wikis, that
+template says only "This file was uploaded by the photographer or author". It
+is an authorship note, not a licence, and Fandom's own help says images may be
+licensed differently from the CC-BY-SA text and to check each file page. What
+genuinely permits reuse (GFDL, public domain, "Other free", CC, files from
+Wikimedia Commons) is about 2%. The live API agreed exactly: of the 3,642
+castings in the catalog, **152** have a licensed infobox image (32 Hot Wheels,
+120 Matchbox). All 152 were downloaded and attached, credited, with no failures.
+
+So the importer takes only those. The settled "no wiki images" rule from
+2026-08-09 is revised rather than dropped. That rule was protecting against
+copying other people's photos, and a file whose author licensed it for reuse
+isn't that. Scraping images from the wider web was not done, for the same
+reason HWPriceGuide wasn't. "One per model" was read as one per *casting*: the
+article's own infobox image, placed on the variation whose Versions row shows
+the same file. Reading those Photo-column file names meant changing a guard test
+("the photo column is not read at all"). It now asserts the narrower thing that
+still matters: file names stay in `VersionRow::photos` and never become a fact
+about a car.
+
+### Main lines: the wiki doesn't say, so the config does
+
+Series articles carry categories, but they are many-to-many ("Mainline
+Segment" *and* "Wal-Mart Exclusive" *and* "Glow-in-the-dark"), so a line
+can't simply be read off. The taxonomy is now an ordered, editorial list per
+wiki in `config/catalog_lines.php`. The first dry run put 28% of Hot Wheels
+releases in Other. Looking at what was there turned up one factual signal:
+mainline segments are 75–100% collector-numbered and the leftovers 0–4%. A
+≥70% fallback took Other to 19%, all of it genuinely specialty lines (Connect
+Cars, Speed Fleet, Holiday Hot Rods). Matchbox's compound names do most of the
+work there: 93% placed.
+
+The first real run reported "131 series are lines themselves", against 16
+lines. The cause was 92 rows called "Mainline", one per year's anchor link,
+each about to become its own top-level line. Now the first one is the line and
+the rest hang beneath it.
+
+### The public catalog
+
+Brand → line → sub-series → car, live records only, so the public sees one
+hand-entered Mini GT today. An admin can preview the pending backlog, and the
+page says so whenever that's on. Screenshotting it against the full import
+found two more problems. The CSS had been built before the views existed, so
+Tailwind had never generated their classes. And the car page's breadcrumb used
+the oldest release's line (a Batmobile filed under "Promotions &
+Exclusives"); it now uses the line with most of the car's releases.
+
+The year range also settled the earlier BNR34 confusion in the admin list:
+"2010–2026" against "2027" makes the regular and police tools obviously
+different.
+
+---
+
 ## 2026-11-03 — Manual entry, every year of both wikis, and HWPriceGuide ruled out
 
 The request: "a database just like HWPriceGuide and a way for me to add cars

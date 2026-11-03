@@ -5,9 +5,10 @@ domain model, conventions and current state only have to be explained once.
 **Treat this file as the source of truth, not the conversation history** —
 update it whenever a convention changes.
 
-**Last edited:** 2026-11-03 (manual entry of cars and photos; the importer reads
-every Hot Wheels year and the Matchbox wiki; HWPriceGuide ruled out as a source.
-**Still nothing deployed** — the apex is unchanged)
+**Last edited:** 2026-11-03 (public catalog: brand → main line → sub-series →
+car; series grouped into lines; one licensed, credited wiki photo per casting
+where one exists; manual entry; every wiki year + Matchbox. **Still nothing
+deployed** — the apex is unchanged)
 
 ## Start here
 
@@ -17,8 +18,9 @@ pipeline, gated behind admin approval.
 
 **The data layer is complete and tested. The importer covers every Hot Wheels
 year (1968–2027) and the Matchbox wiki, and an admin can add cars and photos by
-hand — but your dev database holds only what you have actually imported (2011,
-as of the last measurement). The public product is not started.** Read
+hand. The public catalog exists (brand → line → sub-series → car), but shows only
+live records — and your dev database holds only what you have actually imported
+(2011, as of the last measurement).** Read
 [Current state](#current-state) before assuming any feature exists — several
 plausible-sounding ones don't, including some the commit history implies.
 In particular: everything imported is `pending` and therefore invisible, on
@@ -52,7 +54,7 @@ The five things most likely to trip you up, each expanded below:
 - [How to work in this repo](#how-to-work-in-this-repo) — conventions, traps
 - [Domain model](#domain-model) — [Make/Model splitting](#makemodel-splitting-rules) · [field definitions](#field-definitions)
 - [AI agent pipeline](#ai-agent-pipeline) — [example flow](#example-flow) · [acquisition priorities](#data-acquisition-priorities)
-- [Settled decisions](#settled-decisions) — [schema](#schema) · [approval](#approval--submissions) · [capture](#capture) · [AI pipeline](#ai-pipeline) · [catalog import](#catalog-import-fandom-wikis) · [data sources](#data-sources) · [Make/Model inference](#makemodel-inference) · [review](#review) · [manual entry](#manual-entry) · [delivery](#delivery) · [deployment](#deployment)
+- [Settled decisions](#settled-decisions) — [schema](#schema) · [approval](#approval--submissions) · [capture](#capture) · [AI pipeline](#ai-pipeline) · [catalog import](#catalog-import-fandom-wikis) · [data sources](#data-sources) · [main lines](#main-lines) · [Make/Model inference](#makemodel-inference) · [review](#review) · [manual entry](#manual-entry) · [delivery](#delivery) · [deployment](#deployment)
 - [Open questions](#open-questions)
 - [Session log](docs/session-log.md) — narrative and rationale, loaded on demand
 
@@ -65,8 +67,8 @@ honest — it's the fastest way for a new session to avoid assuming something
 exists.*
 
 **Running:** `docker compose up -d` brings up `app` (:8000), `db` (Postgres 16,
-:5432), `redis` (:6379), `meilisearch` (:7700). `php artisan test` → **256
-passed, 828 assertions** (re-measured 2026-11-03).
+:5432), `redis` (:6379), `meilisearch` (:7700). `php artisan test` → **279
+passed, 939 assertions** (re-measured 2026-11-03).
 
 **The dev database holds the import *plus* seed data, so its counts are not the
 import's counts.** `CatalogSeeder` and `SubmissionSeeder` contribute 9 castings
@@ -142,11 +144,15 @@ There is still no CI: no `.github/workflows`, and a deploy is `git pull` plus
 queue worker, `APP_URL=http://localhost` — reachable only from this Mac on
 `localhost:8000`.
 
-**The entire HTTP surface is twenty-one routes** (`routes/web.php`, counted with `route:list` 2026-11-03):
+**The entire HTTP surface is twenty-five routes** (`routes/web.php`, counted with `route:list` 2026-11-03):
 
 | Route | State |
 |---|---|
-| `GET /` | Stock Laravel welcome page. Scaffold apart from one fix: its authed "Dashboard" button hardcoded `url('/dashboard')`, a route this app has never had, so every logged-in visitor was one click from a 404. Now `route('admin.dashboard')` |
+| `GET /` | Public catalog home: brands with something live. The stock welcome page is gone |
+| `GET /brands/{brand}` | Public. The brand's main lines, with casting/series counts and years |
+| `GET /lines/{line}` | Public. A line's sub-series (grouped by name, year filter); `?sub=` lists the cars in one |
+| `GET /cars/{casting}` | Public. One casting: photo with credit, every release by series path, wiki attribution |
+| `POST /preview` | Admin only. Toggles including pending records on the public pages |
 | `GET\|POST /login` | Real. Admin only — no registration, no password reset |
 | `POST /logout` | Real |
 | `GET /admin` | Two queues: submissions awaiting review, and a link to the inferred queue below |
@@ -254,6 +260,22 @@ queue worker, `APP_URL=http://localhost` — reachable only from this Mac on
   `apple-touch-icon.png`, and registration in `resources/js/app.js`. The layout
   is now a real HTML document (it used to start at `<meta name="viewport">`, so
   every page rendered in quirks mode).
+- **The public catalog** (`CatalogBrowseController`, `CatalogBrowser`,
+  `resources/views/catalog/`). Brand → main line → sub-series → car, with a year
+  filter on each line, a photo grid per sub-series, and a car page listing every
+  release by series path. **Live records only** — an admin can switch on a
+  preview that includes the pending backlog, and every page says when it is on.
+- **Series grouped into main lines** (`series.parent_id`,
+  `config/catalog_lines.php`, `SeriesClassifier`, `catalog:classify-series`).
+  Measured on the full import: Hot Wheels 16 lines, 81% of releases in a named
+  line and 19% in "Other Series"; Matchbox 7 lines, 93% placed.
+- **Year range and series path for every casting** (`CastingSummaries`) — the
+  admin list, the admin casting page and the public pages all show "Hot Wheels ·
+  2010–2026 · Mainline / HW J-Imports".
+- **Licensed wiki photos** (`WikiPhotoImporter`, `FileLicence`,
+  `catalog:import-wiki-photos`, `photos.license` / `photos.credit`). One per
+  casting, credited, on the car the article's image shows; see
+  [Data sources](#data-sources) for why it is only ~4% of castings.
 - **Manual entry** (`CatalogController`, `VariationPhotoController`,
   `app/Services/Catalog/ManualCatalogEntry.php`, `VariationPhotos.php`, the
   `StoreCarRequest` / `StoreVariationRequest` / `StoreVariationPhotosRequest`
@@ -281,10 +303,13 @@ queue worker, `APP_URL=http://localhost` — reachable only from this Mac on
   `SubmissionSeeder` is still what puts anything in the *submission* queue.
   Pointing Metadata at a capture's reading is a natural next step and is not
   built.
-- **No image import from any source, and no price data.** The wiki images are
-  excluded by a settled decision, and HWPriceGuide is ruled out as a source
-  entirely — see [Data sources](#data-sources). Photos come from capture and
-  manual entry.
+- **Photos for almost every car.** `catalog:import-wiki-photos` attaches one
+  credited photo per casting *only where the wiki file is licensed for reuse* —
+  measured, that is 152 of the 3,642 imported castings (32 Hot Wheels, 120
+  Matchbox). The other ~96% of wiki images carry no licence or only `{{Self}}`
+  and stay where they are. The rest of the photos have to come from capture and
+  manual entry. **No price data** — HWPriceGuide is ruled out entirely; see
+  [Data sources](#data-sources).
 - **Schuco, Mini GT, TSM, Inno64 and Para64 have no importer.** Mini GT has a
   small Fandom wiki (699 articles, its own page format); Inno64's has 24
   articles; the rest have no wiki, only manufacturer product sites. Each is a
@@ -295,8 +320,8 @@ queue worker, `APP_URL=http://localhost` — reachable only from this Mac on
   end to end. Note `pg_trgm` and Meilisearch are not substitutes: trigram
   similarity is the Comparison Agent's DB-side duplicate check, Meilisearch is
   user-facing typo-tolerant search.
-- **No public catalog browsing, collections, wishlists, price charts, or
-  barcode scanning.** The tables exist; nothing reads them.
+- **No public search, collections, wishlists, price charts, or barcode
+  scanning.** The public catalog is browse-only.
 - Nothing creates a `CastingVersion` automatically alongside a `Casting`.
   `CatalogSeeder::casting()` and `CatalogImporter::castingVersions()` both do it
   explicitly. This is deliberate: a model `created` hook would collide with
@@ -386,6 +411,18 @@ apart — 12 pending proposals is the expected total, not a regression.
   `GET`, so don't read a failed `curl -I` as the dump having moved. Decompress
   once with `7z x` and pass the `.xml` if you will run more than once. Timings
   are under [Catalog import](#catalog-import-fandom-wikis).
+- **Then group and photograph.** Both are idempotent and need no API key for
+  the grouping (photos fetch from the wiki API and its image server):
+
+  ```bash
+  php artisan catalog:classify-series hot-wheels --dump=/path/to/hotwheels_pages_current.xml
+  php artisan catalog:classify-series matchbox --dump=/path/to/matchbox_pages_current.xml
+  php artisan catalog:import-wiki-photos hot-wheels --dump=/path/to/hotwheels_pages_current.xml
+  php artisan catalog:import-wiki-photos matchbox --dump=/path/to/matchbox_pages_current.xml
+  ```
+
+  Photos land on `catalog.capture.disk` — R2 in production, so run it where the
+  R2 credentials are.
 - **Then budget before identifying.** Everything imported arrives unidentified,
   and `catalog:identify-castings` is a billed Claude call per 25 castings. A
   full import takes the backlog from 241 castings to 3,642 (measured) — decide on a `--limit`
@@ -417,11 +454,9 @@ Note the layout lives at `resources/views/components/layouts/app.blade.php`
 `TestCase` calls `withoutVite()` so view tests don't need a frontend build.
 
 **Further out, still untouched:** Meilisearch indexing (`laravel/scout` isn't
-installed), the public catalog, collections/wishlists, price charts, barcode
-scanning. `/` is still essentially the stock welcome page (one dead link fixed,
-see the route table) and is the one screen not using the app layout, so it
-carries no manifest link — install works from `/login` and `/admin/*`. Worth
-folding in whenever the public catalog replaces it.
+installed), public search, collections/wishlists, price charts, barcode
+scanning. Every page, `/` included, now uses the app layout, so install works
+from anywhere.
 
 ## How to work in this repo
 
@@ -717,6 +752,15 @@ The rationale for each is in the [session log](docs/session-log.md).*
 - **Trigram indexes**: GIN trigram on `models.name`, `castings.name`,
   `series.name`, `brands.name`, and `releases.collector_number` (OCR-extracted,
   prone to misreads).
+- **A main line is a `series` row with no parent; a sub-series points at it**
+  (`series.parent_id`, 2026-11-03). Self-referencing rather than a new table: a
+  line is a brand-scoped named grouping, which is what `series` already is, and
+  it needs no brand-specific columns. One level only by convention. The wiki
+  names sub-series only, so lines come from `catalog:classify-series`, and a
+  child sharing its line's name is the line's *own* cars — `Series::path()`
+  renders it as the line alone.
+- **`photos.license` and `photos.credit` are the attribution an imported photo
+  owes**, printed under it wherever it is shown. Both null for our own photos.
 - **`ItemCondition`** is cast on `UserCollectionItem` with a matching CHECK, so
   writes that skip Eloquent are covered too.
 
@@ -1068,14 +1112,50 @@ and photos. Measured, not assumed — details in the [session log](docs/session-
 - **The same facts come from sources that allow it.** Year, series, colour,
   wheels and toy number for Hot Wheels and Matchbox are in the Fandom wikis,
   CC-BY-SA, with published dumps. That is where catalog breadth comes from.
-- **Photos: ours, not theirs.** No source's images are imported — not the
-  wikis' (settled 2026-08-09) and not HWPriceGuide's. Catalog photos come from
-  capture and manual entry, which is what makes them unencumbered.
+- **Wiki photos only where the file is licensed for reuse — revised
+  2026-11-03 at the owner's request** (it was "no wiki images at all"). The
+  licence is read from the file's own page (`FileLicence`, an allow-list: CC,
+  GFDL, public domain, "Other free", from Wikimedia). **`{{Self}}` is not a
+  licence** — on both wikis it reads only "uploaded by the photographer or
+  author" — and nor are `{{Fairuse}}`, "used with permission" or no template,
+  which is the commonest case. Measured: of 9,186 infobox images, ~2% qualify;
+  of the castings actually imported, 152 of 3,642. That number is the honest
+  ceiling until uploaders license their photos or we take our own. Each photo
+  is the article's infobox image, credited (uploader, licence, file page), on the
+  variation whose row shows it. **Never scrape images from the general web or
+  from HWPriceGuide.**
 - **Prices need a source that permits reuse**, or our own observations. None is
   chosen; `price_histories` stays empty until one is.
 - **Every new source gets this check first**: terms, robots.txt, whether the
   data is facts or someone's product, and whether images are involved. A source
   for Schuco, Mini GT, TSM, Inno64 or Para64 is a decision, not just a parser.
+
+### Main lines
+
+*Settled 2026-11-03; how the public catalog is organised. Reasoning in the
+[session log](docs/session-log.md).*
+
+- **The line taxonomy is editorial config, not inference.** The wikis name
+  sub-series but not lines, and their categories are many-to-many and noisy (a
+  series is "Mainline Segment" *and* "Wal-Mart Exclusive" *and*
+  "Glow-in-the-dark"). `config/catalog_lines.php` lists each wiki's lines in
+  order with the names (regex) and categories that place a series in one; the
+  first match wins, so specific lines precede broad ones. HWPriceGuide's
+  organisation was an influence, as an idea; nothing was copied from it.
+- **One factual fallback: collector numbers.** An unmatched series whose
+  releases are ≥70% numbered (at least 3) is Mainline. Measured: mainline
+  segments are 75–100% numbered, the leftovers 0–4%, so the bar sits in the gap.
+  Everything else goes to "Other Series" rather than being guessed into a line.
+- **Many rows can share a line's name.** The wiki links each year's mainline to
+  its own anchor — 92 rows called "Mainline". The first is the line; the rest
+  hang under it, and the browse treats them as the line's own cars.
+- **The classifier never moves a placed series** unless `--reclassify`, so an
+  admin's placement survives a re-run. `--dry-run` prints where releases land
+  and the categories left in Other — read it before adding a rule.
+- **Public pages filter on the release's status.** Approval promotes the whole
+  ancestor chain, so a live release implies a live tool, series and brand. The
+  admin preview is a session flag only an admin can set and that means nothing
+  to anyone else.
 
 ### Make/Model inference
 
