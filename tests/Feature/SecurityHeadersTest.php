@@ -26,6 +26,8 @@ class SecurityHeadersTest extends TestCase
             $response->assertHeader('X-Content-Type-Options', 'nosniff');
             $response->assertHeader('X-Frame-Options', 'DENY');
             $response->assertHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+            // The capture camera must stay usable on our own pages.
+            $this->assertStringContainsString('camera=(self)', $response->headers->get('Permissions-Policy'));
         }
     }
 

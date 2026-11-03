@@ -1,0 +1,14 @@
+{
+  "appId": "club.collectai.app",
+  "appName": "collectAI",
+  "webDir": "capacitor/www",
+  "server": {
+    "url": "https://collectai.club",
+    "cleartext": false,
+    "allowNavigation": ["collectai.club", "*.collectai.club"]
+  },
+  "ios": {
+    "contentInset": "always",
+    "limitsNavigationsToAppBoundDomains": false
+  }
+}

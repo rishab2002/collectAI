@@ -785,6 +785,114 @@ cd /opt/collectai && git pull && docker compose -f docker-compose.prod.yml up -d
 
 Migrations run automatically when the new container starts.
 
+### 8.1 Choosing where to host it (Porkbun, Lightsail, any server)
+
+**Porkbun is where you bought the domain, not where the site runs.** Its
+hosting plans are for static sites and WordPress; this app needs a server that
+runs Docker (PHP, PostgreSQL, Redis, a background worker and the daily price
+job). And because collectai.club's DNS was moved to Cloudflare, **DNS records
+are changed in Cloudflare**, not in Porkbun — Porkbun's DNS page has no effect
+any more.
+
+Any of these works, because `docker-compose.prod.yml` doesn't care whose server
+it runs on:
+
+| Option | Effort | Notes |
+|---|---|---|
+| **AWS Lightsail** (recommended) | Follow [docs/deploy.md](docs/deploy.md) exactly | Already written and tested for this app. Pick an instance with at least 2 GB of RAM |
+| **Any Ubuntu server with Docker** — DigitalOcean, Hetzner, Linode, Vultr… | Same runbook | Only step 1 (creating the server and opening ports 80 and 443) differs; from step 2 on, the commands are identical |
+| Managed Laravel platforms | Would need adapting | Not set up here — they run their own build, worker and database, so the Docker files don't apply |
+
+Whichever you choose, the short version of going live is:
+
+1. Create the server, open ports 80 and 443, install Docker (deploy.md §1–2).
+2. Clone the repo, fill in `.env` from `.env.production.example` (deploy.md §3).
+3. Create a **Cloudflare Origin Certificate** and put it in `certs/` (deploy.md §4).
+4. Start it: `docker compose -f docker-compose.prod.yml up -d --build` (deploy.md §5).
+5. Check it answers on the server's IP **before** touching DNS (deploy.md §6).
+6. In **Cloudflare → DNS**, change the two **A records** for `collectai.club`
+   and `www` from the Porkbun parking address to your server's IP, proxied
+   (orange cloud) (deploy.md §7).
+7. In **Cloudflare → SSL/TLS**, set the mode to **Full (strict)** (deploy.md §8).
+
+The 525 error collectai.club shows today goes away at step 6.
+
+### 8.2 Test it as an iPhone app (TestFlight)
+
+The app is the website in a native iPhone shell (Capacitor), so everything —
+the catalog, accounts, the camera upload — is the same code. The shell loads
+`https://collectai.club` (set in `capacitor.config.json`), so **deploy the site
+first** (§8.1). The iOS project is in `ios/`, with the camera and photo-library
+permission messages already set (iOS closes any app that opens the camera
+without them).
+
+**You need:** a Mac with the current Xcode, an iPhone, and your Apple Developer
+Program membership.
+
+**1. Prepare the project** (on the Mac, in the repo folder):
+
+```bash
+npm install
+```
+
+```bash
+npx cap sync ios
+```
+
+```bash
+npx cap open ios
+```
+
+That opens Xcode.
+
+**2. Sign it.** In Xcode, click the blue **App** project → target **App** →
+**Signing & Capabilities**: tick *Automatically manage signing* and choose your
+**Team**. The bundle ID is `club.collectai.app`; if Apple says it's taken,
+change it here **and** `appId` in `capacitor.config.json` to something like
+`club.collectai.yourname`, then run `npx cap sync ios` again.
+
+**3. Run it on your iPhone.** Plug the phone in (first time: unlock it and tap
+*Trust*; on iOS 16+ also turn on *Settings → Privacy & Security → Developer
+Mode*). Pick the phone at the top of Xcode and press **▶ Run**.
+
+**4. Put it on TestFlight** (so it installs without a cable, and others can test):
+
+1. In **App Store Connect → Apps → +**, create a new iOS app named collectAI
+   with the same bundle ID.
+2. In Xcode, choose **Any iOS Device (arm64)** as the target, then
+   **Product → Archive**. When the Organizer opens, **Distribute App → App Store
+   Connect → Upload**.
+3. In App Store Connect → your app → **TestFlight**, wait for the build to
+   finish processing, then add yourself (and up to 100 people on your team)
+   under **Internal Testing**. Internal testing needs no Apple review.
+4. Install the **TestFlight** app on the iPhone and accept the invite.
+
+For every new upload, raise the **Build** number (target **App → General →
+Identity**). The app icon is still Capacitor's placeholder: replace it in Xcode
+under **App → Assets → AppIcon** with a 1024×1024 version of the collectAI icon
+(`public/icons/`) before inviting testers.
+
+**5. Test the camera.** In the app: sign in as the admin → **Admin → New
+capture** → tap **Card front**. iOS asks for camera permission once, showing
+the message from `Info.plist`; allow it, take the photo, add a loose shot, and
+tap **Upload & queue**. You should see "Submission #N queued — photos
+uploaded", and the photos appear in the review queue. (Verified 2026-11-03 in
+an emulated iPhone 15: both camera inputs, thumbnails, the upload and storage
+all work. The real-device check is yours.)
+
+**Testing against your Mac instead of the live site** (before deploying):
+temporarily set `"url": "http://<your-Mac's-IP>:8000"` and `"cleartext": true`
+in `capacitor.config.json`, run `npx cap sync ios`, and start the app with
+`php artisan serve --host=0.0.0.0` on the Mac. Don't commit that change.
+
+**Before submitting to the public App Store:** Apple rejects apps that are
+"just a website" (guideline 4.2). TestFlight is fine as it is; a public release
+will want app-only features such as the multi-car scanner described in
+[docs/multi-car-recognition.md](docs/multi-car-recognition.md).
+
+**Android** isn't set up yet; it's the same pattern
+(`npm install --save-exact @capacitor/android@8.5.3`, then `npx cap add android`).
+
 ---
 
 ## 9. Tests and checks
