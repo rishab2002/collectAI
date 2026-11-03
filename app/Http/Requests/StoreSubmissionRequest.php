@@ -2,10 +2,9 @@
 
 namespace App\Http\Requests;
 
-use App\Models\SubmissionPhoto;
+use App\Http\Requests\Concerns\TakesPhotoSlots;
 use Illuminate\Contracts\Validation\Validator as ValidatorContract;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Validator;
 
@@ -20,13 +19,7 @@ use Illuminate\Validation\Validator;
  */
 class StoreSubmissionRequest extends FormRequest
 {
-    /**
-     * Single-file slots, mapped to the SubmissionPhoto type they produce.
-     */
-    private const SINGLE_SLOTS = [
-        'card_front' => SubmissionPhoto::TYPE_CARD_FRONT,
-        'card_back' => SubmissionPhoto::TYPE_CARD_BACK,
-    ];
+    use TakesPhotoSlots;
 
     public function authorize(): bool
     {
@@ -40,21 +33,8 @@ class StoreSubmissionRequest extends FormRequest
      */
     public function rules(): array
     {
-        $photo = [
-            'file',
-            // Not the `image` rule: it leans on getimagesize(), which doesn't
-            // know HEIC/HEIF in most PHP builds. iOS Safari usually transcodes
-            // to JPEG on upload, but "usually" isn't a validation strategy, and
-            // a rejected photo of a car already back in its case is a reshoot.
-            'mimetypes:image/jpeg,image/png,image/webp,image/heic,image/heif',
-            'max:'.config('catalog.capture.max_photo_kilobytes'),
-        ];
-
         return [
-            'card_front' => ['nullable', ...$photo],
-            'card_back' => ['nullable', ...$photo],
-            'loose' => ['nullable', 'array', 'max:6'],
-            'loose.*' => $photo,
+            ...$this->photoSlotRules(),
 
             'hint_brand' => ['nullable', 'string', 'max:255'],
             // Matches submissions_hint_year_range. Bounced here as a message
@@ -87,9 +67,7 @@ class StoreSubmissionRequest extends FormRequest
     public function attributes(): array
     {
         return [
-            'card_front' => 'card front photo',
-            'card_back' => 'card back photo',
-            'loose.*' => 'loose photo',
+            ...$this->photoSlotAttributes(),
             'hint_brand' => 'brand',
             'hint_year' => 'year',
             'hint_series' => 'series',
@@ -114,35 +92,6 @@ class StoreSubmissionRequest extends FormRequest
             'message' => $validator->errors()->first(),
             'errors' => $validator->errors()->messages(),
         ], 422));
-    }
-
-    /**
-     * The uploaded photos, flattened and paired with the type each slot implies.
-     *
-     * Defensive about what's actually an UploadedFile because after() callbacks
-     * still run when an earlier rule has already failed.
-     *
-     * @return list<array{file: UploadedFile, type: string}>
-     */
-    public function photos(): array
-    {
-        $photos = [];
-
-        foreach (self::SINGLE_SLOTS as $slot => $type) {
-            $file = $this->file($slot);
-
-            if ($file instanceof UploadedFile) {
-                $photos[] = ['file' => $file, 'type' => $type];
-            }
-        }
-
-        foreach ((array) $this->file('loose', []) as $file) {
-            if ($file instanceof UploadedFile) {
-                $photos[] = ['file' => $file, 'type' => SubmissionPhoto::TYPE_LOOSE];
-            }
-        }
-
-        return $photos;
     }
 
     /**
