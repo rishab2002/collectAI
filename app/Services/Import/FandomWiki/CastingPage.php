@@ -21,6 +21,11 @@ final class CastingPage
         public readonly ?string $designer,
         public readonly array $versions,
         ?Wiki $wiki = null,
+        /**
+         * The infobox `image` — the one picture the article chose to represent
+         * the casting, as a file name.
+         */
+        public readonly ?string $image = null,
     ) {
         $this->wiki = $wiki ?? Wiki::hotWheels();
     }

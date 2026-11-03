@@ -8,14 +8,13 @@ use App\Http\Requests\StoreVariationRequest;
 use App\Models\Brand;
 use App\Models\Casting;
 use App\Models\Make;
+use App\Services\Catalog\CastingSummaries;
 use App\Services\Catalog\ManualCatalogEntry;
 use App\Services\Catalog\ManualEntryResult;
 use App\Services\Catalog\VariationPhotos;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 /**
@@ -50,7 +49,7 @@ class CatalogController extends Controller
 
         return view('admin.catalog.index', [
             'castings' => $castings,
-            'brands' => $this->brandsFor($castings->pluck('id')->all()),
+            'summaries' => app(CastingSummaries::class)->for($castings->pluck('id')->all()),
             'query' => $query,
             'total' => Casting::count(),
         ]);
@@ -76,6 +75,7 @@ class CatalogController extends Controller
             'versions' => fn ($query) => $query->orderBy('version_number'),
             'versions.releases' => fn ($query) => $query->orderByDesc('year')->orderBy('id'),
             'versions.releases.series.brand',
+            'versions.releases.series.parent',
             'versions.releases.variations' => fn ($query) => $query->orderBy('id'),
             'versions.releases.variations.photos' => fn ($query) => $query->orderByDesc('is_primary')->orderBy('id'),
         ]);
@@ -123,27 +123,6 @@ class CatalogController extends Controller
         return redirect()
             ->to(route('admin.castings.show', $casting).'#variation-'.$variation->getKey())
             ->with($result->isLive() ? 'status' : 'warning', $message);
-    }
-
-    /**
-     * Which brands sold each casting, by casting id — one query for the page
-     * rather than walking versions, releases and series per row.
-     *
-     * @param  list<int>  $castingIds
-     * @return Collection<int, list<string>>
-     */
-    private function brandsFor(array $castingIds): Collection
-    {
-        return DB::table('casting_versions')
-            ->join('releases', 'releases.casting_version_id', '=', 'casting_versions.id')
-            ->join('series', 'series.id', '=', 'releases.series_id')
-            ->join('brands', 'brands.id', '=', 'series.brand_id')
-            ->whereIn('casting_versions.casting_id', $castingIds)
-            ->distinct()
-            ->orderBy('brands.name')
-            ->get(['casting_versions.casting_id', 'brands.name'])
-            ->groupBy('casting_id')
-            ->map(fn ($rows): array => $rows->pluck('name')->all());
     }
 
     /**

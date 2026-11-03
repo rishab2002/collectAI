@@ -130,9 +130,10 @@ class HotWheelsWikiParserTest extends TestCase
         $this->assertNull($circuit->collectorNumber);
     }
 
-    public function test_the_notes_and_photo_columns_are_not_read_at_all(): void
+    public function test_notes_are_never_read_and_photo_files_never_reach_a_car(): void
     {
-        $encoded = json_encode($this->danicar()->versions);
+        $versions = $this->danicar()->versions;
+        $encoded = json_encode($versions);
 
         // The licence line: facts are free, the editors' prose is not. Notes is
         // where "Walmart card release includes License Plate sticker" lives, and
@@ -140,8 +141,17 @@ class HotWheelsWikiParserTest extends TestCase
         // start importing it by accident.
         $this->assertStringNotContainsString('License Plate sticker', $encoded);
         $this->assertStringNotContainsString('Base Code', $encoded);
-        $this->assertStringNotContainsString('.jpg', $encoded);
-        $this->assertStringNotContainsString('.JPG', $encoded);
+
+        // The Photo column's *file names* are read since 2026-11-03 — only so
+        // WikiPhotoImporter can tell which car an article's own (licensed)
+        // image shows. They stay in `photos` and never become a fact about the
+        // car, and no image is fetched by the import.
+        $this->assertSame(['Danicar Yellow.JPG'], $versions[0]->photos);
+
+        foreach ($versions as $row) {
+            $attributes = json_encode([...$row->variationAttributes(), $row->toyNumber, $row->country, $row->seriesName]);
+            $this->assertStringNotContainsStringIgnoringCase('.jpg', $attributes);
+        }
     }
 
     public function test_a_header_named_differently_still_finds_its_column(): void

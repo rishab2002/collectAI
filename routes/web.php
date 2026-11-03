@@ -7,11 +7,20 @@ use App\Http\Controllers\Admin\ProposalReviewController;
 use App\Http\Controllers\Admin\SubmissionReviewController;
 use App\Http\Controllers\Admin\VariationPhotoController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\CatalogBrowseController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+// The public catalog: brand → main line → sub-series → car. Live records
+// only; an admin can preview the pending backlog. See CatalogBrowseController.
+Route::get('/', [CatalogBrowseController::class, 'home'])->name('home');
+Route::get('brands/{brand}', [CatalogBrowseController::class, 'brand'])->name('catalog.brand');
+Route::get('lines/{line}', [CatalogBrowseController::class, 'line'])->name('catalog.line');
+Route::get('cars/{casting}', [CatalogBrowseController::class, 'casting'])
+    ->whereNumber('casting')
+    ->name('catalog.casting');
+Route::post('preview', [CatalogBrowseController::class, 'togglePreview'])
+    ->middleware(['auth', 'admin'])
+    ->name('catalog.preview');
 
 // No registration route by design — the only privileged account is created by
 // AdminUserSeeder. See LoginController.

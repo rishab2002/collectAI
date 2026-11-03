@@ -64,7 +64,7 @@
                 <section class="rounded-xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
                     <header class="flex items-baseline justify-between gap-4 border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
                         <span class="min-w-0">
-                            <span class="font-medium">{{ $release->year }} · {{ $release->series->name }}</span>
+                            <span class="font-medium">{{ $release->year }} · {{ $release->series->path() }}</span>
                             <span class="block text-sm text-neutral-500">
                                 {{ $release->series->brand->name }}
                                 @if ($release->collector_number) · #{{ $release->collector_number }} @endif
