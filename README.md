@@ -1,58 +1,723 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# collectAI — a diecast catalog
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A brand-agnostic catalog of diecast cars — Hot Wheels, Matchbox, Mini GT and
+whatever comes next — that collectors browse by **brand → main line →
+sub-series → car**. It is filled three ways: bulk-imported from the Hot Wheels
+and Matchbox wikis, typed in by hand, and photographed with a phone and read by
+an AI pipeline. Nothing goes public until it has been checked.
 
-## About Laravel
+Built on Laravel 13 (PHP 8.4), PostgreSQL 16, Redis, and Cloudflare R2 for
+photos. Runs in Docker.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+This README is the hands-on tutorial: how to run it, fill it, make it public,
+change it, and deploy it. For *why* things are the way they are, see
+[CLAUDE.md](CLAUDE.md) (the project's rules and decisions) and
+[docs/session-log.md](docs/session-log.md) (the history behind them).
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+---
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Contents
 
-## Learning Laravel
+1. [The ten-minute picture](#1-the-ten-minute-picture)
+2. [Run it on your machine](#2-run-it-on-your-machine)
+3. [Fill the catalog from the wikis](#3-fill-the-catalog-from-the-wikis)
+4. [Make it go live](#4-make-it-go-live)
+5. [Day-to-day: add cars, photos and captures](#5-day-to-day-add-cars-photos-and-captures)
+6. [Where to edit things, and what each edit does](#6-where-to-edit-things-and-what-each-edit-does)
+7. [Keep it up to date](#7-keep-it-up-to-date)
+8. [Deploy to collectai.club](#8-deploy-to-collectaiclub)
+9. [Tests and checks](#9-tests-and-checks)
+10. [Troubleshooting](#10-troubleshooting)
+11. [Data rules you must not break](#11-data-rules-you-must-not-break)
+12. [Command reference](#12-command-reference)
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+---
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## 1. The ten-minute picture
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+**How the catalog is shaped.** Every car hangs off a tree:
 
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
-
-```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+```
+Brand (Hot Wheels)
+ └─ Main line (Mainline)                 ← what you pick first on the site
+     └─ Sub-series (HW J-Imports)        ← then this
+         └─ Release (2024, #112)         ← a year the car was sold in that series
+             └─ Variation (Red, PR5 wheels, toy # HKH01)  ← one physical car
+                 └─ Photos
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+A **casting** is one physical toy tool (the "Nissan Skyline GT-R (R34)" die),
+and it can be sold in many releases, under many series, even under several
+brands. Separately, each casting is linked to the **real car** it models
+(Make: Nissan, Model: Skyline GT-R, generation BNR34) — or flagged as a
+**fantasy** casting if there is no real car (Bone Shaker).
 
-## Contributing
+**Live vs pending — the one thing to understand.** Every record is either
+`pending` (only admins can see it) or `live` (everyone can). The public site
+shows **live records only**. Imported cars arrive *pending*, because the wikis
+never say which real make and model a casting is — and a car nobody has
+identified is not allowed to go live. [Section 4](#4-make-it-go-live) is how
+they get identified and published.
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+**Who does what.**
 
-## Code of Conduct
+| You want to… | Use |
+|---|---|
+| Load thousands of cars at once | The wiki importer ([§3](#3-fill-the-catalog-from-the-wikis)) |
+| Add one car you have in hand, with photos | **Admin → Add a car** ([§5](#5-day-to-day-add-cars-photos-and-captures)) |
+| Photograph a carded car and let the AI read it | **Admin → New capture** ([§5](#5-day-to-day-add-cars-photos-and-captures)) |
+| Decide what goes public | **Admin → review queues** + `catalog:publish-imported` ([§4](#4-make-it-go-live)) |
+| Browse like a collector | The public site at `/` |
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+---
 
-## Security Vulnerabilities
+## 2. Run it on your machine
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+You need **Docker Desktop** and **Node 22+** (for building the page styles).
+Everything else runs inside containers.
 
-## License
+### 2.1 First-time setup
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```bash
+git clone https://github.com/rishab2002/collectAI.git
+cd collectAI
+cp .env.example .env
+```
+
+Open `.env` and set at least:
+
+```dotenv
+ADMIN_EMAIL=you@example.com
+ADMIN_PASSWORD=pick-a-strong-password    # survives re-seeding; leave blank to get a random one printed once
+CAPTURE_DISK=local                       # photos on your disk until R2 is set up (see §6.2)
+```
+
+Then start the stack and prepare the app:
+
+```bash
+docker compose up -d --build
+```
+
+```bash
+docker compose exec app php artisan key:generate
+```
+
+```bash
+docker compose exec app php artisan migrate
+```
+
+```bash
+docker compose exec app php artisan db:seed --class=AdminUserSeeder
+```
+
+```bash
+npm install
+```
+
+```bash
+npm run build
+```
+
+Open **http://localhost:8000** for the public site and
+**http://localhost:8000/login** to sign in as the admin.
+
+> **Seeding, two ways.** `db:seed --class=AdminUserSeeder` creates only your
+> admin account — use this for a catalog you mean to keep.
+> `migrate:fresh --seed` **wipes the database** and adds a handful of fake demo
+> cars and a fake capture; it is for development and tests only.
+
+### 2.2 What is running
+
+`docker compose up -d` starts four containers:
+
+| Container | Port | What it is |
+|---|---|---|
+| `app` | 8000 | Laravel (`php artisan serve`) |
+| `db` | 5432 | PostgreSQL 16 — database `diecast`, plus `diecast_testing` for the tests |
+| `redis` | 6379 | Queue and cache |
+| `meilisearch` | 7700 | Not used yet (search isn't built) |
+
+**Every `php artisan …` command in this README runs inside the app container**
+— that's why each one starts with `docker compose exec app`.
+
+### 2.3 Stopping and starting
+
+```bash
+docker compose down
+```
+
+```bash
+docker compose up -d
+```
+
+`down` keeps your data (it lives in the `pgdata` volume). Only
+`docker compose down -v` deletes it.
+
+---
+
+## 3. Fill the catalog from the wikis
+
+This loads **every year (1968–2027) of the Hot Wheels Wiki and the Matchbox
+Wiki** — about 3,600 castings, 35,000 releases and 47,000 variations — then
+groups the series into main lines and attaches the photos that are licensed
+for reuse. Each step is **safe to re-run**: it updates what it already created
+and never duplicates.
+
+Run the steps in this order.
+
+### Step 1 — Download the wiki dumps (one minute)
+
+The wikis publish a full copy of every page. One download replaces tens of
+thousands of web requests.
+
+```bash
+mkdir -p storage/app/wiki-dumps
+```
+
+```bash
+curl -fL -o storage/app/wiki-dumps/hotwheels_pages_current.xml.7z https://s3.amazonaws.com/wikia_xml_dumps/h/ho/hotwheels_pages_current.xml.7z
+```
+
+```bash
+curl -fL -o storage/app/wiki-dumps/matchbox_pages_current.xml.7z https://s3.amazonaws.com/wikia_xml_dumps/m/ma/matchbox_pages_current.xml.7z
+```
+
+Unpack them once (7-Zip is already in the container):
+
+```bash
+docker compose exec app sh -c "cd storage/app/wiki-dumps && 7z x -y hotwheels_pages_current.xml.7z && 7z x -y matchbox_pages_current.xml.7z"
+```
+
+`storage/app/wiki-dumps/` is git-ignored, so the files never get committed.
+
+> `curl -I` (a HEAD request) on those URLs answers **403** — that is S3, not a
+> missing file. A normal download works.
+
+### Step 2 — Import every year (about 10 minutes for both)
+
+```bash
+docker compose exec app php artisan catalog:import-wiki hot-wheels --from=1968 --to=2027 --dump=storage/app/wiki-dumps/hotwheels_pages_current.xml
+```
+
+```bash
+docker compose exec app php artisan catalog:import-wiki matchbox --from=1968 --to=2027 --dump=storage/app/wiki-dumps/matchbox_pages_current.xml
+```
+
+What it does: reads each year's "List of YYYY …" page to find the casting
+articles, then reads each article's **Versions** table into castings, releases
+and variations. Brands and series go live; castings, releases and variations
+arrive **pending** (§4 explains why and how to publish them).
+
+What you should see (measured on the October 2026 dumps):
+
+| | Hot Wheels | Matchbox |
+|---|---|---|
+| Castings | 2,073 | 1,569 |
+| Releases | 22,631 | 12,045 |
+| Variations | 33,744 | 13,449 |
+| Time | 7½–11 min | 3 min |
+
+A few hundred rows are reported as **skipped** — almost all are rows identical
+in every column the importer reads (they differ only in the wiki's *Notes*
+prose, which is deliberately never imported). That is expected.
+
+Useful options: `--year=2024` for one year; `--limit=20` to try a few cars;
+`--dry-run` to see what would happen without keeping anything.
+
+### Step 3 — Group series into main lines (under a minute)
+
+The wikis name each car's sub-series ("HW J-Imports") but not the main line
+("Mainline"). This step places every sub-series under a main line, using the
+rules in `config/catalog_lines.php` (§6.1).
+
+```bash
+docker compose exec app php artisan catalog:classify-series hot-wheels --dump=storage/app/wiki-dumps/hotwheels_pages_current.xml
+```
+
+```bash
+docker compose exec app php artisan catalog:classify-series matchbox --dump=storage/app/wiki-dumps/matchbox_pages_current.xml
+```
+
+It prints each line's share of releases. Expect Hot Wheels in 16 lines with
+about 19% in **Other Series**, and Matchbox in 7 lines with about 7% in Other.
+The table under the totals lists what is left in Other — read it before
+adding a rule.
+
+### Step 4 — Attach photos that are licensed for reuse (about 2 minutes)
+
+```bash
+docker compose exec app php artisan catalog:import-wiki-photos hot-wheels --dump=storage/app/wiki-dumps/hotwheels_pages_current.xml
+```
+
+```bash
+docker compose exec app php artisan catalog:import-wiki-photos matchbox --dump=storage/app/wiki-dumps/matchbox_pages_current.xml
+```
+
+For each car it takes the wiki article's main image — **only if that image's
+own wiki page grants a reuse licence** — downloads it to your photo storage
+(`CAPTURE_DISK`), attaches it to the exact variation it shows, and records the
+photographer, licence and source so the site can credit them.
+
+**Expect about 150 photos (32 Hot Wheels, 120 Matchbox), not 3,600.** Most
+wiki images have no licence, or only a "Self" tag that says who took the photo
+without letting anyone reuse it. Those are left alone on purpose
+([§11](#11-data-rules-you-must-not-break)). Every other car needs a photo from
+you — [§5](#5-day-to-day-add-cars-photos-and-captures).
+
+Add `--dry-run` to count licensed images without downloading anything. Cars that
+already have any photo are skipped, so your own photos are never replaced.
+
+### Step 5 — Identify the real cars, then publish (see §4)
+
+Imported cars are still pending at this point. Continue with [§4](#4-make-it-go-live).
+
+---
+
+## 4. Make it go live
+
+A car becomes public when **it and everything above it is live**. For imported
+cars the only thing standing in the way is "which real car is this?". Three
+steps clear it.
+
+### 4.1 Identify the real make and model (AI, costs money)
+
+Put your Anthropic API key in `.env`:
+
+```dotenv
+COLLECTAI_ANTHROPIC_KEY=sk-ant-...
+```
+
+> It is deliberately **not** called `ANTHROPIC_API_KEY` — that name is picked up
+> by other Anthropic tools on your machine and would switch them to billing this
+> key.
+
+Try it on a handful first. `--dry-run` throws the results away afterwards, but
+**the API calls are still made and billed** — 25 cars is one call:
+
+```bash
+docker compose exec app php artisan catalog:identify-castings --limit=25 --dry-run
+```
+
+Then for real, in chunks you're comfortable paying for:
+
+```bash
+docker compose exec app php artisan catalog:identify-castings --limit=500
+```
+
+Repeat until it reports nothing left. Each Claude call identifies 25 cars (set by
+`METADATA_BATCH_SIZE`). A full import is about 3,600 castings — roughly 145 calls.
+
+For each car the AI answers *real* (make + model + generation), *fantasy*
+(no real car), or *unknown*. Then:
+
+- **Confident answers** (score ≥ `IMPORT_AUTO_APPROVE_THRESHOLD`, default 0.9)
+  are approved and published straight away.
+- **Unsure answers** wait for you in **Admin → Inferred records**
+  (`/admin/proposals`). Approve or reject each one there.
+- **Unknown** writes nothing; the car stays pending until you fix it by hand.
+
+### 4.2 Review what the AI wasn't sure about
+
+Open **http://localhost:8000/admin/proposals**. Each row shows the casting, what
+the AI thinks it is, its confidence, and a link to the wiki page.
+
+- **Approve** — publishes the car and its make/model.
+- **Reject** — removes the AI's guess; the imported car stays (pending,
+  unidentified). It won't be re-guessed automatically.
+
+### 4.3 Publish the releases and variations
+
+Identifying a car publishes the *car*, not its hundreds of releases. This step
+publishes every imported release and variation whose parents are now live:
+
+```bash
+docker compose exec app php artisan catalog:publish-imported --dry-run
+```
+
+```bash
+docker compose exec app php artisan catalog:publish-imported
+```
+
+Run it after every identification run and after every review session. It only
+ever publishes **imported** records whose parents are already live, so it can't
+publish anything a person still has to decide on. On a fresh full import, before
+any identification, it reports about **85,700 records waiting** — that is
+normal, and the number falls as cars are identified.
+
+### 4.4 Check what the public will see — before and after
+
+Sign in as admin and open the site. A banner at the top lets you **Preview
+pending**: the public pages then include pending records too (marked by the
+yellow banner), so you can judge the browse before publishing. **Stop preview**
+shows exactly what visitors see. The preview is a per-admin setting; visitors
+never see pending records.
+
+### 4.5 The shortcut for a single car
+
+Anything you add through **Admin → Add a car** goes live immediately — you are
+the reviewer. See §5.
+
+---
+
+## 5. Day-to-day: add cars, photos and captures
+
+Everything below is under **http://localhost:8000/admin** after signing in.
+
+### 5.1 Add a car you have in hand — *Add a car*
+
+Fill in:
+
+- **Casting** — the toy's name ("'93 Mazda RX-7", "Bone Shaker"). Tick
+  **Fantasy casting** if there is no real car behind it.
+- **Real car** — make and model ("Mazda", "RX-7"), and optionally the
+  generation (years and chassis code, e.g. 1992–2002, FD3S). Use the nameplate
+  alone: "Corvette", not "Corvette Grand Sport".
+- **Release** — brand, series and year (e.g. Mini GT · Mini GT · 2024). New
+  brands and series are created for you.
+- **Variation** — colour, wheels, toy number, etc. Leave blank what you can't
+  see.
+- **Photos** — card front, card back, and up to six loose shots.
+
+It goes **live straight away**. If the same car (every field you filled in) is
+already there, you'll be told its number instead of getting a duplicate.
+
+**A new colour or year of a car that already exists?** Don't use *Add a car*
+(that would create a second casting). Find it under **Catalog**, open it, and
+use **Add a release or variation** at the bottom — brand, series and year are
+pre-filled from its latest release.
+
+### 5.2 Photos on an existing car
+
+Open the car (Admin → Catalog → search), and under any variation choose **Add
+photos**. Each photo has **Make primary** (the one shown in grids) and
+**Remove**. The first photo of a car becomes primary automatically, preferring
+the card front.
+
+### 5.3 Find anything — *Catalog*
+
+Search by casting name, make or model. Each result shows its status, brand(s),
+years and series paths, e.g. "Hot Wheels · 2010–2026 · Mainline / HW J-Imports".
+The search shows every status, including pending.
+
+### 5.4 Photograph a carded car — *New capture*
+
+On your phone: take the card front, card back and any loose angles, add the
+brand/year/series if you know them, and upload. The AI reads the packaging in
+the background.
+
+This needs two things running that the others don't:
+
+1. `COLLECTAI_ANTHROPIC_KEY` set in `.env`.
+2. **A queue worker** — the reading happens in a background job:
+
+```bash
+docker compose exec app php artisan queue:work
+```
+
+Leave that running in its own terminal. Without it the upload succeeds but the
+capture just sits "queued". (In production a worker container runs
+automatically.)
+
+> Today a capture produces a *reading* of the card, but turning that reading into
+> proposed catalog records isn't built yet — so captures are best for
+> photographing cars you then enter with *Add a car*.
+
+### 5.5 The review queue — *Review queue*
+
+The admin home page lists captures awaiting review and, whenever the AI has left
+something for you, a link to **Inferred records** (§4.2). Approving a proposal publishes it together with any parent
+records it needs, and the screen tells you exactly what one click will publish.
+
+---
+
+## 6. Where to edit things, and what each edit does
+
+### 6.1 How series are grouped into main lines — `config/catalog_lines.php`
+
+This file decides which main line every sub-series appears under on the site.
+For each wiki there is an **ordered** list of lines; a series goes to the
+**first** line it matches:
+
+```php
+['name' => 'Car Culture',                      // the line shown on the site
+    'names' => ['/^car culture\b/i'],          // regexes tried on the series name
+    'categories' => ['Car Culture']],          // wiki categories on the series article
+```
+
+| Edit | Effect |
+|---|---|
+| Add a line (a new array entry) | A new main line appears on the brand page once you re-run classification |
+| Move a line higher | It wins over the lines below it for series that match both |
+| Add a regex to `names` | Series whose names match move into that line |
+| Add a category to `categories` | Series whose wiki article carries it move into that line |
+| Change `'other'` | Renames the catch-all line ("Other Series") |
+| Change `numbered_fallback` | Which line gets unmatched series whose releases mostly carry a collector number |
+
+Then apply it to the series already placed:
+
+```bash
+docker compose exec app php artisan catalog:classify-series hot-wheels --dump=storage/app/wiki-dumps/hotwheels_pages_current.xml --dry-run
+```
+
+```bash
+docker compose exec app php artisan catalog:classify-series hot-wheels --dump=storage/app/wiki-dumps/hotwheels_pages_current.xml --reclassify
+```
+
+Without `--reclassify`, already-placed series are left where they are — that's
+what protects a placement you made by hand.
+
+> Example: to give "Silver Series" its own line, add
+> `['name' => 'Silver Series', 'names' => ['/silver series/i'], 'categories' => []]`
+> above `'Mainline'`, then run with `--reclassify`.
+
+### 6.2 Settings in `.env`
+
+In development, an `.env` edit applies to the next request or command. In
+**production** the settings are cached when the containers start, so restart
+them after editing `.env` on the server:
+
+```bash
+cd /opt/collectai && docker compose -f docker-compose.prod.yml up -d --force-recreate
+```
+
+| Setting | What it does |
+|---|---|
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME` | The admin account the seeder creates. Changing the password later: delete that user and re-run `db:seed --class=AdminUserSeeder` |
+| `CAPTURE_DISK` | Where photos are stored: `local` (this machine) or `r2` (Cloudflare R2, needed in production). Each photo remembers its disk, so switching later doesn't break old photos |
+| `CAPTURE_MAX_PHOTO_KB` | Largest photo accepted (default 12 MB) |
+| `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_ENDPOINT`, `R2_URL` | The R2 bucket. `R2_URL` is the public address photos are served from (`https://img.collectai.club`). Test with `php artisan capture:check-storage` |
+| `COLLECTAI_ANTHROPIC_KEY` | Enables the AI: reading captures and identifying cars |
+| `METADATA_MODEL`, `METADATA_EFFORT`, `METADATA_BATCH_SIZE` | The identifying AI: which model, how hard it thinks, cars per call |
+| `OCR_MODEL`, `OCR_EFFORT`, `OCR_MAX_PHOTOS` | The capture-reading AI. Prefer raising `OCR_EFFORT` before changing the model |
+| `IMPORT_AUTO_APPROVE_THRESHOLD` (0.9) | How sure the AI must be (0–1) for an identification to publish without you. Lower = less review work, more risk |
+| `IMPORT_GENERATION_THRESHOLD` (0.65) | How sure it must be before recording a car's generation (e.g. "C3 1968–1982") |
+| `REVIEW_AUTO_APPROVE_THRESHOLD` (1.0) | The same for captures. At 1.0 nothing a person photographed publishes without review — keep it there |
+
+The full annotated list is in `config/catalog.php`.
+
+### 6.3 What the public pages look like — `resources/views/catalog/`
+
+| File | Page |
+|---|---|
+| `home.blade.php` | `/` — the brand list |
+| `brand.blade.php` | A brand's main lines |
+| `line.blade.php` | A line's sub-series and the year filter |
+| `cars.blade.php` | The photo grid of cars in a sub-series |
+| `casting.blade.php` | One car: photo, credit, every release |
+| `../components/layouts/app.blade.php` | The header and frame around every page |
+
+Admin screens are in `resources/views/admin/`, and shared pieces (form fields,
+status badges, the preview banner) in `resources/views/components/catalog/`.
+The queries behind the public pages are in
+`app/Services/Catalog/CatalogBrowser.php`.
+
+> **After editing any view, rebuild the styles:** `npm run build` (or keep
+> `npm run dev` running while you work). The styling is Tailwind, which only
+> includes the classes it found when it last built — a new class does nothing
+> until you rebuild.
+
+### 6.4 Adding another wiki or brand
+
+- **A new brand needs no database changes.** Add cars for it through *Add a car*
+  — type the new brand name and it's created.
+- **Another Fandom wiki with the same page layout** as the Hot Wheels/Matchbox
+  wikis: add a factory method in `app/Services/Import/FandomWiki/Wiki.php`
+  (host, brand, source name), add its key to `keys()` and `fromKey()`, and add
+  its lines to `config/catalog_lines.php`. Then it works with every command above.
+- **A site with a different layout** (e.g. a manufacturer's own website) needs
+  its own importer — and first a check that its terms allow it (§11).
+
+### 6.5 URLs and screens — `routes/web.php`
+
+Every page's address is defined here, public pages first, then `/admin/…`.
+
+---
+
+## 7. Keep it up to date
+
+The wikis publish a fresh dump every few weeks. To catch up:
+
+1. Re-download and unpack the dumps (§3 step 1).
+2. Re-run steps 2–4 of §3, then §4.1 and §4.3.
+
+Everything is idempotent: existing cars are updated in place, new ones are
+added, and nothing is duplicated. Cars you **rejected** stay rejected, series
+you **placed by hand** stay placed, and cars with **your photos** keep them.
+
+To catch up on just one recent year without a new dump (uses the wiki's API
+instead of a file):
+
+```bash
+docker compose exec app php artisan catalog:import-wiki hot-wheels --year=2027
+```
+
+---
+
+## 8. Deploy to collectai.club
+
+Production is one AWS Lightsail server running `docker-compose.prod.yml`
+(nginx + PHP, a queue worker, PostgreSQL, Redis) behind Cloudflare. **Follow
+[docs/deploy.md](docs/deploy.md) step by step** — the order matters (in
+particular: test against the server's IP before touching DNS, and switch
+Cloudflare to *Full (strict)* only after the certificate is installed).
+
+Once the site is up, fill it the same way as §3–4, with two differences:
+commands use `docker compose -f docker-compose.prod.yml run --rm web …`, and the
+dumps have to be mounted into the container because production has no project
+folder inside it:
+
+```bash
+mkdir -p ~/wiki-dumps
+```
+
+```bash
+curl -fL -o ~/wiki-dumps/hotwheels_pages_current.xml.7z https://s3.amazonaws.com/wikia_xml_dumps/h/ho/hotwheels_pages_current.xml.7z
+```
+
+```bash
+curl -fL -o ~/wiki-dumps/matchbox_pages_current.xml.7z https://s3.amazonaws.com/wikia_xml_dumps/m/ma/matchbox_pages_current.xml.7z
+```
+
+```bash
+cd /opt/collectai && docker compose -f docker-compose.prod.yml run --rm -v ~/wiki-dumps:/dumps:ro web php artisan catalog:import-wiki hot-wheels --from=1968 --to=2027 --dump=/dumps/hotwheels_pages_current.xml.7z
+```
+
+```bash
+cd /opt/collectai && docker compose -f docker-compose.prod.yml run --rm -v ~/wiki-dumps:/dumps:ro web php artisan catalog:import-wiki matchbox --from=1968 --to=2027 --dump=/dumps/matchbox_pages_current.xml.7z
+```
+
+…and the same pattern for `catalog:classify-series`, `catalog:import-wiki-photos`,
+`catalog:identify-castings` and `catalog:publish-imported`. The `.7z` files can
+be passed directly; they are unpacked on the fly. In production
+`CAPTURE_DISK=r2`, so imported photos go straight to the R2 bucket.
+
+**Deploying a code update** (on the server):
+
+```bash
+cd /opt/collectai && git pull && docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Migrations run automatically when the new container starts.
+
+---
+
+## 9. Tests and checks
+
+The tests run against a real PostgreSQL database (`diecast_testing`), never
+your development data.
+
+```bash
+docker compose exec app php artisan test
+```
+
+```bash
+docker compose exec app vendor/bin/pint --test
+```
+
+The first runs the 279 tests; the second checks code formatting (drop `--test`
+to fix it). Both must pass before merging. After any database change, also
+prove the schema builds from nothing — **this wipes the development
+database**:
+
+```bash
+docker compose exec app php artisan migrate:fresh --seed
+```
+
+---
+
+## 10. Troubleshooting
+
+| Symptom | Cause and fix |
+|---|---|
+| `MissingAppKeyException` | No app key: `docker compose exec app php artisan key:generate` |
+| The public site says "Nothing is published yet" | Everything imported is still pending. Do §4, or turn on **Preview pending** as admin to look anyway |
+| A brand or line page is a 404 for visitors | Same — nothing under it is live yet |
+| Pages look unstyled, or a new style does nothing | Rebuild the styles: `npm run build` |
+| A capture stays "queued" forever | No queue worker. Run `docker compose exec app php artisan queue:work` |
+| `identify-castings` stops with "The Claude API rejected the credential" | `COLLECTAI_ANTHROPIC_KEY` is missing or wrong in `.env`. It stops at the first batch rather than failing every one |
+| Photos don't show in development | Use `CAPTURE_DISK=local` until R2 is configured; check R2 with `php artisan capture:check-storage` |
+| Only ~150 cars have photos after step 4 | Expected — only those images are licensed for reuse (§3 step 4) |
+| A series is in the wrong main line | Add a rule to `config/catalog_lines.php` and re-run classification with `--reclassify` (§6.1) |
+| Lots of "skipped … identical row" lines after an import | Expected: those rows differ only in the wiki's Notes prose, which isn't imported |
+| `collectai.club` shows a 525 error | Nothing is deployed yet; the domain still points at the registrar's parking page. See [docs/deploy.md](docs/deploy.md) |
+| Tests wipe or touch your development data | Never expected — don't add `env_file:` to the `app` service in `docker-compose.yml` (see CLAUDE.md) |
+
+---
+
+## 11. Data rules you must not break
+
+These keep the catalog legal and original. The full reasoning is in
+[CLAUDE.md](CLAUDE.md) under *Data sources*.
+
+- **Facts yes, prose and other people's photos no.** Years, colours, wheels and
+  toy numbers are facts and are imported. The wikis' article text and *Notes*
+  are the editors' writing and are never imported.
+- **Wiki photos only with a reuse licence**, always credited (photographer,
+  licence, link) — the site prints the credit under the photo. A "Self" tag is
+  not a licence.
+- **Imported data is credited to the wiki** at the bottom of every car page
+  (the wikis are CC BY-SA). Don't remove that line.
+- **HWPriceGuide is not a source** — not its catalog, prices or photos. It's a
+  commercial competitor's product.
+- **Don't scrape images from the wider web.** Photos you take are the ones the
+  catalog can freely show.
+- **Check a new source's terms before writing an importer for it.**
+
+---
+
+## 12. Command reference
+
+All commands are run as `docker compose exec app php artisan <command>` (local)
+or `docker compose -f docker-compose.prod.yml run --rm web php artisan <command>`
+(production). Every one accepts `--help`.
+
+| Command | What it does | Useful options |
+|---|---|---|
+| `catalog:import-wiki {hot-wheels\|matchbox}` | Import castings, releases and variations from a wiki | `--from=1968 --to=2027`, `--year=`, `--dump=`, `--limit=`, `--dry-run` |
+| `catalog:import-hot-wheels` | Same as `catalog:import-wiki hot-wheels` (older name) | same |
+| `catalog:classify-series {wiki}` | Place sub-series under main lines | `--dump=`, `--dry-run`, `--reclassify` |
+| `catalog:import-wiki-photos {wiki}` | One licensed, credited photo per imported car | `--dump=`, `--limit=`, `--dry-run` |
+| `catalog:identify-castings` | AI: work out each car's real make/model (needs API key) | `--limit=`, `--dry-run`, `--threshold=`, `--regenerate` |
+| `catalog:publish-imported` | Publish imported releases/variations whose parents are live | `--dry-run` |
+| `capture:check-storage` | Test photo storage: write, read, public fetch, delete | — |
+| `queue:work` | Run background jobs (reading captures) | — |
+| `db:seed --class=AdminUserSeeder` | Create the admin account from `.env` | — |
+| `migrate` | Apply database changes | — |
+| `test` | Run the test suite | `--filter=` |
+
+**The whole pipeline, in order** (local; after §2):
+
+```bash
+docker compose exec app php artisan catalog:import-wiki hot-wheels --from=1968 --to=2027 --dump=storage/app/wiki-dumps/hotwheels_pages_current.xml
+```
+
+```bash
+docker compose exec app php artisan catalog:import-wiki matchbox --from=1968 --to=2027 --dump=storage/app/wiki-dumps/matchbox_pages_current.xml
+```
+
+```bash
+docker compose exec app php artisan catalog:classify-series hot-wheels --dump=storage/app/wiki-dumps/hotwheels_pages_current.xml
+```
+
+```bash
+docker compose exec app php artisan catalog:classify-series matchbox --dump=storage/app/wiki-dumps/matchbox_pages_current.xml
+```
+
+```bash
+docker compose exec app php artisan catalog:import-wiki-photos hot-wheels --dump=storage/app/wiki-dumps/hotwheels_pages_current.xml
+```
+
+```bash
+docker compose exec app php artisan catalog:import-wiki-photos matchbox --dump=storage/app/wiki-dumps/matchbox_pages_current.xml
+```
+
+```bash
+docker compose exec app php artisan catalog:identify-castings --limit=500
+```
+
+```bash
+docker compose exec app php artisan catalog:publish-imported
+```
+
+Repeat the last two until `identify-castings` has nothing left, reviewing
+`/admin/proposals` in between.

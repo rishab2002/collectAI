@@ -460,6 +460,11 @@ from anywhere.
 
 ## How to work in this repo
 
+- **[README.md](README.md) is the owner's tutorial** — setup, the import
+  pipeline in order, making records live, where to edit what, deploy. It was
+  written 2026-11-03 by running every command in it against a fresh database.
+  When a command, option, `.env` setting or config file changes, update the
+  README in the same change, and re-run the commands you touched.
 - **When the work is finished, merge the session's branch into `main` and push
   both.** The owner's standing instruction (2026-11-03): don't leave finished
   work sitting on a feature branch. Gate it first — `php artisan test` green and
