@@ -1,7 +1,9 @@
 <x-layouts.app title="Review queue">
-    <div class="flex items-baseline justify-between gap-4">
+    {{-- Title and actions stack on a phone: three buttons beside the title
+         squeezed it into a column and broke "Add a car" over two lines. --}}
+    <div class="flex flex-wrap items-center justify-between gap-3">
         <h1 class="text-xl font-semibold">Review queue</h1>
-        <div class="flex items-baseline gap-2">
+        <div class="flex flex-wrap items-center gap-2 whitespace-nowrap">
             <a
                 href="{{ route('admin.catalog.index') }}"
                 class="rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium dark:border-neutral-700"

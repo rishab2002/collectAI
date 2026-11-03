@@ -14,6 +14,8 @@ use App\Services\Catalog\VariationPhotos;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 /**
@@ -48,6 +50,7 @@ class CatalogController extends Controller
 
         return view('admin.catalog.index', [
             'castings' => $castings,
+            'brands' => $this->brandsFor($castings->pluck('id')->all()),
             'query' => $query,
             'total' => Casting::count(),
         ]);
@@ -120,6 +123,27 @@ class CatalogController extends Controller
         return redirect()
             ->to(route('admin.castings.show', $casting).'#variation-'.$variation->getKey())
             ->with($result->isLive() ? 'status' : 'warning', $message);
+    }
+
+    /**
+     * Which brands sold each casting, by casting id — one query for the page
+     * rather than walking versions, releases and series per row.
+     *
+     * @param  list<int>  $castingIds
+     * @return Collection<int, list<string>>
+     */
+    private function brandsFor(array $castingIds): Collection
+    {
+        return DB::table('casting_versions')
+            ->join('releases', 'releases.casting_version_id', '=', 'casting_versions.id')
+            ->join('series', 'series.id', '=', 'releases.series_id')
+            ->join('brands', 'brands.id', '=', 'series.brand_id')
+            ->whereIn('casting_versions.casting_id', $castingIds)
+            ->distinct()
+            ->orderBy('brands.name')
+            ->get(['casting_versions.casting_id', 'brands.name'])
+            ->groupBy('casting_id')
+            ->map(fn ($rows): array => $rows->pluck('name')->all());
     }
 
     /**

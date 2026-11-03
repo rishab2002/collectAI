@@ -47,7 +47,8 @@
 
     <p class="mt-4 text-sm text-neutral-500">
         {{ $releases->count() }} {{ Str::plural('release', $releases->count()) }},
-        {{ $releases->sum(fn ($release) => $release->variations->count()) }} variations
+        @php($variationCount = $releases->sum(fn ($release) => $release->variations->count()))
+        {{ $variationCount }} {{ Str::plural('variation', $variationCount) }}
     </p>
 
     <div class="mt-4 space-y-4">
