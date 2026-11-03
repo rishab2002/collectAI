@@ -388,7 +388,7 @@ apart — 12 pending proposals is the expected total, not a regression.
   are under [Catalog import](#catalog-import-fandom-wikis).
 - **Then budget before identifying.** Everything imported arrives unidentified,
   and `catalog:identify-castings` is a billed Claude call per 25 castings. A
-  full import multiplies the backlog by roughly twenty — decide on a `--limit`
+  full import takes the backlog from 241 castings to 3,642 (measured) — decide on a `--limit`
   per run rather than letting it walk the whole thing.
 - **Join the two agents up.** Metadata is currently driven by the import
   backlog only. A capture produces an OCR reading and still yields no proposals,
@@ -1015,8 +1015,24 @@ Regression-tested on verbatim pages under `tests/Fixtures/hotwheels-wiki/` and
   the renumbering reason above.
 
 **Measured, both wikis, every year, from the dumps** (cloud session 2026-11-03,
-fresh database): the run was still in progress when this was written — see the
-session log for the totals once recorded.
+fresh database, both wikis in one DB):
+
+| | Hot Wheels | Matchbox |
+|---|---|---|
+| Index titles → castings | 2,287 → 2,073 | 1,900 → 1,569 |
+| Casting versions | 2,290 | 1,587 |
+| Series | 4,245 | 2,325 |
+| Releases (years) | 22,631 (1968–2027) | 12,045 (1960–2027) |
+| Variations | 33,744 | 13,449 |
+| Provenance rows | 64,983 | 30,975 |
+| Skipped rows/pages | 539 | 209 |
+| Time | 448 s | 190 s |
+
+Index titles exceed castings because 243 / 377 of them are redirects. Skips are
+overwhelmingly rows identical in every column read — the Notes-only
+sub-variants, deliberately not distinguished. Every casting lands `pending`
+(3,642), as designed. A second Matchbox run created nothing and updated
+everything (163 s) — idempotent at full scale.
 
 **Parsing notes** (verified 2026-08-09): casting pages carry a `{{casting}}`
 infobox and a `==Versions==` wikitable with columns *Col # · Year · Series ·

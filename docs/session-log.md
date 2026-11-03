@@ -109,10 +109,22 @@ before deciding whether they were global or per-wiki:
 
 ### The full run
 
-Started on the final code into a fresh database; totals to be recorded here when it
-finishes. Spot checks mid-run: Mantis (1970, gallery index) 20 releases / 47
-variations; Python 30 variations across USA, Hong Kong and 2018-retool tooling;
-Baja Bug (caption fix) 76 variations; Lotus Turbine (bold heading) 17.
+Both wikis, every year, from the dumps, into one fresh database:
+**Hot Wheels** 2,073 castings, 22,631 releases, 33,744 variations in 448 s;
+**Matchbox** 1,569 castings, 12,045 releases, 13,449 variations in 190 s. Both
+exit cleanly. Every record has exactly one provenance row (64,983 and 30,975),
+and both brands are live under Mattel. All 3,642 castings are pending, as the
+blocker intends. A second Matchbox run over the same database created nothing
+and updated everything, so re-import is idempotent at full scale, not only for
+2011. The full table is in CLAUDE.md under *Catalog import*.
+
+Spot checks: Mantis (1970, read only through the gallery index) has 20 releases
+and 47 variations. Python has 30 variations across its USA, Hong Kong and
+2018-retool tooling. Baja Bug (the caption fix) has 76 and Lotus Turbine (the
+bold heading) 17.
+
+None of this is in the dev database on the Mac, which still holds 2011. The
+commands to reproduce it are in CLAUDE.md's *What to do next*.
 
 ### The other five brands
 
