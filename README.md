@@ -3,8 +3,10 @@
 A brand-agnostic catalog of diecast cars — Hot Wheels, Matchbox, Mini GT and
 whatever comes next — that collectors browse by **brand → main line →
 sub-series → car**. It is filled three ways: bulk-imported from the Hot Wheels
-and Matchbox wikis, typed in by hand, and photographed with a phone and read by
-an AI pipeline. Nothing goes public until it has been checked.
+and Matchbox wikis, typed in by hand, and photographed with a phone and read on
+the server itself. Collectors can photograph a pile of their own cars and add
+them to their collection. Nothing goes public until it has been checked, and
+nothing depends on an outside AI service.
 
 Built on Laravel 13 (PHP 8.4), PostgreSQL 16, Redis, and Cloudflare R2 for
 photos. Runs in Docker.
@@ -70,6 +72,12 @@ they get identified and published.
 | Browse like a collector | The public site at `/` |
 | Keep your own collection and wishlist | **Join** (top right), then *Add to my collection* on any car ([§5.6](#56-collector-accounts-and-collections)) |
 | Show what cars are worth | The daily price run ([§5.7](#57-prices-ebay-sold-ebay-asking-msrp)) |
+| Photograph a pile of your cars and add them to your collection | **Scan** (top bar) ([§5.8](#58-scan-a-pile-of-cars--scan)) |
+
+**No outside AI is needed.** Reading cards, scanning piles and naming the real
+car behind each casting all run on your own server: the *recognizer* (a small
+Python service using OpenCV and Tesseract) and a vehicle dictionary file. The
+Claude API is an optional switch (`CATALOG_AI_DRIVER=claude`), never required.
 
 ---
 
@@ -130,7 +138,7 @@ Open **http://localhost:8000** for the public site and
 
 ### 2.2 What is running
 
-`docker compose up -d` starts four containers:
+`docker compose up -d` starts five containers:
 
 | Container | Port | What it is |
 |---|---|---|
@@ -138,6 +146,7 @@ Open **http://localhost:8000** for the public site and
 | `db` | 5432 | PostgreSQL 16 — database `diecast`, plus `diecast_testing` for the tests |
 | `redis` | 6379 | Queue and cache |
 | `meilisearch` | 7700 | Not used yet (search isn't built) |
+| `recognizer` | 8090 | The local car recognizer (§5.8) — Python, OpenCV, Tesseract. `curl localhost:8090/health` |
 
 **Every `php artisan …` command in this README runs inside the app container**
 — that's why each one starts with `docker compose exec app`.
@@ -334,9 +343,40 @@ A car becomes public when **it and everything above it is live**. For imported
 cars the only thing standing in the way is "which real car is this?". Three
 steps clear it.
 
-### 4.1 Identify the real make and model (AI, costs money)
+### 4.1 Identify the real make and model (free, runs locally)
 
-Put your Anthropic API key in `.env`:
+By default this needs nothing but the app. Each casting's name is looked up in
+the vehicle dictionary **`resources/data/vehicles.json`** — about 95
+manufacturers, 870 nameplates and the Hot Wheels originals that aren't real
+cars. No API key, no cost, same answer every time:
+
+```bash
+docker compose exec app php artisan catalog:identify-castings --dry-run
+```
+
+```bash
+docker compose exec app php artisan catalog:identify-castings
+```
+
+Measured over all 6,810 imported castings (2026-11-03):
+
+| Outcome | Castings | What happens |
+|---|---|---|
+| Make **and** nameplate in the name (`'93 Mazda RX-7`) | 2,851 | Scored 0.93: published |
+| Nameplate only, one make sells it (`'67 Camaro`) | 311 | Scored 0.85: waits for you in §4.2 |
+| A known fantasy casting (`Bone Shaker`) | 44 | Published as fantasy |
+| Not in the dictionary | 3,604 | Left alone — stays pending |
+
+A spot check of 80 of the published answers found one wrong (fixed since). The
+dictionary never claims a generation, so cars are filed under the bare
+nameplate. **To identify more cars, add makes, nameplates and fantasy names to
+`vehicles.json`** and run the command again — it only touches cars not yet
+identified. (`needs_make` lists nameplates that are ordinary words, like
+"Phantom", which only count when the make is in the name too.)
+
+**Optional: the Claude API.** It knows far more cars and can name generations,
+but it is an outside service and costs money. Set `CATALOG_AI_DRIVER=claude`
+and put your Anthropic API key in `.env`:
 
 ```dotenv
 COLLECTAI_ANTHROPIC_KEY=sk-ant-...
@@ -346,8 +386,9 @@ COLLECTAI_ANTHROPIC_KEY=sk-ant-...
 > by other Anthropic tools on your machine and would switch them to billing this
 > key.
 
-Try it on a handful first. `--dry-run` throws the results away afterwards, but
-**the API calls are still made and billed** — 25 cars is one call:
+With that driver, try a handful first. `--dry-run` throws the results away
+afterwards, but **the API calls are still made and billed** — 25 cars is one
+call:
 
 ```bash
 docker compose exec app php artisan catalog:identify-castings --limit=25 --dry-run
@@ -466,12 +507,15 @@ The search shows every status, including pending.
 ### 5.4 Photograph a carded car — *New capture*
 
 On your phone: take the card front, card back and any loose angles, add the
-brand/year/series if you know them, and upload. The AI reads the packaging in
-the background.
+brand/year/series if you know them, and upload. The packaging is read in the
+background — by the local recognizer (Tesseract) by default, or by Claude with
+`CATALOG_AI_DRIVER=claude`. The local reader fills in the brand, collector
+number, toy number and (when it matches a catalog car confidently) the casting
+name; it leaves year and series empty rather than guess.
 
 This needs two things running that the others don't:
 
-1. `COLLECTAI_ANTHROPIC_KEY` set in `.env`.
+1. The recognizer (`docker compose up -d` starts it), or `COLLECTAI_ANTHROPIC_KEY` with the Claude driver.
 2. **A queue worker** — the reading happens in a background job:
 
 ```bash
@@ -586,6 +630,111 @@ past that, raise the budget and ask eBay for a higher limit.
 hobbyDB (it blocks automated access outright), and toy-store pages for MSRP
 (their terms forbid scraping). See [§11](#11-data-rules-you-must-not-break).
 
+### 5.8 Scan a pile of cars — *Scan*
+
+Signed-in collectors get **Scan** in the top bar (`/scan`). Upload up to six
+photos, say what they show, and confirm what was found:
+
+1. **Lay the cars out** on a plain surface that contrasts with them (a white
+   sheet for dark cars, a dark one for light cars), **not touching** — cars
+   that touch are seen as one blob.
+2. **Turn them upside down if you can.** The base carries the casting name, a
+   © year and often a code, and those are what the scanner reads. Right way up,
+   a car is found and its colour noted, but colour and wheels alone aren't
+   enough to name a car yet.
+3. Choose **Several cars, spread out** — or **One car close up** for a single
+   base or a card (otherwise the printed words on a close-up are mistaken for
+   separate objects).
+4. On the results page:
+   - **Identified — confirm each one.** Only cars the scanner is sure of appear
+     here (score ≥ 0.9 *and* clearly ahead of the next possibility). It names
+     the casting; you pick the version in your hand from its list, which puts
+     the ones whose colour — body or base — matches the photo first. *Add to
+     my collection* adds one (or one more, if you already have it).
+   - **Found, but not sure what they are.** No guesses. *Name it* lets you
+     search the catalog and pick the car yourself.
+5. **Help teach the scanner** (the tick box) keeps the picture of each car you
+   confirm or name, with what it is. That is the training data for a future
+   recognizer that can name loose cars from the top (§5.9). Unticked, the
+   pictures are deleted when you finish the scan, or after 24 hours.
+
+Pictures are stored privately (`SCAN_DISK`, the `local` disk by default — not
+the public photo bucket) and only the collector who took them can see them.
+Nothing is sent to any outside service.
+
+The scanner matches against **`storage/app/recognition/catalog-index.json`**,
+a file the app writes nightly with every live car. Write it now with:
+
+```bash
+docker compose exec app php artisan catalog:export-recognition-index
+```
+
+The recognizer notices the new file by itself. Only **live** cars are in it
+(only those can be collected); a car you publish today is scannable after the
+next export.
+
+**What it is measured to do, and what isn't measured.** On rendered test
+images it finds every separate car, names its colour, reads base text the right
+way up or upside down, and tells same-named castings apart by the © year
+(Hot Wheels and Matchbox both make a "Bone Shaker"). Matching a photo against
+all 6,810 castings and 51,236 variations takes about 3 seconds for three cars.
+**It has not yet been measured on real phone photos of real bases** — embossed
+base text is small and low-contrast, so expect it to read some bases and not
+others. Real photos will tell; `RECOGNIZER_MIN_CONFIDENCE` is the dial if it
+offers too much or too little.
+
+### 5.9 Run the recognizer yourself
+
+The recognizer is `recognizer/`, a self-contained Python program. You can run
+it on your own computer against your own photos, with no website and no network.
+
+**Needs:** Python 3.11+ and Tesseract (`brew install tesseract` on a Mac,
+`sudo apt install tesseract-ocr` on Linux).
+
+```bash
+cd recognizer && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+```
+
+Copy the catalog file from the site (or write one from your own database —
+`--include-pending` adds cars still in review):
+
+```bash
+docker compose exec app php artisan catalog:export-recognition-index --include-pending --path=storage/app/recognition/my-index.json
+```
+
+Then scan photos:
+
+```bash
+.venv/bin/python -m collectai_recognizer --index ../storage/app/recognition/my-index.json scan ~/Pictures/pile.jpg --all --save-crops /tmp/crops
+```
+
+It prints each car it is sure of, with its reasons and the best-matching
+version, and with `--all` the ones it isn't. `--json` prints everything;
+`--layout single` is for close-ups; `card photo.jpg` reads a carded car;
+`serve --port 8090` runs the same HTTP service the website uses. Its tests:
+
+```bash
+.venv/bin/python -m unittest discover -s tests -t .
+```
+
+**About training "our own model".** Phase 1 (this) needs no training: it reads
+text and matches it against the catalog file. Naming a *loose car seen from
+above* by its shape, colour and wheels needs a model trained on many labelled
+photos of real cars — and the only lawful source of those is collectors'
+consented scans (§5.8, step 5). Once there are a few thousand, export them:
+
+```bash
+docker compose exec app php artisan catalog:export-training-data storage/app/training
+```
+
+That writes `images/<variation>/<n>.jpg` and `manifest.jsonl` (variation,
+casting, colour, wheel type, and whether the collector confirmed a suggestion
+or named the car). Training and running that model on this server is phase 3 of
+[docs/multi-car-recognition.md](docs/multi-car-recognition.md); nothing has been
+trained yet because there is no data yet.
+
+---
+
 ## 6. Where to edit things, and what each edit does
 
 ### 6.1 How series are grouped into main lines — `config/catalog_lines.php`
@@ -642,9 +791,14 @@ cd /opt/collectai && docker compose -f docker-compose.prod.yml up -d --force-rec
 | `CAPTURE_DISK` | Where photos are stored: `local` (this machine) or `r2` (Cloudflare R2, needed in production). Each photo remembers its disk, so switching later doesn't break old photos |
 | `CAPTURE_MAX_PHOTO_KB` | Largest photo accepted (default 12 MB) |
 | `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_ENDPOINT`, `R2_URL` | The R2 bucket. `R2_URL` is the public address photos are served from (`https://img.collectai.club`). Test with `php artisan capture:check-storage` |
-| `COLLECTAI_ANTHROPIC_KEY` | Enables the AI: reading captures and identifying cars |
-| `METADATA_MODEL`, `METADATA_EFFORT`, `METADATA_BATCH_SIZE` | The identifying AI: which model, how hard it thinks, cars per call |
-| `OCR_MODEL`, `OCR_EFFORT`, `OCR_MAX_PHOTOS` | The capture-reading AI. Prefer raising `OCR_EFFORT` before changing the model |
+| `CATALOG_AI_DRIVER` | `local` (default): cards are read by the recognizer, cars named by `resources/data/vehicles.json` — nothing leaves the server. `claude`: use the Claude API instead |
+| `RECOGNIZER_URL` | Where the recognizer listens (`http://recognizer:8080` in Docker) |
+| `RECOGNIZER_MIN_CONFIDENCE` (0.9), `RECOGNIZER_MIN_MARGIN` (0.08) | How sure the scanner must be, and how far ahead of the next car, before it offers a car. Raise for fewer, surer answers |
+| `SCAN_DISK` (`local`), `SCAN_MAX_PHOTOS` (6), `SCAN_UNCONSENTED_HOURS` (24) | Where scan pictures are kept (keep it private), photos per scan, and how long pictures of collectors who didn't tick "help teach" are kept at most |
+| `COLLECTAI_ANTHROPIC_KEY` | Only with `CATALOG_AI_DRIVER=claude`: the Claude API key |
+| `METADATA_MODEL`, `METADATA_EFFORT`, `METADATA_BATCH_SIZE` | Claude driver only: the identifying model, how hard it thinks, cars per call |
+| `OCR_MODEL`, `OCR_EFFORT` | Claude driver only: the capture-reading model. Prefer raising `OCR_EFFORT` before changing the model |
+| `OCR_MAX_PHOTOS` | Most photos of a capture that are read (either driver) |
 | `IMPORT_AUTO_APPROVE_THRESHOLD` (0.9) | How sure the AI must be (0–1) for an identification to publish without you. Lower = less review work, more risk |
 | `IMPORT_GENERATION_THRESHOLD` (0.65) | How sure it must be before recording a car's generation (e.g. "C3 1968–1982") |
 | `REVIEW_AUTO_APPROVE_THRESHOLD` (1.0) | The same for captures. At 1.0 nothing a person photographed publishes without review — keep it there |
@@ -928,6 +1082,9 @@ docker compose exec app php artisan migrate:fresh --seed
 | A brand or line page is a 404 for visitors | Same — nothing under it is live yet |
 | Pages look unstyled, or a new style does nothing | Rebuild the styles: `npm run build` |
 | A capture stays "queued" forever | No queue worker. Run `docker compose exec app php artisan queue:work` |
+| Scan says "The recognizer isn't running" | Start it: `docker compose up -d recognizer`. Check it with `curl localhost:8090/health` |
+| Scan finds cars but identifies none | Is the catalog file there and are cars live? `curl localhost:8090/health` shows its counts; write it with `catalog:export-recognition-index`. Then: turn the cars over so the base text shows, and use good light |
+| Scan sees two touching cars as one, or a base's words as several cars | Spread the cars apart; choose *One car close up* for a single base or card |
 | `identify-castings` stops with "The Claude API rejected the credential" | `COLLECTAI_ANTHROPIC_KEY` is missing or wrong in `.env`. It stops at the first batch rather than failing every one |
 | Photos don't show in development | Use `CAPTURE_DISK=local` until R2 is configured; check R2 with `php artisan capture:check-storage` |
 | Only ~150 cars have photos after step 4 | Expected — only those images are licensed for reuse (§3 step 4) |
@@ -999,10 +1156,13 @@ or `docker compose -f docker-compose.prod.yml run --rm web php artisan <command>
 | `catalog:import-wiki-catalog {tomica\|mini-gt}` | Import Tomica (all five lines) or Mini GT from their wikis' API | `--limit=`, `--dry-run` |
 | `catalog:classify-series {wiki}` | Place sub-series under main lines | `--dump=`, `--dry-run`, `--reclassify` |
 | `catalog:import-wiki-photos {wiki}` | One licensed, credited photo per imported car | `--dump=`, `--limit=`, `--dry-run` |
-| `catalog:identify-castings` | AI: work out each car's real make/model (needs API key) | `--limit=`, `--dry-run`, `--threshold=`, `--regenerate` |
+| `catalog:identify-castings` | Work out each car's real make/model — locally from `vehicles.json`, or with Claude if `CATALOG_AI_DRIVER=claude` | `--limit=`, `--dry-run`, `--threshold=`, `--regenerate` (Claude only) |
+| `catalog:export-recognition-index` | Write the catalog file the recognizer matches against (nightly on its own) | `--path=`, `--include-pending` |
+| `catalog:export-training-data {dir}` | Export consented, confirmed scan pictures with their labels | — |
+| `catalog:prune-scans` | Delete pictures of unconsented scans past their window (hourly on its own) | — |
 | `catalog:publish-imported` | Publish imported releases/variations whose parents are live | `--dry-run` |
 | `catalog:update-prices` | Refresh prices (runs daily on its own via the scheduler) | `--limit=`, `--msrp-only`, `--dry-run` |
-| `schedule:work` | Run the daily jobs (prices) — automatic in production | — |
+| `schedule:work` | Run the scheduled jobs (prices, recognition index, scan pruning) — automatic in production | — |
 | `capture:check-storage` | Test photo storage: write, read, public fetch, delete | — |
 | `queue:work` | Run background jobs (reading captures) | — |
 | `db:seed --class=AdminUserSeeder` | Create the admin account from `.env` | — |
@@ -1059,5 +1219,9 @@ docker compose exec app php artisan catalog:identify-castings --limit=500
 docker compose exec app php artisan catalog:publish-imported
 ```
 
-Repeat the last two until `identify-castings` has nothing left, reviewing
-`/admin/proposals` in between.
+```bash
+docker compose exec app php artisan catalog:export-recognition-index
+```
+
+Review `/admin/proposals` (§4.2), then run `catalog:publish-imported` and the
+export once more for whatever you approved.

@@ -471,6 +471,9 @@ class CastingIdentificationTest extends TestCase
     {
         $this->importedCasting('Bone Shaker');
 
+        // The Claude driver: the local one has no credential to reject.
+        config(['catalog.ai.driver' => 'claude']);
+
         $this->app->bind(
             MetadataAgent::class,
             fn (): MetadataAgent => new MetadataAgent($this->clientFailingWith(401, 'authentication_error')),

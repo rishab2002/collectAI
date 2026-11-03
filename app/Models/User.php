@@ -49,6 +49,11 @@ class User extends Authenticatable
         return $this->hasMany(UserCollectionItem::class);
     }
 
+    public function scans(): HasMany
+    {
+        return $this->hasMany(Scan::class);
+    }
+
     public function wishlist(): BelongsToMany
     {
         return $this->belongsToMany(Variation::class, 'user_wishlist_items')

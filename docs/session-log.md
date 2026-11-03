@@ -14,6 +14,85 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-11-03 (night) — Recognition phase 1, and no outside AI required
+
+**Asked:** phase 1 of multi-car recognition, with loose cars (a pile) as the main
+case and base text read where visible; only highly confident results, for
+confirmation; something the owner can run themselves; and the site not to rely
+on Claude API calls — with the data the model needs in a file, and a model of
+our own running on our servers if inference is needed.
+
+**Built:**
+
+- `recognizer/` — a standalone Python service (OpenCV 4.11 + Tesseract 5, numpy;
+  stdlib HTTP server, no framework). Segments cars against the photo's border
+  colour, names each one's colour family, reads text the right way up and at
+  180° (bases are photographed every which way), and matches it against the
+  catalog index file. Confident = score ≥ 0.9 **and** ≥ 0.08 ahead of the next
+  *different* casting. CLI (`scan`, `card`, `serve`) and 25 unittest tests.
+- `catalog:export-recognition-index` — the "hardcoded data file": every live
+  casting and variation with brand, years, colour + colour family, base colour,
+  wheels, toy number and series path. Nightly. 6,810 castings / 51,236
+  variations is 10 MB and loads in 0.4 s.
+- The **Scan** page (`/scan`, `ScanController`, `ScanProcessor`, `scans` +
+  `scan_detections`). Confident cars are offered with their versions ordered by
+  colour; the rest are shown as "found, not sure" with a search to name them.
+  Consent box keeps the crops as training data; otherwise they're deleted when
+  the scan is answered or after 24 h. `catalog:export-training-data` writes the
+  consented, labelled crops for phase 2/3.
+- **`CATALOG_AI_DRIVER=local` (default)**: `ReadsPackaging` → `LocalPackagingReader`
+  (the recognizer's `/read-card`), `IdentifiesCastings` → `LocalMetadataAgent`
+  (`resources/data/vehicles.json`). The Claude agents remain behind `claude`.
+
+**Measured, not assumed:**
+
+- Local make/model over all 6,810 imported castings: 2,851 make + nameplate
+  (0.93, publish), 311 nameplate-only (0.85, review), 44 fantasy, 3,604
+  unknown. A sample of 80 published answers had one error ("DeLorean Alpha5" as a
+  DMC-12 — a model alias equal to the make's own name); fixed by dropping the
+  alias. The review bucket was noisier ("Toyoace Livestock *Transporter*" as a
+  VW Type 2, "Cancelled *Models*" as a Tesla Model S): fixed by `needs_make`
+  (ordinary-word nameplates count only beside their make) and by allowing
+  run-together matching ("RX7" for "RX-7") only when the phrase has a digit.
+- Recognizer, against the full index, on a rendered pile of three bases: all
+  three identified in 2.9 s, including telling the Hot Wheels Bone Shaker from
+  the same-named Matchbox one by the © year. Driven in Chromium at phone width:
+  7 cars found in two photos, 3 identified, confirm and name-by-hand both work,
+  no CSP violations.
+- Tesseract read "'93" as "'95" and the hyphen in "RX-7" at 0.35 confidence on
+  the rendered font. Words under 0.4 are dropped, so the answer was "not sure",
+  not the wrong RX-7. That test is kept on purpose.
+
+**Calls made, and why:**
+
+- **Colour never identifies a car on its own.** It orders a confident casting's
+  versions. A red car is any of thousands; offering a guess on colour would
+  break "only what it's sure of". Loose cars right way up are found and
+  coloured, and say so.
+- **Numbers in names must be read exactly.** Fuzzy similarity scores "RX-3"
+  0.93 against "RX-7"; in car names the digit is usually the whole difference.
+- **The © year is corroboration, both ways** (+0.03 if it fits the first
+  release, −0.1 if it is after the last release or long before the first).
+- **Colour is compared against base colour too.** Discovered from the
+  screenshot: upside-down cars show their base, so ranking by body colour
+  ranked the wrong versions first. The index carries `base_color_family`.
+- **`layout` is asked, not only guessed.** On a close-up the printed words
+  stand out from the metal exactly as cars stand out from a table; no
+  heuristic separated them reliably, so the form asks.
+- **Scan pictures are private** (`local` disk, owner-only route,
+  `Cache-Control: private`), not the public R2 bucket, and only the crop of each
+  car is stored, never the whole photo.
+- **The local metadata agent claims no generation.** A model year in a name
+  doesn't say which generation's years it falls into.
+
+**Not done, honestly:** no real phone photo has been through the recognizer —
+base-text reading accuracy on real embossed bases is unmeasured. No model has
+been trained: there is no lawful training data until collectors consent. The
+`recognizer` Docker image was not built here (no Docker in the cloud session);
+the Python ran in a venv with the same pinned versions.
+
+---
+
 ## 2026-11-03 (end) — Photo copying declined; iPhone shell; hosting and TestFlight guide; recognition plan
 
 The request had three photo options, all declined:

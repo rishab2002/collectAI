@@ -27,8 +27,15 @@ One Lightsail instance running `docker-compose.prod.yml`:
 |---|---|
 | `web` | nginx + php-fpm under supervisord, ports 80/443 |
 | `worker` | `queue:work` — **without this every capture silently skips OCR** |
+| `scheduler` | `schedule:work` — daily prices, the nightly recognition index, hourly scan pruning |
+| `recognizer` | the local car recognizer (Python, OpenCV, Tesseract); compose network only, no ports. Reads cards and scans with no outside API |
 | `db` | Postgres 16, named volume, not published to the host |
 | `redis` | queues and cache, append-only |
+
+Two named volumes besides the database's: `appstorage` (scan pictures — private,
+so not in R2) and `recognition` (the catalog index, written by the app and read
+by the recognizer). After the first deploy, write the index once instead of
+waiting for the night: `docker compose -f docker-compose.prod.yml run --rm web php artisan catalog:export-recognition-index`.
 
 Meilisearch is deliberately absent: `laravel/scout` is not installed, so it
 would index nothing while consuming a few hundred MB.

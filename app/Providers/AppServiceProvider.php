@@ -3,6 +3,12 @@
 namespace App\Providers;
 
 use Anthropic\Client;
+use App\Services\AI\Contracts\IdentifiesCastings;
+use App\Services\AI\Contracts\ReadsPackaging;
+use App\Services\AI\LocalMetadataAgent;
+use App\Services\AI\LocalPackagingReader;
+use App\Services\AI\MetadataAgent;
+use App\Services\AI\OcrAgent;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -36,6 +42,19 @@ class AppServiceProvider extends ServiceProvider
             Client::class,
             fn (): Client => new Client(apiKey: config('catalog.anthropic.api_key')),
         );
+
+        // Who reads cards and names cars: the local recognizer and vehicle
+        // dictionary (default — nothing leaves the server), or the Claude API
+        // when CATALOG_AI_DRIVER=claude. Resolved per call, through the
+        // concrete classes, so a test can still bind either one directly.
+        $this->app->bind(ReadsPackaging::class, fn ($app): ReadsPackaging => config('catalog.ai.driver') === 'claude'
+            ? $app->make(OcrAgent::class)
+            : $app->make(LocalPackagingReader::class));
+
+        $this->app->bind(IdentifiesCastings::class, fn ($app): IdentifiesCastings => config('catalog.ai.driver') === 'claude'
+            ? $app->make(MetadataAgent::class)
+            : $app->make(LocalMetadataAgent::class));
+        $this->app->singleton(LocalMetadataAgent::class);
     }
 
     /**
@@ -60,5 +79,9 @@ class AppServiceProvider extends ServiceProvider
         // Collection and account writes: generous for a person, a wall for a
         // script.
         RateLimiter::for('account', fn (Request $request): Limit => Limit::perMinute(60)->by($request->user()?->id ?: $request->ip()));
+
+        // A scan is seconds of CPU on our own box per photo; plenty for a
+        // collector working through a shelf, a wall for a script.
+        RateLimiter::for('scan', fn (Request $request): Limit => Limit::perHour(60)->by($request->user()?->id ?: $request->ip()));
     }
 }

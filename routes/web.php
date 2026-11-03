@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Account\AccountController;
 use App\Http\Controllers\Account\CollectionController;
+use App\Http\Controllers\Account\ScanController;
 use App\Http\Controllers\Admin\CaptureController;
 use App\Http\Controllers\Admin\CatalogController;
 use App\Http\Controllers\Admin\DashboardController;
@@ -45,6 +46,15 @@ Route::middleware(['auth', 'throttle:account'])->group(function () {
     Route::delete('collection/{item}', [CollectionController::class, 'destroy'])->whereNumber('item')->name('collection.destroy');
     Route::post('wishlist', [CollectionController::class, 'wish'])->name('wishlist.store');
     Route::delete('wishlist/{variation}', [CollectionController::class, 'unwish'])->whereNumber('variation')->name('wishlist.destroy');
+
+    // Scan: photograph your cars, confirm what the local recognizer found.
+    Route::get('scan', [ScanController::class, 'index'])->name('scan.index');
+    Route::post('scan', [ScanController::class, 'store'])->middleware('throttle:scan')->name('scan.store');
+    Route::get('scan/{scan}', [ScanController::class, 'show'])->whereNumber('scan')->name('scan.show');
+    Route::delete('scan/{scan}', [ScanController::class, 'destroy'])->whereNumber('scan')->name('scan.destroy');
+    Route::post('scan/{scan}/detections/{detection}/add', [ScanController::class, 'add'])->whereNumber(['scan', 'detection'])->name('scan.add');
+    Route::post('scan/{scan}/detections/{detection}/reject', [ScanController::class, 'reject'])->whereNumber(['scan', 'detection'])->name('scan.reject');
+    Route::get('scan/{scan}/detections/{detection}/crop', [ScanController::class, 'crop'])->whereNumber(['scan', 'detection'])->name('scan.crop');
 
     Route::get('account', [AccountController::class, 'show'])->name('account.show');
     Route::put('account/password', [AccountController::class, 'password'])->name('account.password');

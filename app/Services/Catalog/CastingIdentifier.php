@@ -12,7 +12,7 @@ use App\Models\Make;
 use App\Models\SubmissionProposal;
 use App\Models\VehicleModel;
 use App\Services\AI\CastingIdentity;
-use App\Services\AI\MetadataAgent;
+use App\Services\AI\Contracts\IdentifiesCastings;
 use App\Services\Import\ImportSummary;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -39,7 +39,7 @@ use Illuminate\Support\Facades\DB;
 final class CastingIdentifier
 {
     public function __construct(
-        private readonly MetadataAgent $agent,
+        private readonly IdentifiesCastings $agent,
         private readonly ?float $threshold = null,
         private readonly ?float $generationThreshold = null,
     ) {}

@@ -50,6 +50,7 @@
 
                 @auth
                     <div class="flex items-center gap-4">
+                        <a href="{{ route('scan.index') }}" class="text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100">Scan</a>
                         <a href="{{ route('collection.index') }}" class="text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100">My collection</a>
                         @if (auth()->user()->is_admin)
                             <a href="{{ route('admin.dashboard') }}" class="text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100">Admin</a>

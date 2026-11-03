@@ -6,7 +6,7 @@ use Anthropic\Core\Exceptions\AuthenticationException;
 use Anthropic\Core\Exceptions\PermissionDeniedException;
 use App\Models\Casting;
 use App\Models\VehicleModel;
-use App\Services\AI\MetadataAgent;
+use App\Services\AI\Contracts\IdentifiesCastings;
 use App\Services\Catalog\CastingIdentifier;
 use App\Services\Import\ImportSummary;
 use Illuminate\Console\Command;
@@ -89,15 +89,16 @@ class IdentifyCastings extends Command
             $this->warn(' and a casting whose make or model no longer agrees with the catalogue is left alone.');
         }
 
-        $this->line(sprintf(' Model: %s · effort: %s · auto-approve at or above %.2f · generation at or above %.2f.',
-            config('catalog.metadata.model'),
-            config('catalog.metadata.effort'),
+        $this->line(sprintf(' %s · auto-approve at or above %.2f · generation at or above %.2f.',
+            config('catalog.ai.driver') === 'claude'
+                ? sprintf('Claude API: %s, effort %s', config('catalog.metadata.model'), config('catalog.metadata.effort'))
+                : 'Local vehicle dictionary ('.basename(config('catalog.ai.vehicles')).') — no API calls',
             $threshold,
             (float) config('catalog.import.generation_threshold'),
         ));
         $this->newLine();
 
-        $identifier = new CastingIdentifier($this->laravel->make(MetadataAgent::class), $threshold);
+        $identifier = new CastingIdentifier($this->laravel->make(IdentifiesCastings::class), $threshold);
         $summary = new ImportSummary;
 
         try {

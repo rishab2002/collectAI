@@ -5,10 +5,11 @@ domain model, conventions and current state only have to be explained once.
 **Treat this file as the source of truth, not the conversation history** —
 update it whenever a convention changes.
 
-**Last edited:** 2026-11-03 (collector accounts and collections; monthly prices
-from eBay's official APIs with MSRP fallback; security headers and hardening;
-Tomica/Mini GT/Lesney imports; public catalog. **Still nothing deployed** — the
-apex is unchanged)
+**Last edited:** 2026-11-03 night (recognition phase 1: the local `recognizer/`
+service and the collector Scan page; **the Claude API is now optional** —
+`CATALOG_AI_DRIVER=local` is the default. Earlier the same day: accounts,
+prices, security, Tomica/Mini GT/Lesney, public catalog. **Still nothing
+deployed** — the apex is unchanged)
 
 ## Start here
 
@@ -54,7 +55,7 @@ The five things most likely to trip you up, each expanded below:
 - [How to work in this repo](#how-to-work-in-this-repo) — conventions, traps
 - [Domain model](#domain-model) — [Make/Model splitting](#makemodel-splitting-rules) · [field definitions](#field-definitions)
 - [AI agent pipeline](#ai-agent-pipeline) — [example flow](#example-flow) · [acquisition priorities](#data-acquisition-priorities)
-- [Settled decisions](#settled-decisions) — [schema](#schema) · [approval](#approval--submissions) · [capture](#capture) · [AI pipeline](#ai-pipeline) · [catalog import](#catalog-import-fandom-wikis) · [data sources](#data-sources) · [main lines](#main-lines) · [Make/Model inference](#makemodel-inference) · [review](#review) · [manual entry](#manual-entry) · [accounts](#accounts-and-security) · [delivery](#delivery) · [deployment](#deployment)
+- [Settled decisions](#settled-decisions) — [schema](#schema) · [approval](#approval--submissions) · [capture](#capture) · [AI pipeline](#ai-pipeline) · [recognition](#recognition) · [catalog import](#catalog-import-fandom-wikis) · [data sources](#data-sources) · [main lines](#main-lines) · [Make/Model inference](#makemodel-inference) · [review](#review) · [manual entry](#manual-entry) · [accounts](#accounts-and-security) · [delivery](#delivery) · [deployment](#deployment)
 - [Open questions](#open-questions)
 - [Session log](docs/session-log.md) — narrative and rationale, loaded on demand
 
@@ -67,8 +68,11 @@ honest — it's the fastest way for a new session to avoid assuming something
 exists.*
 
 **Running:** `docker compose up -d` brings up `app` (:8000), `db` (Postgres 16,
-:5432), `redis` (:6379), `meilisearch` (:7700). `php artisan test` → **313
-passed, 1,124 assertions** (re-measured 2026-11-03).
+:5432), `redis` (:6379), `meilisearch` (:7700), `recognizer` (:8090).
+`php artisan test` → **358 passed, 1,448 assertions**; the recognizer's own
+`python -m unittest discover -s tests -t .` (in `recognizer/`) → **22 passed**
+(both re-measured 2026-11-03 night). The `recognizer` Docker image has not been
+built yet — the Python ran in a venv with the same pinned versions.
 
 **The dev database holds the import *plus* seed data, so its counts are not the
 import's counts.** `CatalogSeeder` and `SubmissionSeeder` contribute 9 castings
@@ -144,7 +148,7 @@ There is still no CI: no `.github/workflows`, and a deploy is `git pull` plus
 queue worker, `APP_URL=http://localhost` — reachable only from this Mac on
 `localhost:8000`.
 
-**The HTTP surface is thirty-six routes** (`routes/web.php`, counted with `route:list` 2026-11-03). The table lists the catalog and admin ones; the collector routes are `/register`, `/collection` (GET/POST/PATCH/DELETE), `/wishlist`, `/account` (GET/PUT password/DELETE):
+**The HTTP surface is forty-six routes** by `route:list` (2026-11-03 night; that count includes `up` and two `storage/{path}`). The table lists the catalog and admin ones; the collector routes are `/register`, `/collection` (GET/POST/PATCH/DELETE), `/wishlist`, `/account` (GET/PUT password/DELETE) and `/scan` (index, store, show, destroy, and per detection add/reject/crop):
 
 | Route | State |
 |---|---|
@@ -320,8 +324,29 @@ queue worker, `APP_URL=http://localhost` — reachable only from this Mac on
   locally; nothing is deployed. See [Deployment](#deployment) for the settled
   calls.
 
+- **Recognition phase 1** (`recognizer/`, `app/Services/Recognition/`,
+  `ScanController`, `resources/views/scan/`, `scans` + `scan_detections`).
+  A standalone Python service (OpenCV + Tesseract, stdlib HTTP) finds the cars
+  in a photo, names their colour family, reads base/card text and matches it
+  against `storage/app/recognition/catalog-index.json`
+  (`catalog:export-recognition-index`, nightly). Collectors confirm confident
+  cars into their collection at `/scan`; consented crops become training data
+  (`catalog:export-training-data`); unconsented ones are deleted
+  (`catalog:prune-scans`, hourly). See [Recognition](#recognition).
+- **No outside AI is required.** `CATALOG_AI_DRIVER=local` (default) binds
+  `ReadsPackaging` → `LocalPackagingReader` (the recognizer's `/read-card`) and
+  `IdentifiesCastings` → `LocalMetadataAgent` (`resources/data/vehicles.json`).
+  `claude` brings back `OcrAgent` / `MetadataAgent`. Measured locally over all
+  6,810 imported castings: 2,851 published-grade, 311 for review, 44 fantasy,
+  3,604 unknown.
+
 **Not built — do not assume these exist:**
 
+- **No trained model.** "Our own distilled model" is phase 3 of
+  `docs/multi-car-recognition.md` and needs consented, labelled scan crops that
+  don't exist yet. Phase 1 reads text; it cannot name a loose car seen from
+  above. Real-photo accuracy of base reading is **unmeasured** — only rendered
+  test images have been through it.
 - **Two of the seven agents exist, and they are not yet joined up.** OCR reads
   packaging text into `submissions.ocr_output`; Metadata attributes *imported
   castings* from their names. Nothing connects the two: Metadata is driven by
@@ -682,10 +707,11 @@ For consistency across agents and manual entry.
 **Agents 2 and 3 of 7 are written** — see [Current state](#current-state). They
 are not yet joined to each other: OCR runs off a capture, Metadata runs off the
 import backlog. The tables the rest write into, and the approve/reject mechanics
-they feed, are built and tested.
+they feed, are built and tested. **Each has a local implementation that is the
+default** (`CATALOG_AI_DRIVER`); the Claude versions are optional.
 
 Order matters; later agents depend on earlier output. Only the first three
-should call the Claude API directly. Everything from Comparison onward should be
+may use a model at all, and by default none of them calls an outside API. Everything from Comparison onward should be
 deterministic application code, not LLM calls — cheaper, faster and more
 reliable for DB matching.
 
@@ -1412,6 +1438,45 @@ the [session log](docs/session-log.md).*
   leaves a correctly entered car without photos, not a lost entry.
 - **No JavaScript involved.** Plain multipart forms with visible file inputs, so
   manual entry keeps working if the bundle breaks.
+
+### Recognition
+
+*Recognition phase 1 and the local AI driver, 2026-11-03 night. Reasoning and
+measurements in the [session log](docs/session-log.md).*
+
+- **The site must not depend on an outside AI API** (owner's requirement).
+  Anything that needs a model runs on our own box; the Claude agents stay as an
+  opt-in driver, never a dependency. A new agent gets a local implementation
+  behind an interface (`app/Services/AI/Contracts/`) first.
+- **The recognizer never touches the database.** It reads one JSON file
+  (`catalog:export-recognition-index`), so it runs anywhere — including on the
+  owner's own computer. Keep it that way: no DB driver in `recognizer/`.
+- **`recognizer/data/colour_families.json` is the one colour vocabulary** —
+  pixels → family in Python, catalog words → family in PHP
+  (`ColourFamilies`). Edit families there, never in either language.
+- **Confident means ≥ `min_confidence` (0.9) and ≥ `min_margin` (0.08) ahead
+  of the next *different* casting.** A tie between same-named castings is not
+  an answer. Same rule as the import threshold: err towards "not sure".
+- **Colour orders versions; it never picks a casting.** Compared against body
+  and base colour, because an upside-down car shows its base.
+- **Numbers in a name must be read exactly** (RX-3 is not RX-7), and words
+  Tesseract scores under 0.4 are not evidence. Both are deliberate; don't loosen
+  them to make a test photo pass.
+- **`layout` (auto/pile/single) is asked**, because on a close-up the printed
+  words stand out from the metal like cars from a table.
+- **Scan pictures are private and minimal**: crops only (never the whole
+  photo), on `catalog.recognition.disk` (the private `local` disk, a volume in
+  production), served only to their owner with `Cache-Control: private`.
+  Without consent they are deleted when the scan is answered or after 24 h.
+- **Training data is consented scan crops and nothing else** — the
+  *Data sources* rules apply to training exactly as to catalog photos.
+- **`LocalMetadataAgent` scores**: make + nameplate in the name 0.93 (publishes
+  at the 0.9 import bar), nameplate only 0.85 (review), fantasy list 0.95. It
+  never claims a generation. Ordinary-word nameplates (`needs_make`) count only
+  beside their make; run-together matching only for phrases with a digit.
+  Measure precision on the full catalog before changing any of this.
+- **A recognizer that is down is an error, not "no text"**:
+  `RecognizerUnavailableException` propagates so the capture job retries.
 
 ### Accounts and security
 
