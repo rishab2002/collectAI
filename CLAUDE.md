@@ -353,11 +353,12 @@ queue worker, `APP_URL=http://localhost` — reachable only from this Mac on
   DINOv2-small (Apache 2.0, pinned revision) exported to ONNX; training embeds
   labelled photos, fits a WCCN head only if it beats plain on held-out top-1,
   calibrates thresholds, and writes `storage/app/recognition/model/`
-  (gitignored). **Measured 2026-11-03** on 27,729 photos / 1,678 castings
-  (64% of the wiki collected + licensed): held-out versions top-1 **76.2%**,
-  top-5 **87.7%** (base model alone 62.9 / 76.3); looks-only answers **95.0%**
-  precise on 2,122 answers incl. 10% never-seen castings, 29.7% coverage;
-  familiarity gate 0.704. Wiki photos only — **phone-photo accuracy is
+  (gitignored). **Measured 2026-11-04** (the model in `training/`): 46,217
+  photos / 14,156 classes (27,572 wiki, 157 licensed, 5,770 HWPriceGuide,
+  9,907 Horizon, 1,250 Mini GT, 1,154 Inno64, 407 Para64): held-out versions
+  top-1 **74.5%**, top-5 **85.4%** (base alone 63.0 / 76.8); looks-only
+  **95.1%** precise on 2,604 answers, 30.4% coverage; familiarity gate 0.709.
+  The wiki-only model was 76.2 / 87.7 — more look-alikes, more brands. Wiki photos only — **phone-photo accuracy is
   unmeasured.** The model + vectors + keyed labels live in **`training/` on
   main** (packed: text gzipped, files split < 45 MB, `PACKED.json` checksums;
   `recognizer/train/package.py`). The app never reads it; `model-publisher`
@@ -1553,7 +1554,10 @@ measurements in the [session log](docs/session-log.md).*
   owner confirmed that use on the site is covered. `manifest.json` records the
   sources and licences of every trained model.
 - **Calibration includes cars the model has never seen** (`--open-set`, 10% of
-  castings held out entirely; any answer for them counts wrong), **and a
+  *catalog* castings held out entirely; any answer for them counts wrong —
+  reference products are not held out, because makers list one tool in several
+  colours as separate products and hiding one colour scores its sibling, the
+  right tool, as wrong; measured: with them held out no setting reached 95%), **and a
   familiarity gate**: base-model similarity to the nearest training photo must
   reach what 98% of real held-out photos reach. Both exist because of measured
   failures — without the first the bar sat at the grid floor; without the

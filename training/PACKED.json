@@ -1,0 +1,108 @@
+{
+  "model/NOTICE-encoder.txt": {
+    "bytes": 275,
+    "group": "model",
+    "sha256": "dcf2ad8f1039dd950b8c6fa1282193ffb9e2f70822114b94b2f2809511610c07",
+    "stored": [
+      "NOTICE-encoder.txt.gz"
+    ]
+  },
+  "model/embeddings-cache.npz": {
+    "bytes": 43790218,
+    "group": "data",
+    "sha256": "7d37bc266c3dd42c88d787f488efd2aa6896df60bd807d1fe7067d68dbd85bd0",
+    "stored": [
+      "embeddings-cache.npz.part-00"
+    ]
+  },
+  "model/encoder-id.txt": {
+    "bytes": 100,
+    "group": "model",
+    "sha256": "9d7cd503b973ac378a601457a1796b9b4b6b8b2c1e60b43b647b6be93b5cd6ea",
+    "stored": [
+      "encoder-id.txt.gz"
+    ]
+  },
+  "model/encoder.onnx": {
+    "bytes": 88491670,
+    "group": "model",
+    "sha256": "3966c872bc3f981f0ce02f8bfd92f113271ab6872dbee99eb71e0750fa304db7",
+    "stored": [
+      "encoder.onnx.part-00",
+      "encoder.onnx.part-01"
+    ]
+  },
+  "model/manifest.json": {
+    "bytes": 1486,
+    "group": "model",
+    "sha256": "ef6396e93d970d04efb3b30558ce3f5358a94900653ca2fe2401ab539d0ed0ec",
+    "stored": [
+      "manifest.json.gz"
+    ]
+  },
+  "model/model.npz": {
+    "bytes": 67150249,
+    "group": "model",
+    "sha256": "3fc4fdc1b2e88019332adf411d9d8748e7f890a847a81152500ab5055c617dfb",
+    "stored": [
+      "model.npz.part-00",
+      "model.npz.part-01"
+    ]
+  },
+  "reference-labels.jsonl": {
+    "bytes": 17383791,
+    "group": "data",
+    "sha256": "c90102dc96b5306a9af325b5c883b46dfd3f9d7baf215570e3d1fec0d5925c96",
+    "stored": [
+      "reference-labels.jsonl.gz"
+    ]
+  },
+  "reference-training/manifest.jsonl": {
+    "bytes": 9663215,
+    "group": "data",
+    "sha256": "eb9983098513d741a0cd1992e4cc46f1244793745729426b6b43d60455f7a774",
+    "stored": [
+      "manifest.jsonl.gz"
+    ]
+  },
+  "reference-training/missing-wiki-files.txt": {
+    "bytes": 4817,
+    "group": "data",
+    "sha256": "f4e372130d1abf05d367be16c7552069c0465007ca68b2f39be3c59aa8db2b3e",
+    "stored": [
+      "missing-wiki-files.txt.gz"
+    ]
+  },
+  "wiki-labels-hot-wheels.jsonl": {
+    "bytes": 10717753,
+    "group": "data",
+    "sha256": "702621aafd8a97e13bf65a0d546bf01ef7ff0f36f739fd2392a1ac9f55737829",
+    "stored": [
+      "wiki-labels-hot-wheels.jsonl.gz"
+    ]
+  },
+  "wiki-labels-matchbox.jsonl": {
+    "bytes": 4542392,
+    "group": "data",
+    "sha256": "888f5d222b81ee640d184ef1657e77d9653e6fa158addd92450aaedd439b09bf",
+    "stored": [
+      "wiki-labels-matchbox.jsonl.gz"
+    ]
+  },
+  "wiki-training/manifest.jsonl": {
+    "bytes": 12554615,
+    "group": "data",
+    "sha256": "148c6841c9c49a8b43916881eba76eade068afe6d14ea8ab754b55aae605b2eb",
+    "stored": [
+      "manifest.jsonl.gz"
+    ]
+  },
+  "wiki-training/missing-wiki-files.txt": {
+    "bytes": 12221,
+    "group": "data",
+    "sha256": "f27c4d2831216ed5ba052ec419f7c8f1398e006f2708450f85f1d11fc1791e18",
+    "stored": [
+      "missing-wiki-files.txt.gz"
+    ]
+  }
+}

@@ -42,6 +42,8 @@ from collectai_recognizer.visual import Encoder, Head, normalise
 from .cache import EmbeddingCache, file_hash
 
 
+REFERENCE_PREFIXES = ("hwpriceguide|", "tsm|", "inno64|", "para64|", "horizon|")
+
 # ---------------------------------------------------------------------------
 # Data
 
@@ -144,25 +146,38 @@ def fit_wccn(x: np.ndarray, labels: np.ndarray, reg: float = 0.1, min_classes: i
 
 
 def evaluate(gallery: np.ndarray, gallery_labels: np.ndarray, queries: np.ndarray, query_labels: np.ndarray) -> dict:
-    """Nearest-neighbour by casting: top-1/top-5, and each query's (best, margin, correct)."""
-    # Gallery sorted by class so each class is one contiguous block, then the
-    # best similarity per class with reduceat — in chunks of queries, so tens
-    # of thousands of photos never need the whole similarity matrix at once.
-    by_class = np.argsort(gallery_labels, kind="stable")
-    gallery, gallery_labels = gallery[by_class], gallery_labels[by_class]
-    classes, starts = np.unique(gallery_labels, return_index=True)
-    per_class = np.empty((len(queries), len(classes)), dtype=np.float32)
+    """Nearest-neighbour by casting: top-1/top-5, and each query's (best, margin, correct).
+
+    Classes are ranked as integer codes and only each query's top five are
+    kept, chunk by chunk — ranking every class for every query as label
+    strings needed 54 GB at 5,641 queries x 12,741 classes."""
+    classes, codes = np.unique(gallery_labels, return_inverse=True)
+    lookup = {c: i for i, c in enumerate(classes.tolist())}
+    query_codes = np.array([lookup.get(l, -1) for l in query_labels.tolist()], dtype=np.int64)
+
+    # Gallery sorted by class so each class is one contiguous block; the best
+    # similarity per class is then one reduceat per chunk of queries.
+    by_class = np.argsort(codes, kind="stable")
+    gallery, codes = gallery[by_class], codes[by_class]
+    starts = np.flatnonzero(np.r_[True, codes[1:] != codes[:-1]])
+    k = min(5, len(classes))
+    top = np.empty((len(queries), k), dtype=np.int64)
+    topv = np.empty((len(queries), k), dtype=np.float32)
     for i in range(0, len(queries), 256):
-        per_class[i:i + 256] = np.maximum.reduceat(queries[i:i + 256] @ gallery.T, starts, axis=1)
-    order = np.argsort(-per_class, axis=1)
-    ranked = classes[order]
-    best = per_class[np.arange(len(queries)), order[:, 0]]
-    second = per_class[np.arange(len(queries)), order[:, 1]] if len(classes) > 1 else np.zeros(len(queries))
-    correct = ranked[:, 0] == query_labels
+        per_class = np.maximum.reduceat(queries[i:i + 256] @ gallery.T, starts, axis=1)
+        idx = np.argpartition(-per_class, kth=k - 1, axis=1)[:, :k] if k < per_class.shape[1] else np.tile(np.arange(k), (len(per_class), 1))
+        vals = np.take_along_axis(per_class, idx, axis=1)
+        order = np.argsort(-vals, axis=1)
+        top[i:i + 256] = np.take_along_axis(idx, order, axis=1)
+        topv[i:i + 256] = np.take_along_axis(vals, order, axis=1)
+
+    best = topv[:, 0] if len(queries) else np.zeros(0)
+    second = topv[:, 1] if k > 1 else np.zeros(len(queries))
+    correct = top[:, 0] == query_codes
     return {
         "queries": int(len(queries)),
         "top1": float(correct.mean()) if len(queries) else 0.0,
-        "top5": float((ranked[:, :5] == query_labels[:, None]).any(axis=1).mean()) if len(queries) else 0.0,
+        "top5": float((top == query_codes[:, None]).any(axis=1).mean()) if len(queries) else 0.0,
         "_best": best, "_margin": best - second, "_correct": correct,
     }
 
@@ -233,7 +248,7 @@ def main(argv: list[str] | None = None) -> int:
 
     rows, keys = embed_all(rows, encoder, cache)
     rows, keys = dedupe(rows, keys)
-    print(f"{len(rows)} labelled images, {len({r['casting_id'] for r in rows})} castings")
+    print(f"{len(rows)} labelled images, {len({r.get('casting_key') or r.get('casting_id') for r in rows})} castings")
     raw = np.stack([cache[k] for k in keys]).astype(np.float32)
     # Labels are stable keys where the record has provenance, so a model
     # trained on one database serves another; `id:<n>` otherwise.
@@ -248,7 +263,13 @@ def main(argv: list[str] | None = None) -> int:
     # for it is silence — so these are part of the calibration, as queries
     # whose every answer is wrong. Without them the thresholds are tuned only
     # on cars that are in the gallery, and anything car-shaped gets named.
-    castings = np.unique(labels)
+    # Only catalog castings are held out as unknown. A reference product is a
+    # class of its own, but makers list one tool in several colours as several
+    # products; hiding one colour and scoring its sibling as "wrong" measures
+    # label granularity, not whether the model knows the car. Reference
+    # products still compete in the gallery, where a sibling match counts
+    # against the model like any other wrong answer.
+    castings = np.array([c for c in np.unique(labels).tolist() if not c.startswith(REFERENCE_PREFIXES)])
     open_idx = np.array([], dtype=int)
     if len(castings) >= 20 and args.open_set > 0:
         held = np.random.default_rng(11).choice(castings, max(1, int(len(castings) * args.open_set)), replace=False)

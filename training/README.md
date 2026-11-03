@@ -59,6 +59,14 @@ Check the result in `model/manifest.json`. `evaluation` has top-1/top-5
 accuracy on held-out versions, and `thresholds` says when looks alone may name
 a car (`visual_only`, at the measured precision).
 
+## The model saved here
+
+Trained 2026-11-04 on 46,217 photos of 14,156 cars and products. On held-out
+versions it was right first 74.5% of the time and in the top 5 85.4% of the
+time. Looks-only answers were 95.1% precise, at 30.4% coverage. It has not yet
+been measured on phone photos; your own photos and consented scans fix that the
+next time you train.
+
 ## Notes
 
 - Every retrain that changes the model adds a new copy to git history

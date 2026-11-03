@@ -14,6 +14,30 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-11-04 (later) — Privacy policy; `training/` on main; retrained on everything
+
+- **Privacy policy** at `/privacy` (App Store needs the URL), written from the
+  code. Found while writing it: deleting an account left its scan pictures on
+  disk (the row cascade doesn't delete files) — fixed (`Scan::deleteWithPhotos`).
+- **`training/` on main**, separate from the app: model + vectors + labels,
+  text gzipped, files split < 45 MB, `PACKED.json` checksums
+  (`train/package.py`); `model-publisher` copies the model into the app; deploy
+  runs it; `training/train` / `./collectai train` restore → collect → build →
+  save. No photos: collectors' scan crops never leave the app. 196 MB; full
+  restore verified byte-identical; publish into an empty folder loads.
+- **Retrained on all 46,217 photos.** Two failures on the way, both fixed and
+  tested: a progress line indexed `casting_id` (reference rows only have keys);
+  evaluation ranked every class for every query as label strings — 54 GB at
+  5,641 × 12,741 — now integer codes, top-5 per chunk.
+- **Calibration and look-alike products.** First result: no setting reached
+  95% precision. Cause: the open-set held out reference products, and makers
+  list one tool in several colours as separate products, so hiding one colour
+  scored its sibling (the right tool) as wrong. Open-set now holds out only
+  catalog castings; reference products still compete in the gallery. Result:
+  74.5% / 85.4%, looks-only 95.1% precise at 30.4% coverage.
+
+---
+
 ## 2026-11-04 — Reference sources: HWPriceGuide, TSM/Mini GT, Inno64, Para64, Horizon
 
 **Asked:** the owner now holds written permission from HWPriceGuide,
