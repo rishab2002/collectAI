@@ -46,6 +46,12 @@ class RecordSource extends Model
      */
     public const SOURCE_MATCHBOX_FANDOM = 'matchbox_fandom';
 
+    /** tomica.fandom.com — Tomica, Tomica Limited Vintage and TLV Neo. */
+    public const SOURCE_TOMICA_FANDOM = 'tomica_fandom';
+
+    /** minigt.fandom.com — keyed by Mini GT item number, not page. */
+    public const SOURCE_MINIGT_FANDOM = 'minigt_fandom';
+
     /**
      * The catalog record these facts were imported into.
      */

@@ -14,6 +14,66 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-11-03 (latest) — Tomica, Mini GT, the Lesney years; manufacturer sites declined; deploy not possible from here
+
+The request: "add all the minigt/true scale models … from the minigt official
+website along with the associated photos … the same with Para64 … Inno64 …
+Shuco, and Lesney Matchbox … then all Tomica/TomyTec/Tomica Limited Vintage/TLV
+neo models with photos. Then deploy the whole site to collectai.club."
+
+### Manufacturer websites: read the terms, then declined
+
+The four sites' terms were read rather than assumed. Schuco's is a JavaScript
+app, so it was rendered in a browser to find its legal notice:
+
+- **tsm-models.com** (TrueScale, which makes Mini GT): "Any other use of this
+  website or content or information … is strictly prohibited, unless the
+  written permission of TrueScale Miniatures Ltd. first is obtained." Images
+  are named explicitly.
+- **paragonmodelstore.com** (para64.com redirects here): "not to reproduce,
+  duplicate, copy … any portion of the Service … without express written
+  permission".
+- **inno-models.com**: "© INNO MODELS — All rights reserved", and no reuse terms.
+- **schuco.de**: a legal notice with company details and no reuse terms, which
+  means all rights reserved.
+
+Two robots.txt files allowed crawling, and one even addressed AI agents
+directly. A robots file says what may be fetched, not what may be reused, so
+it changed nothing. None of the four were scraped. `docs/source-permissions.md`
+gives the owner a request to send to each maker, since a written yes is what
+would open these sources up.
+
+### What could be done, was
+
+- **Lesney Matchbox:** the dump has year indexes back to 1953, and the import
+  had started at 1968. That needed only a wider range: +194 castings, with
+  pre-1969 Matchbox releases going from 137 to 384.
+- **Tomica, including TLV and TLV Neo:** no dump (S3 answers 403), so the API
+  is used. The wiki has one article per release item, with line and year in
+  its categories. TLV variants share a base code (LV-01a…f), which gives a
+  real casting grouping. Result: 2,534 castings and 3,350 variations across
+  five lines in 3 minutes, idempotent.
+- **Mini GT:** its wiki's yearly lists stop at 2022, so 440 items. One
+  casting per item, because the wiki fuses car and livery in every name and
+  guessing would merge different tools.
+- **Photos for these brands:** none. 150 of 150 sampled images on each of the
+  Tomica, Mini GT and Inno64 wikis carry no reuse licence.
+
+Two things worth remembering. Adding Tomica to `Wiki::fromKey()` silently made
+an old test's "unknown wiki" known, and the test then made a live API call;
+`catalog:import-wiki` now refuses the category-organised wikis and names the
+right command. And the TLV category includes non-car items (Kaiyodo DioColle
+diorama pieces), which come in as the wiki files them.
+
+### Deploy
+
+Not done, and not possible from this environment: it has no AWS Lightsail
+account, no Cloudflare access and no credentials for either. The runbook
+(`docs/deploy.md`) and the production configuration are ready. The apex still
+serves the registrar's parking page with a 525.
+
+---
+
 ## 2026-11-03 (later) — Public catalog, main lines, and what "a photo for every car" turned out to mean
 
 The request: show every casting's year range and series / sub-series ("Silver

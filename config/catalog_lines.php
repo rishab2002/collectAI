@@ -88,6 +88,22 @@ return [
             'categories' => ['Color Shifters']],
     ],
 
+    // Tomica and Mini GT series *are* their lines (one per toy line), so each
+    // rule maps a series to itself — classify-series then leaves them at the top
+    // of the tree rather than moving them into Other.
+    'tomica' => [
+        ['name' => 'Tomica Limited Vintage Neo', 'names' => ['/^Tomica Limited Vintage Neo$/'], 'categories' => []],
+        ['name' => 'Tomica Limited Vintage', 'names' => ['/^Tomica Limited Vintage$/'], 'categories' => []],
+        ['name' => 'Tomica Premium', 'names' => ['/^Tomica Premium$/'], 'categories' => []],
+        ['name' => 'Tomica Limited', 'names' => ['/^Tomica Limited$/'], 'categories' => []],
+        ['name' => 'Classic Tomica', 'names' => ['/^Classic Tomica$/'], 'categories' => []],
+    ],
+
+    'mini-gt' => [
+        ['name' => 'Mini GT', 'names' => ['/^Mini GT$/'], 'categories' => []],
+        ['name' => 'Kaido House', 'names' => ['/^Kaido House$/'], 'categories' => []],
+    ],
+
     'matchbox' => [
         // The basic range has been sold as 1-75, 1-100, 1-120 and 1-125 over the
         // years — one line, whatever the count on the card said that year.

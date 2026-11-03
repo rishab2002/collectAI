@@ -33,6 +33,12 @@ final class Wiki
         public readonly ?string $parentCompany,
         private readonly string $indexBrand,
         public readonly bool $compoundSeries,
+        /**
+         * Whether Fandom publishes an XML dump of this wiki. The Hot Wheels and
+         * Matchbox wikis have one; the Tomica and Mini GT wikis answer 403, so
+         * their importers read the API.
+         */
+        public readonly bool $publishesDump = true,
     ) {}
 
     public static function hotWheels(): self
@@ -71,11 +77,48 @@ final class Wiki
     }
 
     /**
+     * Tomica, Tomica Limited Vintage and TLV Neo — one brand, as collectors
+     * shelve them, with each toy line a main line. (Tomytec makes TLV for Takara
+     * Tomy; it is a maker, not a separate line.) Organised by category rather
+     * than year index — see TomicaArticles.
+     */
+    public static function tomica(): self
+    {
+        return new self(
+            key: 'tomica',
+            host: 'tomica.fandom.com',
+            source: RecordSource::SOURCE_TOMICA_FANDOM,
+            brand: 'Tomica',
+            parentCompany: 'Takara Tomy',
+            indexBrand: 'Tomica',
+            compoundSeries: false,
+            publishesDump: false,
+        );
+    }
+
+    /**
+     * Mini GT, from the wiki's yearly model lists — see MiniGtLists.
+     */
+    public static function miniGt(): self
+    {
+        return new self(
+            key: 'mini-gt',
+            host: 'minigt.fandom.com',
+            source: RecordSource::SOURCE_MINIGT_FANDOM,
+            brand: 'Mini GT',
+            parentCompany: 'TrueScale Miniatures',
+            indexBrand: 'Mini GT',
+            compoundSeries: false,
+            publishesDump: false,
+        );
+    }
+
+    /**
      * @return list<string>
      */
     public static function keys(): array
     {
-        return ['hot-wheels', 'matchbox'];
+        return ['hot-wheels', 'matchbox', 'tomica', 'mini-gt'];
     }
 
     public static function fromKey(string $key): self
@@ -83,6 +126,8 @@ final class Wiki
         return match ($key) {
             'hot-wheels' => self::hotWheels(),
             'matchbox' => self::matchbox(),
+            'tomica' => self::tomica(),
+            'mini-gt' => self::miniGt(),
             default => throw new InvalidArgumentException(
                 "Unknown wiki “{$key}”. Known: ".implode(', ', self::keys()).'.'
             ),

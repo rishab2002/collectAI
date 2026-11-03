@@ -67,8 +67,8 @@ honest — it's the fastest way for a new session to avoid assuming something
 exists.*
 
 **Running:** `docker compose up -d` brings up `app` (:8000), `db` (Postgres 16,
-:5432), `redis` (:6379), `meilisearch` (:7700). `php artisan test` → **279
-passed, 939 assertions** (re-measured 2026-11-03).
+:5432), `redis` (:6379), `meilisearch` (:7700). `php artisan test` → **285
+passed, 977 assertions** (re-measured 2026-11-03).
 
 **The dev database holds the import *plus* seed data, so its counts are not the
 import's counts.** `CatalogSeeder` and `SubmissionSeeder` contribute 9 castings
@@ -272,6 +272,12 @@ queue worker, `APP_URL=http://localhost` — reachable only from this Mac on
 - **Year range and series path for every casting** (`CastingSummaries`) — the
   admin list, the admin casting page and the public pages all show "Hot Wheels ·
   2010–2026 · Mainline / HW J-Imports".
+- **Tomica and Mini GT importers** (`catalog:import-wiki-catalog
+  {tomica|mini-gt}`, `TomicaArticles`, `MiniGtLists`,
+  `ApiPageSource::categoryMembers()`). Neither wiki publishes a dump, so both
+  read the API. Measured 2026-11-03: Tomica 2,534 castings / 3,350 variations
+  across five lines (Classic Tomica, TLV, TLV Neo, Premium, Limited); Mini GT 440
+  items. Matchbox now imports from **1953** (the Lesney years: +194 castings).
 - **Licensed wiki photos** (`WikiPhotoImporter`, `FileLicence`,
   `catalog:import-wiki-photos`, `photos.license` / `photos.credit`). One per
   casting, credited, on the car the article's image shows; see
@@ -310,10 +316,10 @@ queue worker, `APP_URL=http://localhost` — reachable only from this Mac on
   and stay where they are. The rest of the photos have to come from capture and
   manual entry. **No price data** — HWPriceGuide is ruled out entirely; see
   [Data sources](#data-sources).
-- **Schuco, Mini GT, TSM, Inno64 and Para64 have no importer.** Mini GT has a
-  small Fandom wiki (699 articles, its own page format); Inno64's has 24
-  articles; the rest have no wiki, only manufacturer product sites. Each is a
-  separate source to vet and parse. Until then, manual entry is how they get in.
+- **Schuco, Para64, Inno64 and the TSM/Mini GT website are not sources** — their
+  terms forbid or reserve reuse (see [Data sources](#data-sources)). Mini GT
+  *is* imported, from its wiki (2018–2022 only). The others get in through
+  manual entry until a maker grants permission (`docs/source-permissions.md`).
 
 - **No Meilisearch integration.** The container runs, but `laravel/scout` is not
   in `composer.json`, so nothing is indexed and cross-brand search doesn't work
@@ -1069,6 +1075,23 @@ Regression-tested on verbatim pages under `tests/Fixtures/hotwheels-wiki/` and
   seven `==Version 1 (With Gun)==`-style pages are a known gap, left alone for
   the renumbering reason above.
 
+**Tomica and Mini GT** (2026-11-03). Both are read through the API, keyed by
+facts rather than page order:
+
+- **Tomica is organised by category, not year index**: one article per release
+  item, its line and year in categories ("Tomica Limited Vintage Neo", "2019
+  Tomica"), its item code in the title. TLV/Neo variants share a base code —
+  LV-01a…f are one Nissan Cedric — so the casting key is
+  `casting:<line>|<base code>`; Classic/Premium/Limited reuse numbers for
+  different cars, so there the name is the casting. Each variation's row key is
+  its article's page id, stable however many variants are added. Article prose
+  is never read. ~150 pages without a year category are year summaries, skipped.
+- **Mini GT comes from the yearly "20XX Models" lists**, keyed `item:<MGT…>`.
+  One casting per item, knowingly: names fuse car and livery and nothing groups
+  items by tool, and guessing would merge different tools.
+- `CastingPage` takes an explicit key for these; Hot Wheels and Matchbox still
+  key by page id, unchanged.
+
 **Measured, both wikis, every year, from the dumps** (cloud session 2026-11-03,
 fresh database, both wikis in one DB):
 
@@ -1132,8 +1155,19 @@ and photos. Measured, not assumed — details in the [session log](docs/session-
 - **Prices need a source that permits reuse**, or our own observations. None is
   chosen; `price_histories` stays empty until one is.
 - **Every new source gets this check first**: terms, robots.txt, whether the
-  data is facts or someone's product, and whether images are involved. A source
-  for Schuco, Mini GT, TSM, Inno64 or Para64 is a decision, not just a parser.
+  data is facts or someone's product, and whether images are involved.
+- **Manufacturer websites: checked 2026-11-03, none usable without permission.**
+  tsm-models.com (Mini GT/TrueScale): any non-shopping use of content or
+  information "strictly prohibited" without written permission, images named.
+  paragonmodelstore.com (para64.com redirects there): "not to reproduce,
+  duplicate, copy … any portion of the Service" without permission.
+  inno-models.com: "All rights reserved", no reuse terms. schuco.de: no reuse
+  terms (all rights reserved by default). robots.txt allowing a crawl is not
+  permission to reuse. `docs/source-permissions.md` is the request to send; a
+  written yes is what would change this, and gets recorded here.
+- **Tomica, Mini GT and Inno64 wiki images carry no reuse licence** (150 of 150
+  sampled on each; 4 on Mini GT are `{{Self}}` only), so those brands get no
+  imported photos.
 
 ### Main lines
 

@@ -50,6 +50,14 @@ class ImportFandomWiki extends Command
             return self::FAILURE;
         }
 
+        // Tomica and Mini GT have no "List of YYYY …" year indexes for this
+        // command to walk; they are organised by category and by item list.
+        if (! $wiki->publishesDump) {
+            $this->error("The {$wiki->key} wiki isn't organised by year index. Use: php artisan catalog:import-wiki-catalog {$wiki->key}");
+
+            return self::FAILURE;
+        }
+
         $source = $this->source($wiki);
         $titles = $this->castingTitles($wiki, $source, $years);
 
