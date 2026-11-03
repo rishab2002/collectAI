@@ -162,6 +162,45 @@ class FandomWikiTest extends TestCase
         $this->assertSame('2023 Hot Wheels Legends Tour', $page->versions[0]->seriesPage);
     }
 
+    // ── Version sections the 2011 pages never needed ────────────────────────
+
+    /**
+     * @return array{0: int, 1: list<string|null>}
+     */
+    private function rowsAndTooling(string $wiki, string $fixture): array
+    {
+        $page = (new CastingPageParser(Wiki::fromKey($wiki === 'matchbox-wiki' ? 'matchbox' : 'hot-wheels')))
+            ->parse($this->fixture($wiki, $fixture), $fixture, 1);
+
+        return [count($page->importableVersions()), $page->toolingLabels()];
+    }
+
+    public function test_a_versions_heading_written_in_bold_is_still_a_versions_heading(): void
+    {
+        // `=='''Versions'''==` — most of the 1968–69 castings. Read as no rows
+        // until 2026-11, and reported as a page with nothing to import.
+        $this->assertSame([17, [null]], $this->rowsAndTooling('hotwheels-wiki', 'lotus-turbine'));
+    }
+
+    public function test_an_empty_table_caption_does_not_swallow_the_header_row(): void
+    {
+        // Baja Bug's table opens with `|+`. Read as a data cell, it marked the
+        // body as started, so every header was taken for data.
+        $this->assertSame([78, [null]], $this->rowsAndTooling('hotwheels-wiki', 'baja-bug'));
+    }
+
+    public function test_a_parenthetical_after_versions_names_the_tooling(): void
+    {
+        // Rear- and side-loading Beach Bomb Too are two physical tools.
+        $this->assertSame(
+            [14, ['Original (rear loading)', 'Modified (side loading)']],
+            $this->rowsAndTooling('hotwheels-wiki', 'beach-bomb-too'),
+        );
+
+        // Matchbox labels a tool by its manufacturer number.
+        $this->assertSame([44, ['MB168']], $this->rowsAndTooling('matchbox-wiki', 'jeep-cherokee'));
+    }
+
     // ── Importing Matchbox ──────────────────────────────────────────────────
 
     public function test_a_matchbox_casting_lands_under_matchbox_with_its_own_provenance(): void

@@ -223,7 +223,12 @@ final class CastingPageParser
      */
     private function versionSections(string $wikitext): array
     {
-        preg_match_all('/^(==+)\s*(.*?Versions)\s*\1\s*$/mi', $wikitext, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
+        // Every heading, then filtered on its plain text. Matching "Versions" in
+        // the raw markup missed every heading written in bold —
+        // `=='''USA Versions'''==` — which is how the wiki writes most of the
+        // 1968–69 castings, so Python, Chaparral 2G and the rest parsed to no
+        // rows and were reported as pages with nothing to import.
+        preg_match_all('/^(==+)\s*(.*?)\s*\1\s*$/m', $wikitext, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
 
         $sections = [];
 
@@ -232,8 +237,22 @@ final class CastingPageParser
             $level = strlen($match[1][0]);
             $label = Wikitext::plainText($match[2][0]);
 
-            // "Versions" itself carries no tooling name; anything before it does.
-            $label = trim(preg_replace('/\s*Versions$/i', '', $label) ?? '');
+            // "Versions", and also a singular "Version" and a trailing
+            // parenthetical — "Original Versions (rear loading)", Matchbox's
+            // "Versions (MB168)". Widened 2026-11, before any full import had
+            // run, after checking it renumbered no row that existed anywhere.
+            // From here on a change to which headings count can shift the row
+            // numbers provenance keys are built from: measure that first.
+            if (preg_match('/(?:^|\s)Versions?(?:\s*\([^)]*\))?$/i', $label) !== 1) {
+                continue;
+            }
+
+            // "Versions" itself carries no tooling name; anything around it does.
+            $label = trim(preg_replace('/(?:^|\s+)Versions?(?=\s*\(|$)/i', '', $label) ?? '');
+
+            if (preg_match('/^\((.*)\)$/', $label, $bare) === 1) {
+                $label = trim($bare[1]);
+            }
 
             if (in_array(mb_strtolower($label), self::EXCLUDED_SECTIONS, true)) {
                 continue;
