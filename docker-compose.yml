@@ -29,6 +29,18 @@ services:
       - db
       - redis
       - meilisearch
+      - recognizer
+
+  # The local car recognizer (recognizer/). Reads the catalog index the app
+  # writes to storage/app/recognition (catalog:export-recognition-index) and
+  # reloads it when it changes. Published on 8090 so you can also call it from
+  # your own machine; the app reaches it as http://recognizer:8080.
+  recognizer:
+    build: ./recognizer
+    ports:
+      - "8090:8080"
+    volumes:
+      - ./storage/app/recognition:/data:ro
 
   db:
     image: postgres:16-alpine

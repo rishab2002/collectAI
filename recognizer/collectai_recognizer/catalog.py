@@ -1,0 +1,242 @@
+"""The catalog index file, and matching a reading against it.
+
+The index is exported by the Laravel app (`php artisan
+catalog:export-recognition-index`) — every casting and variation the
+recognizer may answer with. It is a plain JSON file, so it can be copied to
+any computer and the recognizer run there with no database and no network.
+
+**Only confident answers come back.** A casting is reported only when its
+score clears `min_confidence` *and* beats the next different casting by
+`min_margin`. Two castings that read the same — '93 and '95 Mazda RX-7 with
+the year worn off — are a tie, and a tie is not an answer.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from collections import defaultdict
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from .colours import palette
+from .evidence import Evidence
+from .textmatch import aliases, best_window, trigrams
+
+FORMAT = "collectai-recognition-index"
+
+
+class IndexError_(ValueError):
+    pass
+
+
+@dataclass
+class Candidate:
+    casting_id: int
+    name: str
+    score: float
+    alias: str
+    reasons: list[str] = field(default_factory=list)
+
+
+class CatalogIndex:
+    def __init__(self, data: dict):
+        if data.get("format") != FORMAT:
+            raise IndexError_(f"not a {FORMAT} file")
+        self.generated_at = data.get("generated_at")
+        self.brands = {int(b["id"]): b["name"] for b in data.get("brands", [])}
+        self.castings = {int(c["id"]): c for c in data.get("castings", [])}
+        self.variations: dict[int, list[dict]] = defaultdict(list)
+        self.toy_numbers: dict[str, set[int]] = defaultdict(set)
+        for v in data.get("variations", []):
+            self.variations[int(v["casting_id"])].append(v)
+            if v.get("toy_number"):
+                self.toy_numbers[v["toy_number"].upper().replace(" ", "").replace("-", "")].add(int(v["casting_id"]))
+        for c in self.castings.values():
+            for code in c.get("codes", []) or []:
+                self.toy_numbers[code.upper().replace(" ", "").replace("-", "")].add(int(c["id"]))
+
+        # (casting id, alias with spaces, alias compacted, is the full name)
+        self.entries: list[tuple[int, str, str, bool]] = []
+        self.grams: dict[str, list[int]] = defaultdict(list)
+        for cid, c in self.castings.items():
+            for alias, full in aliases(c["name"]):
+                flat = alias.replace(" ", "")
+                if len(flat) < 3:
+                    continue
+                idx = len(self.entries)
+                self.entries.append((cid, alias, flat, full))
+                for g in trigrams(flat):
+                    self.grams[g].append(idx)
+
+    @classmethod
+    def load(cls, path: str | Path) -> "CatalogIndex":
+        return cls(json.loads(Path(path).read_text(encoding="utf-8")))
+
+    def summary(self) -> dict:
+        return {
+            "generated_at": self.generated_at,
+            "castings": len(self.castings),
+            "variations": sum(len(v) for v in self.variations.values()),
+        }
+
+    def shortlist(self, text: str, limit: int = 80) -> list[int]:
+        """Entries sharing the most trigrams with the text — the cheap pre-filter."""
+        counts: dict[int, int] = defaultdict(int)
+        for g in trigrams(text):
+            for idx in self.grams.get(g, ()):
+                counts[idx] += 1
+        ranked = sorted(counts.items(), key=lambda kv: -kv[1] / max(1, len(self.entries[kv[0]][2])))
+        return [idx for idx, _ in ranked[:limit]]
+
+
+@dataclass
+class Match:
+    confident: bool
+    candidates: list[Candidate]
+    variations: list[dict] = field(default_factory=list)
+
+    @property
+    def best(self) -> Candidate | None:
+        return self.candidates[0] if self.candidates else None
+
+    def as_dict(self) -> dict:
+        best = self.best
+        return {
+            "confident": self.confident,
+            "casting_id": best.casting_id if best and self.confident else None,
+            "casting_name": best.name if best and self.confident else None,
+            "confidence": round(best.score, 3) if best else 0.0,
+            "reasons": best.reasons if best else [],
+            "variations": self.variations if self.confident else [],
+            "candidates": [
+                {"casting_id": c.casting_id, "name": c.name, "score": round(c.score, 3), "reasons": c.reasons}
+                for c in self.candidates[:3]
+            ],
+        }
+
+
+class Matcher:
+    def __init__(self, index: CatalogIndex, min_confidence: float = 0.9, min_margin: float = 0.08):
+        self.index = index
+        self.min_confidence = min_confidence
+        self.min_margin = min_margin
+
+    def match(self, ev: Evidence, colour: str | None = None) -> Match:
+        scores: dict[int, Candidate] = {}
+
+        if len(ev.text) >= 3:
+            tokens = set(ev.words.split())
+            for idx in self.index.shortlist(ev.text):
+                cid, alias, flat, full = self.index.entries[idx]
+                if len(flat) < 5:
+                    # Short names ("GTO", "Mini") match by accident inside
+                    # longer words; only an exact standalone word counts.
+                    r = 1.0 if alias in tokens or alias in ev.words.split(" ") else 0.0
+                else:
+                    r = best_window(flat, ev.text)
+                if r < 0.72 or not self._numbers_agree(alias, tokens):
+                    continue
+                score = r - (0.0 if full else 0.04) - (0.04 if len(flat) < 8 else 0.0)
+                current = scores.get(cid)
+                if current is None or score > current.score:
+                    scores[cid] = Candidate(cid, self.index.castings[cid]["name"], score, flat,
+                                            [f"name read as “{alias}” ({r:.2f})"])
+
+        for code in ev.codes:
+            owners = self.index.toy_numbers.get(code, set())
+            if len(owners) == 1:
+                cid = next(iter(owners))
+                c = scores.get(cid)
+                if c is None:
+                    scores[cid] = Candidate(cid, self.index.castings[cid]["name"], 0.95, code, [f"code {code}"])
+                else:
+                    c.score = max(c.score, 0.97) + 0.02
+                    c.reasons.append(f"code {code}")
+            for cid in set(scores) - owners if owners else ():
+                scores[cid].score -= 0.1
+                scores[cid].reasons.append(f"code {code} belongs to another casting")
+
+        for c in scores.values():
+            casting = self.index.castings[c.casting_id]
+            brands = {self.index.brands.get(int(b)) for b in casting.get("brand_ids", [])}
+            if ev.brand and brands:
+                if ev.brand in brands:
+                    c.score += 0.03
+                    c.reasons.append(f"brand {ev.brand}")
+                else:
+                    c.score -= 0.2
+                    c.reasons.append(f"base says {ev.brand}, casting is {', '.join(sorted(b for b in brands if b))}")
+            first, last = casting.get("first_year"), casting.get("last_year")
+            if ev.copyright_year and first:
+                # A base carries the year the tool was cut, a year or so before
+                # the first release.
+                if first - 8 <= ev.copyright_year <= first + 1:
+                    c.score += 0.03
+                    c.reasons.append(f"© {ev.copyright_year} fits first release {first}")
+                elif ev.copyright_year > (last or first) + 1:
+                    c.score -= 0.1
+                    c.reasons.append(f"© {ev.copyright_year} is after its last release")
+                else:
+                    c.score -= 0.1
+                    c.reasons.append(f"© {ev.copyright_year} is long before its first release {first}")
+            c.score = max(0.0, min(1.0, c.score))
+
+        ranked = sorted(scores.values(), key=lambda c: (-c.score, -len(c.alias)))
+        ranked = self._without_dominated(ranked)
+        if not ranked:
+            return Match(False, [])
+
+        best = ranked[0]
+        runner = ranked[1].score if len(ranked) > 1 else 0.0
+        confident = best.score >= self.min_confidence and best.score - runner >= self.min_margin
+        variations = self.variations_for(best.casting_id, colour, ev.codes) if confident else []
+        return Match(confident, ranked, variations)
+
+    @staticmethod
+    def _numbers_agree(alias: str, tokens: set[str]) -> bool:
+        """RX-3 is not RX-7. Every number in a name must be read, exactly.
+
+        Fuzzy similarity treats one wrong digit as a near-perfect match, and in
+        a car name the digit is usually the whole difference.
+        """
+        wanted = re.findall(r"\d+", alias)
+        if not wanted:
+            return True
+        read = {d for t in tokens for d in re.findall(r"\d+", t)}
+        return all(d in read for d in wanted)
+
+    @staticmethod
+    def _without_dominated(ranked: list[Candidate]) -> list[Candidate]:
+        """"Mustang" inside a fully matched "Mustang Mach 1" is not a rival."""
+        kept: list[Candidate] = []
+        for c in ranked:
+            if any(c.alias != k.alias and c.alias in k.alias and k.score >= c.score - 0.02 for k in kept):
+                continue
+            kept.append(c)
+        return kept
+
+    def variations_for(self, casting_id: int, colour: str | None, codes: list[str], limit: int = 12) -> list[dict]:
+        pal = palette()
+        out = []
+        for v in self.index.variations.get(casting_id, []):
+            code = (v.get("toy_number") or "").upper()
+            # An upside-down car shows its base, not its paint: the colour in
+            # the photo may be either, so it counts against whichever agrees.
+            body = pal.similarity(colour, v.get("color_family"))
+            base = pal.similarity(colour, v.get("base_color_family"))
+            out.append({
+                "variation_id": int(v["id"]),
+                "year": v.get("year"),
+                "color": v.get("color"),
+                "color_family": v.get("color_family"),
+                "wheel_type": v.get("wheel_type"),
+                "toy_number": v.get("toy_number"),
+                "series": v.get("series"),
+                "base_color": v.get("base_color"),
+                "colour_match": max(body, base),
+                "colour_matched_on": None if max(body, base) == 0 else ("body" if body >= base else "base"),
+                "code_match": bool(code) and code in codes,
+            })
+        out.sort(key=lambda v: (-int(v["code_match"]), -v["colour_match"], -(v["year"] or 0)))
+        return out[:limit]

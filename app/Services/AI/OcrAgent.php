@@ -6,6 +6,7 @@ use Anthropic\Client;
 use App\Exceptions\OcrFailedException;
 use App\Models\Submission;
 use App\Models\SubmissionPhoto;
+use App\Services\AI\Contracts\ReadsPackaging;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -20,7 +21,7 @@ use Illuminate\Support\Facades\Storage;
  * Lives behind a service class rather than in the controller so Claude API usage
  * stays auditable and swappable, per CLAUDE.md.
  */
-class OcrAgent
+class OcrAgent implements ReadsPackaging
 {
     /**
      * The output fields, in the order the schema lists them. Kept next to the

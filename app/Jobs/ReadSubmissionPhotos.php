@@ -3,14 +3,15 @@
 namespace App\Jobs;
 
 use App\Models\Submission;
-use App\Services\AI\OcrAgent;
+use App\Services\AI\Contracts\ReadsPackaging;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Str;
 use Throwable;
 
 /**
- * Runs the OCR Agent over a queued capture and records what it read.
+ * Reads a queued capture's packaging and records what it read — with the local
+ * recognizer or the Claude OCR Agent, whichever catalog.ai.driver names.
  *
  * This is the whole pipeline today: the Metadata, Search, Comparison, Insertion
  * and Review agents don't exist yet, so a completed submission has a reading
@@ -34,7 +35,7 @@ class ReadSubmissionPhotos implements ShouldQueue
 
     public function __construct(public readonly Submission $submission) {}
 
-    public function handle(OcrAgent $agent): void
+    public function handle(ReadsPackaging $agent): void
     {
         $this->submission->update(['state' => Submission::STATE_PROCESSING]);
 

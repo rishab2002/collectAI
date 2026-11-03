@@ -1,0 +1,40 @@
+{
+    "version": 1,
+    "description": "The one colour vocabulary shared by the recognizer (pixels -> family, Python) and the catalog export (catalog colour text -> family, PHP: App\\Services\\Recognition\\ColourFamilies). A family is deliberately coarse: a photo cannot tell Spectraflame Purple from Metalflake Purple, and both sides have to land on the same word for a colour to count as evidence. Edit names here and both sides follow.",
+    "families": [
+        { "name": "black",  "words": ["black", "ebony", "onyx", "jet"] },
+        { "name": "white",  "words": ["white", "pearl", "ivory", "cream", "off white"] },
+        { "name": "grey",   "words": ["silver", "grey", "gray", "zamac", "chrome", "gunmetal", "pewter", "graphite", "titanium", "charcoal", "unpainted", "bare metal"] },
+        { "name": "red",    "words": ["red", "maroon", "burgundy", "crimson", "wine", "cherry", "scarlet", "ruby"] },
+        { "name": "orange", "words": ["orange", "copper", "tangerine", "rust"] },
+        { "name": "brown",  "words": ["brown", "bronze", "tan", "beige", "khaki", "sand", "root beer", "chocolate"] },
+        { "name": "yellow", "words": ["yellow", "gold", "lemon", "mustard", "champagne"] },
+        { "name": "green",  "words": ["green", "lime", "olive", "army", "mint", "emerald", "khaki green"] },
+        { "name": "teal",   "words": ["teal", "aqua", "turquoise", "cyan", "seafoam"] },
+        { "name": "blue",   "words": ["blue", "navy", "cobalt", "azure", "sky", "royal", "indigo"] },
+        { "name": "purple", "words": ["purple", "violet", "lavender", "plum", "magenta", "lilac"] },
+        { "name": "pink",   "words": ["pink", "rose", "salmon", "fuchsia", "hot pink"] }
+    ],
+    "neighbours": [
+        ["black", "grey"], ["white", "grey"], ["red", "orange"], ["red", "pink"], ["red", "brown"],
+        ["orange", "yellow"], ["orange", "brown"], ["yellow", "green"], ["green", "teal"],
+        ["teal", "blue"], ["blue", "purple"], ["purple", "pink"], ["brown", "yellow"]
+    ],
+    "pixel_rules": {
+        "description": "OpenCV HSV (H 0-180, S and V 0-255). Rules apply in order; the first that matches a pixel claims it. Silver and grey are one family because a phone photo of bare metal is grey.",
+        "rules": [
+            { "family": "black", "v_max": 55 },
+            { "family": "white", "s_max": 40, "v_min": 200 },
+            { "family": "grey",  "s_max": 55 },
+            { "family": "brown", "h": [[0, 25], [170, 180]], "v_max": 120, "s_max": 200 },
+            { "family": "red",   "h": [[0, 7], [166, 180]] },
+            { "family": "orange", "h": [[7, 19]] },
+            { "family": "yellow", "h": [[19, 35]] },
+            { "family": "green", "h": [[35, 80]] },
+            { "family": "teal",  "h": [[80, 97]] },
+            { "family": "blue",  "h": [[97, 130]] },
+            { "family": "purple", "h": [[130, 150]] },
+            { "family": "pink",  "h": [[150, 166]] }
+        ]
+    }
+}

@@ -2,7 +2,7 @@
 #
 #   docker compose -f docker-compose.prod.yml up -d --build
 #
-# Differs from docker-compose.yml in four ways that all matter:
+# Differs from docker-compose.yml in five ways that all matter:
 #
 #   1. Builds the `prod` target — nginx + php-fpm, no dev dependencies, assets
 #      compiled in — instead of `dev`'s `php artisan serve`.
@@ -10,7 +10,10 @@
 #      `queued`, ocr_output stays null and nothing anywhere reports an error.
 #   3. No source bind-mount. The image is the artifact; a deploy is a rebuild,
 #      which is also why opcache.validate_timestamps is 0.
-#   4. No Meilisearch. laravel/scout is not in composer.json, so the container
+#   4. Adds the `recognizer` (scan + local card reading) and two volumes:
+#      `appstorage` for scan crops, `recognition` for the catalog index the
+#      recognizer reads.
+#   5. No Meilisearch. laravel/scout is not in composer.json, so the container
 #      would index nothing while holding a few hundred MB on a small box.
 #
 # Configuration is a .env file mounted read-only, never process environment —
@@ -28,6 +31,10 @@ x-app: &app
     # and a stray `artisan key:generate` on the box would invalidate every
     # session without leaving a trace.
     - ./.env:/var/www/html/.env:ro
+    # Scan crops (the private `local` disk) must outlive a rebuild, and the
+    # recognition index is shared with the recognizer container.
+    - appstorage:/var/www/html/storage/app/private
+    - recognition:/var/www/html/storage/app/recognition
   depends_on:
     db:
       condition: service_healthy
@@ -42,6 +49,8 @@ services:
       - "443:443"
     volumes:
       - ./.env:/var/www/html/.env:ro
+      - appstorage:/var/www/html/storage/app/private
+      - recognition:/var/www/html/storage/app/recognition
       # The Cloudflare Origin CA certificate and key. If this directory is
       # empty the entrypoint generates a self-signed pair and says so loudly —
       # the container boots, but Cloudflare Full (strict) answers 526.
@@ -81,6 +90,16 @@ services:
       web:
         condition: service_healthy
 
+  # The local car recognizer — OpenCV + Tesseract, no outside API. Only on the
+  # compose network (no `ports:`): it has no authentication of its own. The
+  # scheduler refreshes its catalog index nightly.
+  recognizer:
+    build: ./recognizer
+    image: collectai-recognizer:prod
+    restart: unless-stopped
+    volumes:
+      - recognition:/data:ro
+
   db:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -119,3 +138,5 @@ services:
 volumes:
   pgdata:
   redisdata:
+  appstorage:
+  recognition:

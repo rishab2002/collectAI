@@ -5,6 +5,7 @@ namespace App\Services\AI;
 use Anthropic\Client;
 use App\Exceptions\MetadataFailedException;
 use App\Models\Casting;
+use App\Services\AI\Contracts\IdentifiesCastings;
 use Illuminate\Support\Collection;
 
 /**
@@ -33,7 +34,7 @@ use Illuminate\Support\Collection;
  *   as a Pontiac GTO, published on the GTO's confidence score. Both the id and
  *   the echoed name are checked.
  */
-class MetadataAgent
+class MetadataAgent implements IdentifiesCastings
 {
     /**
      * The scored fields, in the order the schema lists them. Kept next to the

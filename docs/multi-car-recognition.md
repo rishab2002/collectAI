@@ -13,31 +13,25 @@ scanner never adds a car silently: it shows each car it found with its best
 matches, and the collector taps the right one (or "not in the list"). Wrong
 entries in someone's collection are worse than a tap.
 
-## Phase 1 — Claude vision + the database (no training)
+## Phase 1 — local recognizer + the catalog file (no training) — **built 2026-11-03**
 
-What already exists: the OCR Agent reads one card with a Claude vision call
-(`app/Services/AI/OcrAgent.php`), the catalog has toy numbers, names, years and
-colours for ~51,000 variations, and Postgres has trigram indexes for fuzzy name
-matching.
+Originally planned around a Claude vision call; built instead with no outside
+API at the owner's request. See README §5.8–5.9 and the session log.
 
-1. **Detect and read.** One Claude vision call per photo, with a structured
-   output listing every car it sees: a rough position ("left, second from top"),
-   whether it is carded or loose, any text it can read (casting name, toy
-   number, year, series), and the visible colour. Same pattern as `OcrAgent`:
-   schema file, per-field confidence, `stop_reason` checked.
-2. **Match deterministically** (the Comparison Agent the project already
-   planned — no LLM call): toy number first (exact), then casting name by
-   trigram similarity within the brand, narrowed by year and colour. Return the
-   top 3 candidates per car with a score.
-3. **Confirm screen.** "We found 7 cars": each with its crop or position, the
-   top candidates with their catalog photos, and Add / Not this / Skip. Added
-   cars go into `user_collection_items` exactly as the manual button does.
-4. **Where it lives:** a collector-facing **Scan** page (camera input, like the
-   admin capture form), so it works in the phone browser and in the iPhone app.
+1. **Detect and read** — `recognizer/` (Python, OpenCV, Tesseract): separate
+   cars against the photo's border colour, name each one's colour, read base or
+   card text at 0° and 180°.
+2. **Match deterministically** against `catalog-index.json`
+   (`catalog:export-recognition-index`): toy number exact, casting name fuzzy
+   with numbers exact, © year and brand as corroboration. Report a casting only
+   when it scores ≥ 0.9 and leads the next by 0.08; order its versions by colour
+   (body or base).
+3. **Confirm screen** — `/scan`: identified cars with their versions to pick
+   from; found-but-unsure cars with a search to name them; Skip.
+4. **Consent** — a tick box keeps confirmed crops as training data.
 
-Cost: one vision call per photo. Carded cars should match well (the card prints
-the name and often the toy number); loose cars will often need the collector to
-choose between candidates.
+What phase 1 cannot do: name a loose car seen from above by shape, colour and
+wheels. That is what phases 2 and 3 are for.
 
 ## Phase 2 — Collect labelled examples, with consent
 
@@ -60,14 +54,19 @@ castings):
    photos of the same variation land close together.
 2. **Index every variation's reference embeddings** in Postgres (`pgvector`).
 3. **Recognise by nearest neighbour**: crop each detected car, embed it, find
-   the closest variations. Milliseconds and no per-call cost; Claude stays as
-   the fallback for low-confidence crops and for reading card text.
+   the closest variations. Milliseconds and no per-call cost; the phase 1 text
+   reader stays for bases and cards.
 4. **Keep measuring**: hold back a test set of confirmed photos and track
    top-1 / top-3 accuracy per brand before switching anything over.
 
-## What to build first
+## What to build next
 
-Phase 1, steps 1–4: the schema file for the multi-car reading, the matching
-service with tests on real catalog rows, and the Scan page with the confirm
-screen. It reuses the OCR Agent's structure and the collection code that
-already exists.
+1. Put real phone photos of real bases through phase 1 and measure: how many
+   bases are read, how many confident answers are right. Tune
+   `RECOGNIZER_MIN_CONFIDENCE` from that, not from rendered test images.
+2. Phase 2 is running as soon as collectors tick the consent box;
+   `catalog:export-training-data` produces the dataset.
+3. Phase 3 when the dataset has a few thousand labelled crops across many
+   castings. The model must run on our own server (CPU is fine for an
+   embedding model of this size), alongside the recognizer, with no outside
+   API — the same constraint phase 1 was built under.

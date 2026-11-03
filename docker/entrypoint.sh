@@ -142,8 +142,8 @@ case "$role" in
         ;;
 
     scheduler)
-        # Laravel's scheduler (routes/console.php): today, the daily price
-        # update that refreshes every published car about once a month. One
+        # Laravel's scheduler (routes/console.php): the daily price update,
+        # the nightly recognition index export and the hourly scan prune. One
         # long-running process instead of a host cron, so it ships with the
         # stack and restarts with it.
         wait_for_database

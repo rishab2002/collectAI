@@ -50,6 +50,67 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | AI driver
+    |--------------------------------------------------------------------------
+    |
+    | Who does the two jobs that used to be Claude API calls:
+    |
+    |   reading a captured card (ReadsPackaging)
+    |   naming the real car behind a casting (IdentifiesCastings)
+    |
+    | "local" (the default) keeps both inside this site: the card is read by
+    | the recognizer service (Tesseract, on our own box), and the make/model
+    | comes from the vehicle dictionary in resources/data/vehicles.json. No
+    | request leaves the server and nothing is billed.
+    |
+    | "claude" switches back to the OcrAgent and MetadataAgent, which call the
+    | Claude API with COLLECTAI_ANTHROPIC_KEY. Better at hard cases, but an
+    | outside dependency — optional, never required.
+    |
+    */
+
+    'ai' => [
+        'driver' => env('CATALOG_AI_DRIVER', 'local'),
+        'vehicles' => resource_path('data/vehicles.json'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Recognition (the Scan page and the local card reader)
+    |--------------------------------------------------------------------------
+    |
+    | The recognizer is the Python service in recognizer/, running next to the
+    | app (docker compose service `recognizer`). It finds the cars in a photo,
+    | reads base and card text with Tesseract and matches it against the index
+    | file below. No outside API.
+    |
+    | `index_path` is written by catalog:export-recognition-index (scheduled
+    | nightly) and read by the recognizer from the same volume.
+    |
+    | `min_confidence` / `min_margin`: a car is offered for confirmation only
+    | when its best casting scores at least this and beats the next different
+    | casting by the margin. Raise them to see fewer, surer answers.
+    |
+    | `disk` holds the crops of each found car. Private (the `local` disk),
+    | not the public photo bucket: a collector's photos are theirs. Crops of
+    | collectors who didn't agree to share them for training are deleted once
+    | the scan is finished, or after `unconsented_hours` at the latest.
+    |
+    */
+
+    'recognition' => [
+        'url' => rtrim((string) env('RECOGNIZER_URL', 'http://recognizer:8080'), '/'),
+        'timeout' => (int) env('RECOGNIZER_TIMEOUT', 120),
+        'index_path' => env('RECOGNIZER_INDEX_PATH', storage_path('app/recognition/catalog-index.json')),
+        'min_confidence' => (float) env('RECOGNIZER_MIN_CONFIDENCE', 0.9),
+        'min_margin' => (float) env('RECOGNIZER_MIN_MARGIN', 0.08),
+        'disk' => env('SCAN_DISK', 'local'),
+        'max_photos' => (int) env('SCAN_MAX_PHOTOS', 6),
+        'unconsented_hours' => (int) env('SCAN_UNCONSENTED_HOURS', 24),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Anthropic
     |--------------------------------------------------------------------------
     |
