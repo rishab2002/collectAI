@@ -70,6 +70,17 @@ services:
       web:
         condition: service_healthy
 
+  # Runs scheduled jobs — the daily price update. Waits for `web` for the same
+  # reason the worker does: the schema must exist before anything queries it.
+  scheduler:
+    <<: *app
+    command: ["scheduler"]
+    depends_on:
+      db:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+
   db:
     image: postgres:16-alpine
     restart: unless-stopped
