@@ -46,6 +46,8 @@ class TrainingPhotoLabelsTest extends TestCase
         $this->assertTrue(collect($labels)->every(fn ($l) => str_starts_with($l['file'], 'File:') && ! str_contains($l['file'], '_')));
         $this->assertGreaterThan(0, collect($labels)->whereNotNull('variation_id')->count());
         $this->assertSame('https://matchbox.fandom.com/api.php', $labels[0]['api']);
+        $withVariation = collect($labels)->firstWhere('variation_id', '!=', null);
+        $this->assertStringStartsWith('matchbox_fandom|page:2602:row:', $withVariation['variation_key']);
         $this->assertSame(0, Photo::count(), 'nothing is added to the catalog');
     }
 
@@ -69,6 +71,7 @@ class TrainingPhotoLabelsTest extends TestCase
             ->assertSuccessful();
 
         $first = json_decode(strtok(file_get_contents($out), "\n"), true);
-        $this->assertSame(['file', 'casting_id', 'variation_id', 'wiki', 'api', 'page_url'], array_keys($first));
+        $this->assertSame(['file', 'casting_id', 'variation_id', 'casting_key', 'variation_key', 'wiki', 'api', 'page_url'], array_keys($first));
+        $this->assertSame('matchbox_fandom|page:2602', $first['casting_key']);
     }
 }

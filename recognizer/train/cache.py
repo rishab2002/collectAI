@@ -1,8 +1,10 @@
 """Embeddings, keyed by image hash (or wiki file sha1), shared by collect and build.
 
 Stored as float16 (half the space; similarities don't notice) together with the
-hash of the encoder that made them — vectors from a different encoder are
+identity of the encoder that made them (encoder-id.txt beside it: model,
+pinned revision, export format) — vectors from a different encoder are
 meaningless, so a changed encoder discards the cache rather than mixing them.
+Without that file, the encoder file's hash stands in.
 """
 
 from __future__ import annotations
@@ -25,7 +27,11 @@ def file_hash(path: Path) -> str:
 class EmbeddingCache:
     def __init__(self, path: Path, encoder: Path):
         self.path = Path(path)
-        self.encoder = file_hash(encoder) if Path(encoder).is_file() else "unknown"
+        identity = Path(encoder).with_name("encoder-id.txt")
+        if identity.is_file():
+            self.encoder = identity.read_text(encoding="utf-8").strip()
+        else:
+            self.encoder = file_hash(encoder) if Path(encoder).is_file() else "unknown"
         self.vectors: dict[str, np.ndarray] = {}
         if self.path.is_file():
             data = np.load(self.path, allow_pickle=False)

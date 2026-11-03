@@ -46,6 +46,9 @@ class CatalogIndex:
         self.generated_at = data.get("generated_at")
         self.brands = {int(b["id"]): b["name"] for b in data.get("brands", [])}
         self.castings = {int(c["id"]): c for c in data.get("castings", [])}
+        # Stable keys (provenance, same in every database) -> this database's ids.
+        self.casting_keys = {c["key"]: int(c["id"]) for c in data.get("castings", []) if c.get("key")}
+        self.variation_keys = {v["key"]: int(v["id"]) for v in data.get("variations", []) if v.get("key")}
         self.variations: dict[int, list[dict]] = defaultdict(list)
         self.toy_numbers: dict[str, set[int]] = defaultdict(set)
         for v in data.get("variations", []):

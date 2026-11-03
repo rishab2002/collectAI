@@ -5,6 +5,7 @@ namespace App\Services\Import\FandomWiki;
 use App\Models\Casting;
 use App\Models\RecordSource;
 use App\Models\Variation;
+use App\Services\Recognition\StableKeys;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -48,29 +49,35 @@ final class TrainingPhotoLabels
                 // The stored key, not one rebuilt from this page's id: the
                 // casting was keyed when it was imported, and that is the key
                 // its rows carry.
-                $variationId = $variations[RecordSource::rowKey($casting['page_key'], $row->line)] ?? null;
+                $rowKey = RecordSource::rowKey($casting['page_key'], $row->line);
+                $variationId = $variations[$rowKey] ?? null;
 
                 foreach ($row->photos as $file) {
                     $seen[$this->fileKey($file)] = true;
-                    yield $this->label($file, $casting['id'], $variationId, $parsed);
+                    yield $this->label($file, $casting, $variationId === null ? null : [$variationId, $rowKey], $parsed);
                 }
             }
 
             if ($parsed->image !== null && ! isset($seen[$this->fileKey($parsed->image)])) {
-                yield $this->label($parsed->image, $casting['id'], null, $parsed);
+                yield $this->label($parsed->image, $casting, null, $parsed);
             }
         }
     }
 
     /**
-     * @return array{file: string, casting_id: int, variation_id: ?int, wiki: string, api: string, page_url: string}
+     * @param  array{id: int, page_key: string, title: string}  $casting
+     * @param  array{0: int, 1: string}|null  $variation  id and provenance key
+     * @return array<string, mixed>
      */
-    private function label(string $file, int $castingId, ?int $variationId, CastingPage $page): array
+    private function label(string $file, array $casting, ?array $variation, CastingPage $page): array
     {
         return [
             'file' => 'File:'.$this->fileKey($file),
-            'casting_id' => $castingId,
-            'variation_id' => $variationId,
+            'casting_id' => $casting['id'],
+            'variation_id' => $variation[0] ?? null,
+            // Ids are this database's; the keys are the same in every one.
+            'casting_key' => StableKeys::compose($this->wiki->source, $casting['page_key']),
+            'variation_key' => $variation === null ? null : StableKeys::compose($this->wiki->source, $variation[1]),
             'wiki' => $this->wiki->key,
             'api' => $this->wiki->apiEndpoint(),
             'page_url' => $page->sourceUrl(),

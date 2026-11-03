@@ -53,9 +53,10 @@ def recognise(
     # One batch through the image model for every car in the photo.
     looks = []
     if visual is not None and found:
-        vectors = visual.embed([padded_crop(work, obj.box) for obj in found])
+        visual.bind(index)
+        raws, vectors = visual.embed_pair([padded_crop(work, obj.box) for obj in found])
         allowed = set(index.castings) if index else None
-        looks = [visual.match(v, allowed) for v in vectors]
+        looks = [visual.match(v, allowed, raw=r) for v, r in zip(vectors, raws)]
 
     for n, obj in enumerate(found):
         distribution = classify_pixels(work, obj.foreground)

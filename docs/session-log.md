@@ -53,6 +53,32 @@ size limits.
 **Gap found:** the site has no privacy-policy page, which App Store submission
 requires for apps with accounts.
 
+**The collection, then training — and three problems found in it:**
+- The background run hit the 2-hour limit at 27,717 of 43,667 files (64%) and,
+  per the harness rule for a max-length task, was not restarted. Resumable.
+- First training "measured" 74.3% — **void**: the 200-file trial had written
+  rows (placeholders included) into the folder that run read. Clean data:
+  **76.2% top-1 / 87.7% top-5** on held-out versions (base alone 62.9/76.3).
+- Calibration tested only cars in the gallery, so it accepted at its grid floor
+  (0.30) and named plain coloured blocks "Minecart". Added never-seen castings
+  to calibration (`--open-set`). Then blocks became "'68 El Camino" (a hub).
+  Measured: real photos' base-model nearest similarity ≥ 0.689 for 99%;
+  blocks 0.47–0.52, grey card 0.665 → **familiarity gate** at the 2nd
+  percentile (0.704). Result: blocks unanswered, bases still read; looks-only
+  95.0% precise, 29.7% coverage.
+- Labels were **database ids** from this machine's DB — a model trained here
+  would mislabel cars on any other DB. Switched to stable provenance keys,
+  resolved via the index; the 28,976 collected rows were re-keyed by exact
+  match (0 unmatched), nothing re-downloaded.
+- Cache keyed by encoder identity rather than file hash, so it survives a
+  re-export elsewhere.
+
+**Data on GitHub after all, in the narrow form that makes sense:** a separate
+`training-data` branch (61 MB: model, vectors, keyed labels; no photos), never
+merged, restorable with `./collectai model-pull` (verified byte-identical).
+`RECOGNIZER_TRUST_LOOKS=never` added for running hint-only until the model has
+been checked against real phone photos.
+
 ---
 
 ## 2026-11-03 (last) — Recognition phase 3: the trained visual model

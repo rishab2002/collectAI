@@ -74,8 +74,8 @@ exists.*
 
 **Running:** `docker compose up -d` brings up `app` (:8000), `db` (Postgres 16,
 :5432), `redis` (:6379), `meilisearch` (:7700), `recognizer` (:8090).
-`php artisan test` → **364 passed, 1,478 assertions**; the recognizer's own
-`python -m unittest discover -s tests -t .` (in `recognizer/`) → **35 passed**
+`php artisan test` → **364 passed, 1,480 assertions**; the recognizer's own
+`python -m unittest discover -s tests -t .` (in `recognizer/`) → **40 passed**
 (both re-measured 2026-11-03, last). The `recognizer` Docker image has not been
 built yet — the Python ran in a venv with the same pinned versions.
 
@@ -353,10 +353,13 @@ queue worker, `APP_URL=http://localhost` — reachable only from this Mac on
   DINOv2-small (Apache 2.0, pinned revision) exported to ONNX; training embeds
   labelled photos, fits a WCCN head only if it beats plain on held-out top-1,
   calibrates thresholds, and writes `storage/app/recognition/model/`
-  (gitignored, 85 MB). Trained here on the 157 licensed wiki photos + 6 test
-  scans: one photo per casting, so nothing to hold out — **visual-only is off**
-  and looks only corroborate, order versions and hint. Sanity check (altered
-  copies of the same photos, *not* accuracy): 152/157 top-1.
+  (gitignored). **Measured 2026-11-03** on 27,729 photos / 1,678 castings
+  (64% of the wiki collected + licensed): held-out versions top-1 **76.2%**,
+  top-5 **87.7%** (base model alone 62.9 / 76.3); looks-only answers **95.0%**
+  precise on 2,122 answers incl. 10% never-seen castings, 29.7% coverage;
+  familiarity gate 0.704. Wiki photos only — **phone-photo accuracy is
+  unmeasured.** The model + vectors + keyed labels are on the **`training-data`
+  branch** (never merged; `./collectai model-pull`).
 
 **Not built — do not assume these exist:**
 
@@ -1510,6 +1513,21 @@ measurements in the [session log](docs/session-log.md).*
   agent, 4 requests/s. The deployed model's gallery holds their vectors — the
   owner confirmed that use on the site is covered. `manifest.json` records the
   sources and licences of every trained model.
+- **Calibration includes cars the model has never seen** (`--open-set`, 10% of
+  castings held out entirely; any answer for them counts wrong), **and a
+  familiarity gate**: base-model similarity to the nearest training photo must
+  reach what 98% of real held-out photos reach. Both exist because of measured
+  failures — without the first the bar sat at the grid floor; without the
+  second, flat coloured blocks were "identified" ('68 El Camino, a hub). Don't
+  remove either to raise coverage.
+- **Model labels are stable provenance keys** (`StableKeys`:
+  `source|source_key`, or `id:<n>` for hand-made records); the recognizer
+  resolves them through the catalog index (`VisualModel.bind`). Labelling by
+  database id would mislabel cars on any other database — found before it
+  shipped. Keep ids out of the model.
+- **The embedding cache is keyed by encoder identity** (`encoder-id.txt`:
+  model, pinned revision, export format), not file bytes, so vectors made on
+  one machine stay valid on another.
 - **The held-out test holds out whole versions** (`split(groups=…)`): a car
   is tested on a colour/version it never saw. Rows are de-duplicated by
   (photo, casting) first. Don't switch to a per-image split to get a nicer

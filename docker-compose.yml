@@ -43,6 +43,10 @@ services:
       - "8090:8080"
     volumes:
       - ./storage/app/recognition:/data:ro
+    environment:
+      # never = looks only hint and order versions, even when training measured
+      # them good enough to name a car alone (README §5.10).
+      RECOGNIZER_TRUST_LOOKS: ${RECOGNIZER_TRUST_LOOKS:-auto}
 
   # Trains the visual model (README §5.10). Not started by `up`; run it with
   #   docker compose --profile training run --rm trainer

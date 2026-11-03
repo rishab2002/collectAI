@@ -198,6 +198,7 @@ def main(argv: list[str] | None = None) -> int:
                     buffered.append(json.dumps({
                         "key": key, "source": "wiki_consented", "licence": "Fandom written consent (training only)",
                         "casting_id": row["casting_id"], "variation_id": row["variation_id"],
+                        "casting_key": row.get("casting_key"), "variation_key": row.get("variation_key"),
                         "file": row["file"], "api": row["api"], "page_url": row["page_url"],
                     }) + "\n")
                 fetched += 1

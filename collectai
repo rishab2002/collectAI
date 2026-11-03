@@ -189,6 +189,25 @@ cmd_train() {
     echo "  The recognizer picks up the new model by itself. Results: storage/app/recognition/model/manifest.json"
 }
 
+# The trained model and its data live on the training-data branch, never in
+# main (README §5.10). This puts them where the recognizer and trainer look.
+cmd_model_pull() {
+    say "Trained model and training data from the training-data branch"
+    run git fetch origin training-data
+    run mkdir -p storage/app/recognition
+    if [ "$DRY_RUN" = 1 ]; then
+        echo "  $ git archive origin/training-data model wiki-training wiki-labels-hot-wheels.jsonl wiki-labels-matchbox.jsonl | tar -x -C storage/app/recognition"
+    else
+        git archive origin/training-data model wiki-training wiki-labels-hot-wheels.jsonl wiki-labels-matchbox.jsonl | tar -x -C storage/app/recognition
+    fi
+    if production; then
+        # The containers see the recognition volume, not this folder; the
+        # trainer mounts it writable.
+        run "${COMPOSE[@]}" --profile training run --rm --no-deps -v "$PWD/storage/app/recognition:/src:ro" trainer sh -c 'cp -r /src/. /data/'
+    fi
+    echo "  The base model (encoder.onnx) is re-made by ./collectai train the first time."
+}
+
 cmd_deploy() {
     production || die "deploy runs on the server (APP_ENV=production in .env). On your computer use ./collectai setup."
     [ -f .env ] || die "No .env — see README §8.2 step 1."
@@ -297,6 +316,7 @@ On your computer
   publish          Publish what you approved in /admin/proposals; refresh the scanner
   train            Train the scanner's visual model (README §5.10). Extra options go to
                    train.collect, e.g. ./collectai train --limit 2000
+  model-pull       Fetch the trained model and training data from the training-data branch
   test             All tests and formatting checks
   status           What's running, and the recognizer's health
   ios              Open the iPhone project in Xcode (Mac)
@@ -324,6 +344,7 @@ case "$command" in
     ios) cmd_ios "$@" ;;
     ios-release) cmd_ios_release "$@" ;;
     artisan) cmd_artisan "$@" ;;
+    model-pull) cmd_model_pull "$@" ;;
     help|-h|--help) cmd_help ;;
     *) die "Unknown command: $command — try ./collectai help" ;;
 esac

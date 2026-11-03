@@ -26,6 +26,7 @@ Runtime needs numpy and onnxruntime only; training needs PyTorch (train/).
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -104,6 +105,8 @@ class VisualResult:
     visual_only: bool
     min_similarity: float
     min_margin: float
+    familiarity: float = 1.0          # base-model similarity to the nearest training photo
+    min_familiarity: float = 0.0
 
     @property
     def top(self) -> VisualMatch | None:
@@ -118,28 +121,55 @@ class VisualResult:
     @property
     def sure(self) -> bool:
         """Clears the bar training measured — the only way looks alone name a car."""
-        return bool(self.visual_only and self.top and self.top.score >= self.min_similarity and self.margin >= self.min_margin)
+        return bool(self.visual_only and self.top and self.familiarity >= self.min_familiarity
+                    and self.top.score >= self.min_similarity and self.margin >= self.min_margin)
 
     def as_dict(self, limit: int = 3) -> dict:
         return {
             "sure": self.sure,
+            "familiarity": round(self.familiarity, 3),
             "candidates": [{"casting_id": c.casting_id, "score": round(c.score, 3)} for c in self.candidates[:limit]],
         }
 
 
+def resolve(labels: np.ndarray, keys: dict[str, int]) -> np.ndarray:
+    """Labels -> this database's ids: a stable key through the index, `id:<n>`
+    as written, anything unknown here as -1 (never offered)."""
+    if labels.dtype.kind in "iu":
+        return labels.astype(np.int64)
+    out = np.full(len(labels), -1, dtype=np.int64)
+    for i, label in enumerate(labels.tolist()):
+        if label.startswith("id:"):
+            out[i] = int(label[3:])
+        elif label in keys:
+            out[i] = keys[label]
+    return out
+
+
 class VisualModel:
-    def __init__(self, encoder, head: Head, vectors: np.ndarray, casting_ids: np.ndarray,
-                 variation_ids: np.ndarray, manifest: dict):
+    """Gallery labels are stable keys (StableKeys in the app) or `id:<n>`;
+    integer arrays are taken as ids directly (older models, and tests)."""
+
+    def __init__(self, encoder, head: Head, vectors: np.ndarray, casting_labels: np.ndarray,
+                 variation_labels: np.ndarray, manifest: dict, raw_vectors: np.ndarray | None = None):
         self.encoder = encoder
         self.head = head
         self.vectors = vectors.astype(np.float32)
-        self.casting_ids = casting_ids.astype(np.int64)
-        self.variation_ids = variation_ids.astype(np.int64)
+        self.raw_vectors = raw_vectors.astype(np.float32) if raw_vectors is not None else None
+        self.casting_labels = np.asarray(casting_labels)
+        self.variation_labels = np.asarray(variation_labels)
+        self.casting_ids = resolve(self.casting_labels, {})
+        self.variation_ids = resolve(self.variation_labels, {})
+        self._bound_to = None
         self.manifest = manifest
         t = manifest.get("thresholds", {})
-        self.visual_only = bool(t.get("visual_only", False))
+        # RECOGNIZER_TRUST_LOOKS=never keeps looks to hints and ordering even
+        # when training measured them good enough — the bar was measured on
+        # the training photos, and a phone photo of a pile is not one of those.
+        self.visual_only = bool(t.get("visual_only", False)) and os.environ.get("RECOGNIZER_TRUST_LOOKS", "auto") != "never"
         self.min_similarity = float(t.get("min_similarity", 1.0))
         self.min_margin = float(t.get("min_margin", 1.0))
+        self.min_familiarity = float(t.get("min_familiarity", 0.0))
 
     @classmethod
     def load(cls, directory: str | Path, encoder=None) -> "VisualModel | None":
@@ -152,13 +182,25 @@ class VisualModel:
             encoder = Encoder(d / "encoder.onnx")
         data = np.load(d / "model.npz")
         head = Head(data["head_mean"], data["head_matrix"]) if "head_matrix" in data.files else Head()
-        return cls(encoder, head, data["vectors"], data["casting_ids"], data["variation_ids"],
-                   json.loads((d / "manifest.json").read_text(encoding="utf-8")))
+        castings = data["casting_labels"] if "casting_labels" in data.files else data["casting_ids"]
+        variations = data["variation_labels"] if "variation_labels" in data.files else data["variation_ids"]
+        return cls(encoder, head, data["vectors"], castings, variations,
+                   json.loads((d / "manifest.json").read_text(encoding="utf-8")),
+                   data["raw_vectors"] if "raw_vectors" in data.files else None)
+
+    def bind(self, index) -> None:
+        """Translate the gallery's labels into `index`'s database ids (once per index)."""
+        if index is None or self._bound_to is index:
+            return
+        self.casting_ids = resolve(self.casting_labels, index.casting_keys)
+        self.variation_ids = resolve(self.variation_labels, index.variation_keys)
+        self._bound_to = index
 
     def summary(self) -> dict:
         return {
-            "images": int(len(self.casting_ids)),
-            "castings": int(len(np.unique(self.casting_ids))),
+            "images": int(len(self.casting_labels)),
+            "castings": int(len(np.unique(self.casting_labels))),
+            "resolved": int((self.casting_ids >= 0).sum()),
             "visual_only": self.visual_only,
             "trained_at": self.manifest.get("trained_at"),
             "holdout": self.manifest.get("evaluation", {}).get("chosen"),
@@ -167,13 +209,24 @@ class VisualModel:
     def embed(self, images: list[np.ndarray]) -> np.ndarray:
         return self.head.apply(self.encoder.embed(images))
 
-    def match(self, vector: np.ndarray, allowed: set[int] | None = None, limit: int = 10) -> VisualResult:
+    def embed_pair(self, images: list[np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
+        """(base-model vectors, projected vectors) — the first for familiarity."""
+        raw = self.encoder.embed(images)
+        return normalise(raw), self.head.apply(raw)
+
+    def match(self, vector: np.ndarray, allowed: set[int] | None = None, limit: int = 10,
+              raw: np.ndarray | None = None) -> VisualResult:
+        familiarity = 1.0
+        if raw is not None and self.raw_vectors is not None:
+            familiarity = float((self.raw_vectors @ raw).max())
+        elif self.raw_vectors is not None:
+            familiarity = 0.0          # a gated model must be shown the base vector
         sims = self.vectors @ vector
         order = np.argsort(-sims)
         best: dict[int, VisualMatch] = {}
         for i in order[:400]:
             cid = int(self.casting_ids[i])
-            if allowed is not None and cid not in allowed:
+            if cid < 0 or (allowed is not None and cid not in allowed):
                 continue
             if cid not in best:
                 if len(best) >= limit:
@@ -181,7 +234,8 @@ class VisualModel:
                 best[cid] = VisualMatch(cid, float(sims[i]))
             m = best[cid]
             vid = int(self.variation_ids[i])
-            if vid and vid not in m.variations:
+            if vid > 0 and vid not in m.variations:
                 m.variations[vid] = float(sims[i])
         ranked = sorted(best.values(), key=lambda m: -m.score)[:limit]
-        return VisualResult(ranked, self.visual_only, self.min_similarity, self.min_margin)
+        return VisualResult(ranked, self.visual_only, self.min_similarity, self.min_margin,
+                            familiarity, self.min_familiarity)

@@ -101,6 +101,10 @@ services:
     restart: unless-stopped
     volumes:
       - recognition:/data:ro
+    environment:
+      # never = looks only hint and order versions, even when training measured
+      # them good enough to name a car alone (README §5.10).
+      RECOGNIZER_TRUST_LOOKS: ${RECOGNIZER_TRUST_LOOKS:-auto}
 
   # Trains the visual model into the recognition volume (README §5.10). Only
   # with --profile training; the recognizer picks the new model up by itself.

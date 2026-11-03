@@ -105,10 +105,10 @@ class RecognitionIndexTest extends TestCase
         $this->assertSame([[
             'id' => $live->id, 'casting_id' => $casting->id, 'brand_id' => $hw->id, 'year' => 2018,
             'color' => 'Metalflake Red', 'color_family' => 'red', 'base_color' => 'Black Plastic', 'base_color_family' => 'black', 'wheel_type' => 'PR5', 'toy_number' => 'FYC14',
-            'series' => 'Mainline / HW J-Imports',
+            'series' => 'Mainline / HW J-Imports', 'key' => null,
         ]], $index['variations']);
         $this->assertSame([[
-            'id' => $casting->id, 'name' => "'93 Mazda RX-7", 'brand_ids' => [$hw->id], 'first_year' => 2018, 'last_year' => 2018,
+            'id' => $casting->id, 'key' => null, 'name' => "'93 Mazda RX-7", 'brand_ids' => [$hw->id], 'first_year' => 2018, 'last_year' => 2018,
             'make' => 'Mazda', 'model' => 'RX-7', 'fantasy' => false,
         ]], $index['castings']);
         $this->assertSame([['id' => $hw->id, 'name' => 'Hot Wheels']], $index['brands']);
