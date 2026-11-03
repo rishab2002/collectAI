@@ -59,7 +59,7 @@
             <ul class="mt-2 list-disc space-y-2 pl-5">
                 <li>You can see and change your details on your <a href="{{ route('account.show') }}" class="underline">account page</a>, and delete any scan — with its pictures — from the Scan page.</li>
                 <li><strong>Deleting your account</strong> (Account → Delete account) removes your account, collection, wishlist, scans and their pictures straight away.</li>
-                <li>Encrypted database backups may hold deleted data for a limited time until they are replaced.</li>
+                <li>Private database backups may hold deleted data for a limited time until they are replaced.</li>
                 <li>A recognizer already trained with pictures you agreed to share keeps what it learned, as numbers rather than pictures.</li>
             </ul>
         </section>
