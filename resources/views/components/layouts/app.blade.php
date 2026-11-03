@@ -70,6 +70,10 @@
         <main class="mx-auto max-w-3xl px-4 py-6">
             {{ $slot }}
         </main>
+
+        <footer class="mx-auto max-w-3xl px-4 pb-8 text-xs text-neutral-500">
+            <a href="{{ route('privacy') }}" class="hover:underline">Privacy policy</a>
+        </footer>
     </div>
 </body>
 </html>

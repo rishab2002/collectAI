@@ -57,6 +57,21 @@ services:
     profiles: ["training"]
     volumes:
       - ./storage/app/recognition:/data
+      - ./training:/training
+
+  # Copies the model saved in training/ into the app (README §5.10) — what
+  # `./collectai model-publish` and every deploy run. The recognizer's own
+  # image, so no PyTorch; the recognizer reloads the new model by itself.
+  model-publisher:
+    build:
+      context: ./recognizer
+      target: runtime
+    profiles: ["training"]
+    user: "0"
+    command: ["python", "-m", "train.package", "publish", "/training", "/data"]
+    volumes:
+      - ./storage/app/recognition:/data
+      - ./training:/training:ro
 
   db:
     image: postgres:16-alpine

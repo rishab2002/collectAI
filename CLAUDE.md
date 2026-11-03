@@ -74,8 +74,8 @@ exists.*
 
 **Running:** `docker compose up -d` brings up `app` (:8000), `db` (Postgres 16,
 :5432), `redis` (:6379), `meilisearch` (:7700), `recognizer` (:8090).
-`php artisan test` → **378 passed, 1,539 assertions**; the recognizer's own
-`python -m unittest discover -s tests -t .` (in `recognizer/`) → **41 passed**
+`php artisan test` → **380 passed, 1,552 assertions**; the recognizer's own
+`python -m unittest discover -s tests -t .` (in `recognizer/`) → **44 passed**
 (both re-measured 2026-11-03, last). The `recognizer` Docker image has not been
 built yet — the Python ran in a venv with the same pinned versions.
 
@@ -358,8 +358,11 @@ queue worker, `APP_URL=http://localhost` — reachable only from this Mac on
   top-5 **87.7%** (base model alone 62.9 / 76.3); looks-only answers **95.0%**
   precise on 2,122 answers incl. 10% never-seen castings, 29.7% coverage;
   familiarity gate 0.704. Wiki photos only — **phone-photo accuracy is
-  unmeasured.** The model + vectors + keyed labels are on the **`training-data`
-  branch** (never merged; `./collectai model-pull`).
+  unmeasured.** The model + vectors + keyed labels live in **`training/` on
+  main** (packed: text gzipped, files split < 45 MB, `PACKED.json` checksums;
+  `recognizer/train/package.py`). The app never reads it; `model-publisher`
+  (deploy, `./collectai model-publish`) copies `training/model` into the
+  recognition folder/volume. The old `training-data` branch is superseded.
 
 **Not built — do not assume these exist:**
 
@@ -1561,6 +1564,15 @@ measurements in the [session log](docs/session-log.md).*
   resolves them through the catalog index (`VisualModel.bind`). Labelling by
   database id would mislabel cars on any other database — found before it
   shipped. Keep ids out of the model.
+- **`training/` never holds a photo.** Wiki/reference photos are embedded in
+  memory and dropped; collectors' consented scan crops stay in the app (the
+  privacy policy says they're never shared outside collectAI), so
+  `catalog:export-training-data` output (`training-data/`) is not a packed
+  group. Only vectors, labels and the model.
+- **The privacy policy (`/privacy`) describes the code** — change both
+  together and bump `catalog.privacy.updated`. Account deletion removes scan
+  pictures from disk too (`Scan::deleteWithPhotos`); the row cascade alone
+  left them behind until 2026-11-04.
 - **The embedding cache is keyed by encoder identity** (`encoder-id.txt`:
   model, pinned revision, export format), not file bytes, so vectors made on
   one machine stay valid on another.

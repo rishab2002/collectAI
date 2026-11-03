@@ -163,6 +163,9 @@ cmd_publish() {
 }
 
 cmd_train() {
+    say "Carry on from the saved model and data (training/)"
+    trainer python -m train.package restore /training /data
+
     download_dumps
     local hw mb
     hw="$(dump_path hotwheels_pages_current.xml.7z)"
@@ -195,11 +198,22 @@ cmd_train() {
     trainer python -m train.build --data /data/training-data --data /data/wiki-training \
         --data /data/reference-training --model-dir /data/model
 
-    echo "  The recognizer picks up the new model by itself. Results: storage/app/recognition/model/manifest.json"
+    say "Save the model and data into training/ (commit it to keep it)"
+    trainer python -m train.package save /data /training
+
+    echo "  The recognizer here already uses the new model. Results: training/model/manifest.json"
+    echo "  To ship it: git add training && git commit -m 'Retrained model' && git push, then ./collectai deploy on the server."
 }
 
-# The trained model and its data live on the training-data branch, never in
-# main (README §5.10). This puts them where the recognizer and trainer look.
+# The model saved in training/ -> the app. Deploy runs this; run it by hand
+# after pulling a retrained model.
+cmd_model_publish() {
+    say "Publish the model from training/ into the app"
+    run "${COMPOSE[@]}" --profile training run --rm --no-deps model-publisher
+}
+
+# Superseded by training/ on main (./collectai model-publish); kept for a
+# checkout that still has the old training-data branch.
 cmd_model_pull() {
     say "Trained model and training data from the training-data branch"
     run git fetch origin training-data
@@ -229,6 +243,9 @@ cmd_deploy() {
 
     say "Scanner catalog"
     artisan catalog:export-recognition-index
+
+    say "Scanner model (from training/)"
+    run "${COMPOSE[@]}" --profile training run --rm --no-deps model-publisher
 
     say "Done"
     run "${COMPOSE[@]}" ps
@@ -332,7 +349,7 @@ On your computer
   publish          Publish what you approved in /admin/proposals; refresh the scanner
   train            Train the scanner's visual model (README §5.10). Extra options go to
                    train.collect, e.g. ./collectai train --limit 2000
-  model-pull       Fetch the trained model and training data from the training-data branch
+  model-publish    Put the model saved in training/ into the app (deploy does this too)
   reference [src]  Refresh the reference products behind Add a car's suggestions (README §5.1)
   test             All tests and formatting checks
   status           What's running, and the recognizer's health
@@ -362,6 +379,7 @@ case "$command" in
     ios-release) cmd_ios_release "$@" ;;
     artisan) cmd_artisan "$@" ;;
     model-pull) cmd_model_pull "$@" ;;
+    model-publish) cmd_model_publish "$@" ;;
     reference) cmd_reference "$@" ;;
     help|-h|--help) cmd_help ;;
     *) die "Unknown command: $command — try ./collectai help" ;;

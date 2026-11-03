@@ -45,6 +45,7 @@
                 <strong>Help teach the scanner.</strong> Keep the pictures of the cars I confirm, with what they are,
                 to train collectAI's own recognizer. They are never published or shared outside collectAI, and you can
                 delete a scan at any time. Unticked, the pictures are deleted once you finish the scan.
+                <a href="{{ route('privacy') }}" class="underline">Privacy policy</a>
             </span>
         </label>
 

@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# collectAI's model training, on its own. The app never reads this folder;
+# `publish` is the one step that hands the result to it. See training/README.md.
+#
+#   training/train            the whole cycle: carry on from what's saved here,
+#                             collect new photos, train, measure, save, publish
+#   training/train publish    put the model saved here into the app
+#
+# Extra options after `train` go to the photo collector (e.g. --limit 2000).
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+case "${1:-run}" in
+    run) shift || true; exec ./collectai train "$@" ;;
+    publish) exec ./collectai model-publish ;;
+    help|-h|--help) sed -n '2,9p' "$0" ;;
+    *) echo "Unknown: $1 — try training/train help" >&2; exit 1 ;;
+esac

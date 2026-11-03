@@ -21,6 +21,7 @@
             <button type="submit" class="w-full rounded-lg bg-neutral-900 px-4 py-2.5 font-medium text-white dark:bg-white dark:text-neutral-900">
                 Create account
             </button>
+            <p class="text-center text-xs text-neutral-500">By creating an account you agree to how we handle your data, set out in the <a href="{{ route('privacy') }}" class="underline">privacy policy</a>.</p>
         </form>
 
         <p class="mt-6 text-sm text-neutral-500">

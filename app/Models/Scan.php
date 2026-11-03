@@ -21,6 +21,16 @@ class Scan extends Model
         return $this->belongsTo(User::class);
     }
 
+    /**
+     * The scan, its detections and every picture of it on disk. The rows
+     * would cascade on their own; the files would not.
+     */
+    public function deleteWithPhotos(): void
+    {
+        $this->detections()->get()->each->deleteCrop();
+        $this->delete();
+    }
+
     public function detections(): HasMany
     {
         return $this->hasMany(ScanDetection::class)->orderBy('photo')->orderBy('number');

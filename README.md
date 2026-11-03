@@ -106,7 +106,7 @@ git clone https://github.com/rishab2002/collectAI.git && cd collectAI && ./colle
 | `./collectai import` | Downloads the wiki dumps and runs the whole pipeline of §3–4 (~20 min) |
 | `./collectai publish` | After approving things in `/admin/proposals`: publishes them and refreshes the scanner |
 | `./collectai train` | Trains the scanner's visual model (§5.10) |
-| `./collectai model-pull` | Fetches the already-trained model and its data from the `training-data` branch (§5.10) |
+| `./collectai model-publish` | Puts the model saved in `training/` into the app; `deploy` does it too (§5.10) |
 | `./collectai reference` | Refreshes the reference products behind Add a car's suggestions (§5.1) |
 | `./collectai test` | Every test and formatting check |
 | `./collectai status` | What's running, and the recognizer's health |
@@ -881,20 +881,23 @@ RECOGNIZER_TRUST_LOOKS=never
 (then `docker compose up -d recognizer`). The default `auto` follows what
 training measured.
 
-**The trained model is saved on GitHub**, on a separate branch called
-`training-data`. It is never merged into `main`, and it holds no photos: just
-the model, the vectors and the labels (about 60 MB). Labels are the wiki's own
-keys (`hotwheels_fandom|page:1844:row:1`), not database numbers, so the model
-works with your database even though it was trained on another. To get it,
-then finish collecting the remaining 36% and retrain:
+**The trained model and its data live in [`training/`](training/README.md) on
+`main`**: a folder the app never reads, holding the model, the photos' vectors
+and the labels. It holds no photos. Labels are stable keys
+(`hotwheels_fandom|page:1844:row:1`), not database numbers, so a model trained
+on one database works with another. **Train, then update the app:**
 
 ```bash
-./collectai model-pull
+training/train
 ```
 
 ```bash
-./collectai train
+git add training && git commit -m "Retrained scanner model" && git push
 ```
+
+Then run `./collectai deploy` on the server: it publishes `training/model` into
+the running app, and the recognizer reloads it by itself. Details, including
+publishing without a deploy, are in [training/README.md](training/README.md).
 
 **Run a training** (after adding photos or confirming scans):
 
@@ -1006,6 +1009,7 @@ cd /opt/collectai && docker compose -f docker-compose.prod.yml up -d --force-rec
 | `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_ENDPOINT`, `R2_URL` | The R2 bucket. `R2_URL` is the public address photos are served from (`https://img.collectai.club`). Test with `php artisan capture:check-storage` |
 | `CATALOG_AI_DRIVER` | `local` (default): cards are read by the recognizer, cars named by `resources/data/vehicles.json` — nothing leaves the server. `claude`: use the Claude API instead |
 | `RECOGNIZER_URL` | Where the recognizer listens (`http://recognizer:8080` in Docker) |
+| `PRIVACY_CONTACT_EMAIL` | The address the privacy policy (`/privacy`) gives for data requests |
 | `RECOGNIZER_TRUST_LOOKS` (`auto`) | `never` keeps the trained model to hints and ordering: no car is named by looks alone (§5.10) |
 | `RECOGNIZER_MIN_CONFIDENCE` (0.9), `RECOGNIZER_MIN_MARGIN` (0.08) | How sure the scanner must be, and how far ahead of the next car, before it offers a car. Raise for fewer, surer answers |
 | `SCAN_DISK` (`local`), `SCAN_MAX_PHOTOS` (6), `SCAN_UNCONSENTED_HOURS` (24) | Where scan pictures are kept (keep it private), photos per scan, and how long pictures of collectors who didn't tick "help teach" are kept at most |
@@ -1581,6 +1585,13 @@ export question to answer per build. (This script has not been run on a real
 Mac from here, because there isn't one. If it stops at signing, use Xcode's
 **Product → Archive** route above once, then try again.)
 
+**Privacy policy:** the site has one at **https://collectai.club/privacy**
+(`resources/views/privacy.blade.php`). Use that URL in App Store Connect. Set
+the contact address it shows with `PRIVACY_CONTACT_EMAIL` in `.env` (default
+`privacy@collectai.club`; make sure that mailbox exists). If you change what
+the app collects, update the page and the date in `config/catalog.php`
+(`privacy.updated`).
+
 #### Release it on the public App Store
 
 1. **App Store Connect → your app → App Store** tab, under the version:
@@ -1588,8 +1599,8 @@ Mac from here, because there isn't one. If it stops at signing, use Xcode's
      a car page, Scan results, My collection.
    - **Description** and **keywords**.
    - **Support URL** (`https://collectai.club`).
-   - **Privacy Policy URL**, which is required because people create accounts.
-     *The site has no privacy page yet; it needs one before submission.*
+   - **Privacy Policy URL**, which is required because people create accounts:
+     `https://collectai.club/privacy`.
 2. **App Privacy:** declare email address and user content (photos and the
    collection), used for app functionality and not for tracking. Accounts can
    be deleted in the app (**Account → Delete account**), which Apple requires.
@@ -1694,8 +1705,8 @@ docker compose exec app php artisan test
 docker compose exec app vendor/bin/pint --test
 ```
 
-The first runs the 378 tests; the second checks code formatting (drop `--test`
-to fix it). The recognizer has its own 41 tests, run from `recognizer/` (see
+The first runs the 380 tests; the second checks code formatting (drop `--test`
+to fix it). The recognizer has its own 44 tests, run from `recognizer/` (see
 §5.9 for the one-time setup):
 
 ```bash

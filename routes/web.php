@@ -17,6 +17,10 @@ use Illuminate\Support\Facades\Route;
 // The public catalog: brand → main line → sub-series → car. Live records
 // only; an admin can preview the pending backlog. See CatalogBrowseController.
 Route::get('/', [CatalogBrowseController::class, 'home'])->name('home');
+
+// Required by the App Store for an app with accounts; linked from the footer,
+// sign-up and Scan.
+Route::view('privacy', 'privacy')->name('privacy');
 Route::get('brands/{brand}', [CatalogBrowseController::class, 'brand'])->name('catalog.brand');
 Route::get('lines/{line}', [CatalogBrowseController::class, 'line'])->name('catalog.line');
 Route::get('cars/{casting}', [CatalogBrowseController::class, 'casting'])
