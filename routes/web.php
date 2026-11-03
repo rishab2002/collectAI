@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Account\AccountController;
+use App\Http\Controllers\Account\CollectionController;
 use App\Http\Controllers\Admin\CaptureController;
 use App\Http\Controllers\Admin\CatalogController;
 use App\Http\Controllers\Admin\DashboardController;
@@ -7,6 +9,7 @@ use App\Http\Controllers\Admin\ProposalReviewController;
 use App\Http\Controllers\Admin\SubmissionReviewController;
 use App\Http\Controllers\Admin\VariationPhotoController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\CatalogBrowseController;
 use Illuminate\Support\Facades\Route;
 
@@ -27,6 +30,25 @@ Route::post('preview', [CatalogBrowseController::class, 'togglePreview'])
 Route::middleware('guest')->group(function () {
     Route::get('login', [LoginController::class, 'show'])->name('login');
     Route::post('login', [LoginController::class, 'store'])->name('login.store');
+    Route::get('register', [RegisterController::class, 'show'])->name('register');
+    Route::post('register', [RegisterController::class, 'store'])
+        ->middleware('throttle:register')
+        ->name('register.store');
+});
+
+// A collector's own pages. Every lookup is scoped to the signed-in user in the
+// controller, so another collector's ids 404.
+Route::middleware(['auth', 'throttle:account'])->group(function () {
+    Route::get('collection', [CollectionController::class, 'index'])->name('collection.index');
+    Route::post('collection', [CollectionController::class, 'store'])->name('collection.store');
+    Route::patch('collection/{item}', [CollectionController::class, 'update'])->whereNumber('item')->name('collection.update');
+    Route::delete('collection/{item}', [CollectionController::class, 'destroy'])->whereNumber('item')->name('collection.destroy');
+    Route::post('wishlist', [CollectionController::class, 'wish'])->name('wishlist.store');
+    Route::delete('wishlist/{variation}', [CollectionController::class, 'unwish'])->whereNumber('variation')->name('wishlist.destroy');
+
+    Route::get('account', [AccountController::class, 'show'])->name('account.show');
+    Route::put('account/password', [AccountController::class, 'password'])->name('account.password');
+    Route::delete('account', [AccountController::class, 'destroy'])->name('account.destroy');
 });
 
 Route::post('logout', [LoginController::class, 'destroy'])

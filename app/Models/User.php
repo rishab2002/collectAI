@@ -39,6 +39,16 @@ class User extends Authenticatable
             ->withTimestamps();
     }
 
+    /**
+     * The collection as rows, for editing one entry at a time. Scoping every
+     * lookup through this relation is what keeps one collector's ids from
+     * reaching another's.
+     */
+    public function collectionItems(): HasMany
+    {
+        return $this->hasMany(UserCollectionItem::class);
+    }
+
     public function wishlist(): BelongsToMany
     {
         return $this->belongsToMany(Variation::class, 'user_wishlist_items')

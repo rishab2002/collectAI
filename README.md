@@ -68,6 +68,8 @@ they get identified and published.
 | Photograph a carded car and let the AI read it | **Admin → New capture** ([§5](#5-day-to-day-add-cars-photos-and-captures)) |
 | Decide what goes public | **Admin → review queues** + `catalog:publish-imported` ([§4](#4-make-it-go-live)) |
 | Browse like a collector | The public site at `/` |
+| Keep your own collection and wishlist | **Join** (top right), then *Add to my collection* on any car ([§5.6](#56-collector-accounts-and-collections)) |
+| Show what cars are worth | The daily price run ([§5.7](#57-prices-ebay-sold-ebay-asking-msrp)) |
 
 ---
 
@@ -447,6 +449,14 @@ photos**. Each photo has **Make primary** (the one shown in grids) and
 **Remove**. The first photo of a car becomes primary automatically, preferring
 the card front.
 
+**Where else photos can come from.** Checked on 2026-11-03: the Tomica, Mini
+GT and Inno64 wikis have no reuse-licensed images (0 of 150 sampled on each),
+and a search of openly licensed photos across the web (Openverse, which covers
+Flickr, Wikimedia Commons and others) found **none** for 15 of 15 sampled
+castings — and its one hit for "Bone Shaker" was the full-size real car, not the
+toy. So photos you (and, later, your collectors) take are the way to fill the
+catalog.
+
 ### 5.3 Find anything — *Catalog*
 
 Search by casting name, make or model. Each result shows its status, brand(s),
@@ -483,6 +493,98 @@ something for you, a link to **Inferred records** (§4.2). Approving a proposal 
 records it needs, and the screen tells you exactly what one click will publish.
 
 ---
+
+### 5.6 Collector accounts and collections
+
+Anyone can create an account: **Join** in the top-right corner (or `/register`).
+
+- **Sign-up** needs a name, an email and a password of at least 12 characters
+  with letters and numbers. In production, passwords that appear in known data
+  breaches are refused. Each address can create 5 accounts an hour at most.
+- **Add to my collection** appears under every version of every car. Collectors
+  can set how many they own, the condition (mint, carded, opened, loose,
+  damaged) and when they got it. **Want it** adds it to a wishlist instead.
+- **My collection** (`/collection`) lists both, with each car's latest price
+  and the collection's total estimated value.
+- **Account** (`/account`) changes the password (signing out other devices) or
+  deletes the account and its collection for good.
+- Only **published** cars can be collected. Nobody can see or change another
+  collector's list.
+- Signing up never makes an admin — the only admin is the one
+  `AdminUserSeeder` creates. Admins sign in at the same `/login` and land in
+  the admin area; collectors land in their collection.
+
+There is **no password reset yet**, because that needs outgoing email. Until
+email is configured, an admin can reset a collector's password from the
+command line:
+
+```bash
+docker compose exec app php artisan tinker --execute="App\Models\User::where('email','them@example.com')->first()->update(['password' => 'a-new-long-password-42'])"
+```
+
+### 5.7 Prices: eBay sold, eBay asking, MSRP
+
+Every published car gets a price that refreshes **about once a month**. A daily
+job (03:17) prices the cars whose price is oldest — never-priced first — until
+that day's eBay allowance is spent, so the whole catalog cycles through every
+~30 days without hammering eBay. Each car's price comes from the first of these
+that has one, and **the site always says which it is**:
+
+| Kind | Where from | Shown as |
+|---|---|---|
+| Sold | eBay **Marketplace Insights** API — median of the 5 most recent sales | "eBay sold · median of last 5 sales" |
+| Asking | eBay **Browse** API — median of current fixed-price listings (optional) | "eBay asking · median of N listings" |
+| MSRP | Your list-price table, `config/catalog_prices.php` | "MSRP (list price)" |
+
+Lots, bundles, other currencies and listings that don't name the car are
+ignored. Each price links to the matching eBay listings.
+
+**Setting it up:**
+
+1. Create a developer account at **developer.ebay.com**, create an application,
+   and copy its **Production** *App ID (Client ID)* and *Cert ID (Client
+   Secret)* into `.env`:
+
+   ```dotenv
+   EBAY_CLIENT_ID=YourApp-...
+   EBAY_CLIENT_SECRET=PRD-...
+   ```
+
+2. **Sold prices need eBay's permission.** The Marketplace Insights API is a
+   restricted API: request access for your application from the eBay developer
+   portal. Once approved, set `EBAY_INSIGHTS=true`.
+3. **Until then (or as a fallback),** set `EBAY_LISTINGS_FALLBACK=true` to use
+   current asking prices, which every developer account can read. They are
+   always labelled as asking prices, never as sold.
+4. Fill in `config/catalog_prices.php` with the MSRPs you know (per brand and
+   main line). It is empty on purpose — a guessed MSRP would be shown as fact.
+5. Try it on a few cars without saving anything:
+
+   ```bash
+   docker compose exec app php artisan catalog:update-prices --limit=10 --dry-run
+   ```
+
+   Then for real (the daily job does this on its own in production):
+
+   ```bash
+   docker compose exec app php artisan catalog:update-prices --limit=200
+   ```
+
+To have the daily job run on your own machine, leave this running in a terminal:
+
+```bash
+docker compose exec app php artisan schedule:work
+```
+
+**How many calls?** `PRICE_DAILY_BUDGET` (default 4,500, under eBay's usual
+5,000/day) is the number of eBay calls per day; a car takes about 3. To refresh
+every published car each month you need roughly *3 × published variations ÷ 30*
+calls a day — about 4,500 covers 45,000 cars. If the published catalog grows
+past that, raise the budget and ask eBay for a higher limit.
+
+**Not used, and why:** scraping eBay's pages (against eBay's User Agreement),
+hobbyDB (it blocks automated access outright), and toy-store pages for MSRP
+(their terms forbid scraping). See [§11](#11-data-rules-you-must-not-break).
 
 ## 6. Where to edit things, and what each edit does
 
@@ -581,7 +683,36 @@ The queries behind the public pages are in
 - **A site with a different layout** (e.g. a manufacturer's own website) needs
   its own importer — and first a check that its terms allow it (§11).
 
-### 6.5 URLs and screens — `routes/web.php`
+### 6.5 Security settings
+
+These are on automatically; this is what they are and where they live.
+
+| Protection | Where | What it does |
+|---|---|---|
+| Content Security Policy and other headers | `app/Http/Middleware/SecurityHeaders.php` | Browsers run only this site's own scripts, so an injected script does nothing; the site can't be framed (clickjacking); photos may also load from `R2_URL`. HTTPS-only (HSTS) in production |
+| Password rules | `app/Providers/AppServiceProvider.php` | 12+ characters with letters and numbers; breached passwords refused in production |
+| Rate limits | same file, plus `LoginController` | 5 sign-ups per hour per address, 5 wrong passwords per email+address, 60 collection changes a minute |
+| Secure cookies, no debug output | `.env.production.example` | `APP_DEBUG=false`, `SESSION_SECURE_COOKIE=true`, `APP_ENV=production` — keep them |
+| Error pages | `resources/views/errors/` | Plain pages that never show internals and work even if the database is down |
+| Admin area hidden | `EnsureUserIsAdmin` | Non-admins get "not found", so the admin area can't be discovered |
+
+**One rule when editing views:** never add inline `<script>` blocks,
+`style="…"` attributes or `onclick=`-style handlers. The security policy blocks
+them in the browser (the page silently breaks), and `SecurityHeadersTest` fails
+if one appears. Put scripts in `resources/js/app.js` and styles in Tailwind
+classes.
+
+**Keep dependencies patched:**
+
+```bash
+docker compose exec app composer audit
+```
+
+```bash
+npm audit
+```
+
+### 6.6 URLs and screens — `routes/web.php`
 
 Every page's address is defined here, public pages first, then `/admin/…`.
 
@@ -610,7 +741,8 @@ docker compose exec app php artisan catalog:import-wiki hot-wheels --year=2027
 ## 8. Deploy to collectai.club
 
 Production is one AWS Lightsail server running `docker-compose.prod.yml`
-(nginx + PHP, a queue worker, PostgreSQL, Redis) behind Cloudflare. **Follow
+(nginx + PHP, a queue worker, a scheduler for the daily price run, PostgreSQL,
+Redis) behind Cloudflare. Put your eBay keys (§5.7) in the server's `.env` too. **Follow
 [docs/deploy.md](docs/deploy.md) step by step** — the order matters (in
 particular: test against the server's IP before touching DNS, and switch
 Cloudflare to *Full (strict)* only after the certificate is installed).
@@ -668,7 +800,7 @@ docker compose exec app php artisan test
 docker compose exec app vendor/bin/pint --test
 ```
 
-The first runs the 279 tests; the second checks code formatting (drop `--test`
+The first runs the 313 tests; the second checks code formatting (drop `--test`
 to fix it). Both must pass before merging. After any database change, also
 prove the schema builds from nothing — **this wipes the development
 database**:
@@ -693,6 +825,10 @@ docker compose exec app php artisan migrate:fresh --seed
 | Only ~150 cars have photos after step 4 | Expected — only those images are licensed for reuse (§3 step 4) |
 | A series is in the wrong main line | Add a rule to `config/catalog_lines.php` and re-run classification with `--reclassify` (§6.1) |
 | Lots of "skipped … identical row" lines after an import | Expected: those rows differ only in the wiki's Notes prose, which isn't imported |
+| No prices on any car | eBay isn't set up — see §5.7. `catalog:update-prices --dry-run` says exactly what's missing |
+| Prices say "asking", not "sold" | Marketplace Insights isn't approved for your eBay app yet (`EBAY_INSIGHTS=false`) — §5.7 step 2 |
+| "Too many requests" when signing up | The sign-up rate limit (5 per hour per address). Wait an hour |
+| A page looks broken after you edited a view | An inline script or style was blocked by the security policy — §6.5 |
 | `collectai.club` shows a 525 error | Nothing is deployed yet; the domain still points at the registrar's parking page. See [docs/deploy.md](docs/deploy.md) |
 | Tests wipe or touch your development data | Never expected — don't add `env_file:` to the `app` service in `docker-compose.yml` (see CLAUDE.md) |
 
@@ -737,6 +873,8 @@ These keep the catalog legal and original. The full reasoning is in
 - **Don't scrape images from the wider web.** Photos you take are the ones the
   catalog can freely show.
 - **Check a new source's terms before writing an importer for it.**
+- **Prices only through eBay's official APIs** — never by scraping eBay,
+  hobbyDB or store pages.
 
 ---
 
@@ -755,6 +893,8 @@ or `docker compose -f docker-compose.prod.yml run --rm web php artisan <command>
 | `catalog:import-wiki-photos {wiki}` | One licensed, credited photo per imported car | `--dump=`, `--limit=`, `--dry-run` |
 | `catalog:identify-castings` | AI: work out each car's real make/model (needs API key) | `--limit=`, `--dry-run`, `--threshold=`, `--regenerate` |
 | `catalog:publish-imported` | Publish imported releases/variations whose parents are live | `--dry-run` |
+| `catalog:update-prices` | Refresh prices (runs daily on its own via the scheduler) | `--limit=`, `--msrp-only`, `--dry-run` |
+| `schedule:work` | Run the daily jobs (prices) — automatic in production | — |
 | `capture:check-storage` | Test photo storage: write, read, public fetch, delete | — |
 | `queue:work` | Run background jobs (reading captures) | — |
 | `db:seed --class=AdminUserSeeder` | Create the admin account from `.env` | — |

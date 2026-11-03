@@ -41,8 +41,16 @@
             <div class="mx-auto flex max-w-3xl items-center justify-between gap-4 px-4 py-3">
                 <a href="{{ route('home') }}" class="font-semibold">collectAI</a>
 
+                @guest
+                    <div class="flex items-center gap-4 text-sm">
+                        <a href="{{ route('login') }}" class="text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100">Sign in</a>
+                        <a href="{{ route('register') }}" class="rounded-lg bg-neutral-900 px-3 py-1.5 font-medium text-white dark:bg-white dark:text-neutral-900">Join</a>
+                    </div>
+                @endguest
+
                 @auth
                     <div class="flex items-center gap-4">
+                        <a href="{{ route('collection.index') }}" class="text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100">My collection</a>
                         @if (auth()->user()->is_admin)
                             <a href="{{ route('admin.dashboard') }}" class="text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100">Admin</a>
                         @endif

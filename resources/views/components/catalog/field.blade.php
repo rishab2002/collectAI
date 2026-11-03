@@ -8,6 +8,7 @@
     'list' => null,
     'required' => false,
     'placeholder' => null,
+    'autocomplete' => 'off',
 ])
 
 <div {{ $attributes->only('class') }}>
@@ -20,7 +21,7 @@
         name="{{ $name }}"
         type="{{ $type }}"
         value="{{ old($name, $value) }}"
-        autocomplete="off"
+        autocomplete="{{ $autocomplete }}"
         @if ($list) list="{{ $list }}" @endif
         @if ($required) required @endif
         @if ($placeholder) placeholder="{{ $placeholder }}" @endif

@@ -208,6 +208,53 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Prices
+    |--------------------------------------------------------------------------
+    |
+    | catalog:update-prices runs daily (routes/console.php) and prices up to
+    | `daily_budget` published variations whose last check is older than
+    | `refresh_days` — so every car refreshes about once a month without a
+    | burst of calls. Sources, first answer wins:
+    |
+    |  1. eBay SOLD prices — Marketplace Insights API. eBay grants this API on
+    |     application; set EBAY_INSIGHTS=true once yours is approved.
+    |  2. eBay ASKING prices — Browse API, available to every developer
+    |     account. Off unless EBAY_LISTINGS_FALLBACK=true, and always labelled
+    |     as asking, never as sold.
+    |  3. MSRP — the list-price table in config/catalog_prices.php.
+    |
+    | Scraping eBay's pages is against its User Agreement, and hobbyDB blocks
+    | automated access, so neither is a source. See CLAUDE.md, Data sources.
+    |
+    */
+
+    'prices' => [
+        'refresh_days' => (int) env('PRICE_REFRESH_DAYS', 30),
+        // eBay API calls per daily run. Checked before each car, so a run may
+        // finish the car it started — at most 6 calls over. eBay's default
+        // allowance is 5,000 calls a day; a car takes about 3, so 4,500 prices
+        // ~1,500 cars a day, ~45,000 per 30 days. To refresh every published
+        // variation monthly, budget ≈ 3 × variations ÷ refresh_days — raise it
+        // (and ask eBay for a higher limit) as the published catalog grows.
+        'daily_budget' => (int) env('PRICE_DAILY_BUDGET', 4500),
+        // How many recent sales (or listings) the median is taken over.
+        'sample' => (int) env('PRICE_SAMPLE', 5),
+
+        'ebay' => [
+            'client_id' => env('EBAY_CLIENT_ID') ?: null,
+            'client_secret' => env('EBAY_CLIENT_SECRET') ?: null,
+            'marketplace' => env('EBAY_MARKETPLACE', 'EBAY_US'),
+            'currency' => env('EBAY_CURRENCY', 'USD'),
+            // Toys & Hobbies › Diecast & Toy Vehicles.
+            'category_id' => env('EBAY_CATEGORY_ID', '222'),
+            'insights' => (bool) env('EBAY_INSIGHTS', false),
+            'listings_fallback' => (bool) env('EBAY_LISTINGS_FALLBACK', false),
+            'api' => env('EBAY_API_BASE', 'https://api.ebay.com'),
+        ],
+    ],
+
     'import' => [
         'auto_approve_threshold' => (float) env('IMPORT_AUTO_APPROVE_THRESHOLD', 0.9),
 

@@ -1,7 +1,7 @@
 <x-layouts.app title="Sign in">
     <div class="mx-auto max-w-sm pt-8">
         <h1 class="text-xl font-semibold">Sign in</h1>
-        <p class="mt-1 text-sm text-neutral-500">Catalog administration.</p>
+        <p class="mt-1 text-sm text-neutral-500">Sign in to your collection.</p>
 
         <form method="POST" action="{{ route('login.store') }}" class="mt-6 space-y-4">
             @csrf
@@ -49,5 +49,9 @@
                 Sign in
             </button>
         </form>
+
+        <p class="mt-6 text-sm text-neutral-500">
+            New here? <a href="{{ route('register') }}" class="underline">Create an account</a> to save your collection.
+        </p>
     </div>
 </x-layouts.app>

@@ -54,7 +54,10 @@ class LoginController extends Controller
         // session before login doesn't survive it.
         $request->session()->regenerate();
 
-        return redirect()->intended(route('admin.dashboard'));
+        // Admins land in the admin area, collectors in their collection.
+        return redirect()->intended($request->user()->is_admin
+            ? route('admin.dashboard')
+            : route('collection.index'));
     }
 
     public function destroy(Request $request): RedirectResponse
@@ -64,7 +67,7 @@ class LoginController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('login');
+        return redirect()->route('home');
     }
 
     /**

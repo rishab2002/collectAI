@@ -3,7 +3,11 @@
 namespace App\Providers;
 
 use Anthropic\Client;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -39,6 +43,22 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Every password rule in the app goes through this: at least 12
+        // characters with letters and numbers, and — in production, where the
+        // network is real — not one that appears in a known breach (checked
+        // against Have I Been Pwned by k-anonymity; only a hash prefix leaves).
+        Password::defaults(function (): Password {
+            $rule = Password::min(12)->letters()->numbers();
+
+            return $this->app->isProduction() ? $rule->uncompromised() : $rule;
+        });
+
+        // Account creation is the cheapest thing to abuse, so it is the
+        // tightest: a handful per address per hour.
+        RateLimiter::for('register', fn (Request $request): Limit => Limit::perHour(5)->by($request->ip()));
+
+        // Collection and account writes: generous for a person, a wall for a
+        // script.
+        RateLimiter::for('account', fn (Request $request): Limit => Limit::perMinute(60)->by($request->user()?->id ?: $request->ip()));
     }
 }

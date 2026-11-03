@@ -141,6 +141,17 @@ case "$role" in
             --sleep=3
         ;;
 
+    scheduler)
+        # Laravel's scheduler (routes/console.php): today, the daily price
+        # update that refreshes every published car about once a month. One
+        # long-running process instead of a host cron, so it ships with the
+        # stack and restarts with it.
+        wait_for_database
+        warm_caches
+        log "starting scheduler"
+        exec php artisan schedule:work
+        ;;
+
     *)
         # Anything else is run verbatim, so `docker compose run --rm web php
         # artisan catalog:import-hot-wheels --year=2012` works.
