@@ -14,6 +14,38 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-11-03 (end) — Photo copying declined; iPhone shell; hosting and TestFlight guide; recognition plan
+
+The request had three photo options, all declined:
+1. take HWPriceGuide's photos;
+2. AI-generate copies that "look 99% like" licensed photos from the wikis,
+   HWPriceGuide and the maker sites, plus AI renders of Hot Wheels cars in
+   their card packaging;
+3. take the photos and AI-enhance or slightly edit them ("a dot") "allowing us
+   to use them as our own".
+
+A near-identical replica or a lightly marked copy of a copyrighted photo is
+still that photo. Rendered Mattel cards presented as product photos would be
+misleading and copy Mattel's packaging. Recorded under *Data sources* so it
+isn't re-asked as a technical question.
+
+Built: a Capacitor 8.5.3 iOS shell. 8.6.0 was under a week old, so the newest
+release at least two weeks old was pinned. The template had no camera usage
+strings, and iOS kills an app that opens the camera without them, so they
+were added. `Permissions-Policy` moved from `camera=()` to `camera=(self)`:
+harmless for today's `<input capture>`, but it would have silently blocked the
+in-page camera the planned scanner may use. The capture flow was driven in an
+emulated iPhone 15 (inputs, thumbnails, 201 upload, both photos stored).
+
+README §8.1 says where to host: Porkbun can't run this app, and since DNS moved
+to Cloudflare, records change there. §8.2 is the TestFlight walkthrough,
+including Apple's guideline 4.2 on web-wrapper apps. The multi-car recognition
+plan is in `docs/multi-car-recognition.md`: Claude vision plus deterministic
+matching first, consented training data second, a distilled embedding model
+third. The collector always confirms.
+
+---
+
 ## 2026-11-03 (final) — Accounts and collections, monthly prices, security; photo search measured and declined
 
 The request: photos for every model "using wikis for those brands and search

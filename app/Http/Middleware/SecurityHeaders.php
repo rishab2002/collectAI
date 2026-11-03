@@ -32,9 +32,11 @@ class SecurityHeaders
             // buttons. frame-ancestors in the CSP says the same to newer browsers.
             'X-Frame-Options' => 'DENY',
             'Referrer-Policy' => 'strict-origin-when-cross-origin',
-            // Nothing here needs these. (The capture form's camera is the phone's
-            // own camera app via <input capture>, which this doesn't govern.)
-            'Permissions-Policy' => 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+            // Camera allowed for this site only: the capture form opens the
+            // phone's camera through <input capture>, and live in-page camera
+            // use (getUserMedia — e.g. recognising cars from the viewfinder)
+            // would be silently blocked by camera=(). Nothing needs the rest.
+            'Permissions-Policy' => 'camera=(self), microphone=(), geolocation=(), payment=(), usb=()',
             'Cross-Origin-Opener-Policy' => 'same-origin',
         ];
 

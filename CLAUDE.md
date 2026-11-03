@@ -297,6 +297,13 @@ queue worker, `APP_URL=http://localhost` — reachable only from this Mac on
   `catalog:import-wiki-photos`, `photos.license` / `photos.credit`). One per
   casting, credited, on the car the article's image shows; see
   [Data sources](#data-sources) for why it is only ~4% of castings.
+- **The iPhone app shell** (Capacitor 8.5.3, pinned exact; `capacitor.config.json`,
+  `ios/`). Loads `https://collectai.club` (`server.url`), so it needs the site
+  deployed. `ios/App/App/Info.plist` carries `NSCameraUsageDescription` and the
+  photo-library strings — **without them iOS terminates the app when capture
+  opens the camera**. Built with Swift Package Manager (no CocoaPods). Capture
+  verified in an emulated iPhone 15 (inputs, thumbnails, 201 upload, storage);
+  never run on a real device from here. README §8.2 is the TestFlight guide.
 - **Manual entry** (`CatalogController`, `VariationPhotoController`,
   `app/Services/Catalog/ManualCatalogEntry.php`, `VariationPhotos.php`, the
   `StoreCarRequest` / `StoreVariationRequest` / `StoreVariationPhotosRequest`
@@ -341,6 +348,9 @@ queue worker, `APP_URL=http://localhost` — reachable only from this Mac on
   end to end. Note `pg_trgm` and Meilisearch are not substitutes: trigram
   similarity is the Comparison Agent's DB-side duplicate check, Meilisearch is
   user-facing typo-tolerant search.
+- **Multi-car recognition** (photo of several cars → collection entries) is
+  planned, not built: [docs/multi-car-recognition.md](docs/multi-car-recognition.md).
+  Phase 1 is Claude vision + deterministic matching + a confirm screen.
 - **No public search, price charts, barcode scanning, password reset (needs
   outgoing email) or community photo uploads.** Community uploads — collectors
   photographing their own cars under a licence they grant, admin-approved — are
@@ -1191,6 +1201,15 @@ and photos. Measured, not assumed — details in the [session log](docs/session-
   2026-11-03) and is not a source; retailer pages for MSRP are not scraped
   either. A sold, an asking and a list price are never shown as one thing —
   `price_histories.kind` + `PriceHistory::label()`.
+- **No copying, AI-replicating or "lightly editing" other people's photos —
+  asked for and declined 2026-11-03.** The owner asked to take HWPriceGuide's
+  photos, to AI-generate near-identical ("99% like") copies of photos from the
+  wikis and maker sites, or to add a small edit (a dot) so they could be used
+  as our own. A copy, an AI replica or a marked-up copy of a copyrighted photo
+  is still that photo. Also declined: AI-rendered images of Mattel's card art
+  presented as product photos — they would read as real photos and reproduce
+  Mattel's trade dress. Photos come from the owner, collectors, or a maker's
+  written permission (`docs/source-permissions.md`).
 - **"Search the internet for reusable photos" was measured, not assumed**
   (2026-11-03). Openverse (CC search across Flickr, Commons and others): 0 of 15
   sampled castings had any licensed photo, and its one hit for "Bone Shaker" was
@@ -1416,6 +1435,8 @@ the [session log](docs/session-log.md).*
   `SecurityHeadersTest::test_no_view_relies_on_inline_script_or_style` enforces
   it. Error pages are standalone views because Laravel's built-ins are inline
   CSS, and they don't touch the session or database.
+- **`Permissions-Policy` allows `camera=(self)`**, not `camera=()`: capture and
+  the planned scanner need the camera on our own pages.
 - **HSTS and `upgrade-insecure-requests` only in production**; sending them
   from localhost would lock browsers out of `http://localhost`.
 
