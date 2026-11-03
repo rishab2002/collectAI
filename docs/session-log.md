@@ -14,6 +14,41 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-11-04 — Reference sources: HWPriceGuide, TSM/Mini GT, Inno64, Para64, Horizon
+
+**Asked:** the owner now holds written permission from HWPriceGuide,
+TrueScale/Mini GT, Inno64, Para64 and Horizon Diecast to use their images and
+labels for training. Use a user agent, few calls, be efficient; and offer every
+brand, series and sub-series found as input when adding cars.
+
+**Efficiency, measured:** each site read through a bulk listing —
+Inno64 WooCommerce Store API 607 products / 8 requests; Para64
+(paragonmodelstore.com) Shopify 224 / 2; Horizon Shopify 9,907 / 46 (accessories
+and dioramas skipped); Mini GT list pages 1,250 / 153; HWPriceGuide sitemap →
+171 category + 2,054 group pages: 27,027 products / 2,231 requests (item pages
+never fetched). ~39,000 products from ~2,440 requests instead of ~39,000.
+Mini GT gotchas: pages are 1-based (`p=0` repeats page 1), and "Full
+Collection" omits Kaido House and QubeCarz, so every line list is walked.
+
+**Labels:** tied to a catalog casting only when certain. HWPriceGuide: 16,419
+of 27,027 (61%) tied to a Hot Wheels casting, 4,417 to the exact version via
+"(Colour)" + year; 25 spot-checked ties all correct. Mini GT: 348 tied by item
+number. The rest are their own classes (`source|item:<key>`).
+
+**Images, efficiently:** maker sources (12,759 images) first; of HWPriceGuide
+only the 5,770 images that add something now (castings with < 5 training
+photos — 490 with none — and exact-version matches). The rest stay listed and
+resumable for `./collectai train`.
+
+**Add a car:** "Find the model" (reference search → pre-fill, or "already here
+— add this version"); `reference_links` ties the saved records to the product
+so the model knows them at once — deliberately not `record_sources`, which is
+public attribution and marks imported records. Main-line field (files a *new*
+series under a line); brand/line/series suggestion lists. Driven in Chromium at
+phone width: search, pre-fill, no CSP violations.
+
+---
+
 ## 2026-11-03 (final) — Wiki photos for training, `./collectai`, release guides
 
 **Asked:** use all wiki photos for training (the owner holds Fandom's written
