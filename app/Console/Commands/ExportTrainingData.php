@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Photo;
 use App\Models\ScanDetection;
+use App\Services\Recognition\StableKeys;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 
@@ -133,11 +134,17 @@ class ExportTrainingData extends Command
         @mkdir(dirname($this->dir.'/'.$file), 0775, true);
         file_put_contents($this->dir.'/'.$file, $bytes);
 
+        $castingId = $variation->release->castingVersion->casting_id;
+
         fwrite($this->manifest, json_encode([
             'image' => $file,
             'source' => $source,
             'variation_id' => $variation->id,
-            'casting_id' => $variation->release->castingVersion->casting_id,
+            'casting_id' => $castingId,
+            // What the model is labelled with: provenance where there is any,
+            // so a model trained on one database serves another (StableKeys).
+            'casting_key' => StableKeys::castings([$castingId])[$castingId] ?? 'id:'.$castingId,
+            'variation_key' => StableKeys::variations([$variation->id])[$variation->id] ?? 'id:'.$variation->id,
             'brand' => $variation->release->series->brand->name,
             'colour' => $variation->color,
             'wheel_type' => $variation->rim_type,

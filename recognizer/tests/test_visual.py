@@ -76,6 +76,40 @@ class VisualMatchTest(unittest.TestCase):
         self.assertEqual([13, 10], [d["looks"]["candidates"][0]["casting_id"] for d in result["detections"]])
         self.assertTrue(result["detections"][0]["confident"])
 
+    def test_unfamiliar_photos_never_get_a_looks_only_answer(self):
+        vectors = normalise(np.array([[0.78, 0.12, 0.16, 0.05], [0.12, 0.35, 0.75, 0.05]], dtype=np.float32))
+        manifest = {"thresholds": {"visual_only": True, "min_similarity": 0.5, "min_margin": 0.02, "min_familiarity": 0.95}}
+        m = VisualModel(ColourEncoder(), Head(), vectors, np.array([13, 10]), np.array([131, 0]), manifest, raw_vectors=vectors)
+        red, grey = np.full((50, 120, 3), (40, 30, 200), np.uint8), np.full((50, 120, 3), (128, 128, 128), np.uint8)
+        (raw_red, raw_grey), (v_red, v_grey) = m.embed_pair([red, grey])
+        self.assertTrue(m.match(v_red, raw=raw_red).sure)
+        unfamiliar = m.match(v_grey, raw=raw_grey)
+        self.assertLess(unfamiliar.familiarity, 0.95)
+        self.assertFalse(unfamiliar.sure, "nothing like the training photos: hint at most")
+        self.assertFalse(m.match(v_red).sure, "a gated model without the base vector never trusts looks")
+
+    def test_familiarity_gate_is_what_real_photos_reach(self):
+        self.assertAlmostEqual(0.7, build.familiarity_gate(np.linspace(0.7, 0.95, 1000), 0.0), places=3)
+
+    def test_looks_only_answers_can_be_switched_off(self):
+        with mock.patch.dict("os.environ", {"RECOGNIZER_TRUST_LOOKS": "never"}):
+            self.assertFalse(model(visual_only=True).visual_only)
+        self.assertTrue(model(visual_only=True).visual_only)
+
+    def test_stable_labels_are_resolved_through_the_serving_index(self):
+        vectors = normalise(np.array([[0.78, 0.12, 0.16, 0.05], [0.12, 0.35, 0.75, 0.05]], dtype=np.float32))
+        m = VisualModel(ColourEncoder(), Head(), vectors,
+                        np.array(["hotwheels_fandom|page:500", "hotwheels_fandom|page:999"]),
+                        np.array(["hotwheels_fandom|page:500:row:3", ""]),
+                        {"thresholds": {"visual_only": True, "min_similarity": 0.5, "min_margin": 0.0}})
+        ix = index()
+        ix.casting_keys = {"hotwheels_fandom|page:500": 13}           # page:999 isn't in this database
+        ix.variation_keys = {"hotwheels_fandom|page:500:row:3": 131}
+        m.bind(ix)
+        blue = m.match(m.embed([np.full((50, 120, 3), (190, 90, 30), np.uint8)])[0])
+        self.assertEqual([13], [c.casting_id for c in blue.candidates], "an unknown key is never offered")
+        self.assertEqual({131: blue.top.variations[131]}, blue.top.variations)
+
     def test_load_returns_none_without_a_model(self):
         with tempfile.TemporaryDirectory() as tmp:
             self.assertIsNone(VisualModel.load(tmp))
@@ -117,6 +151,18 @@ class TrainingTest(unittest.TestCase):
         t = build.calibrate(r["_best"], r["_margin"], r["_correct"], precision=0.95, min_support=20)
         self.assertTrue(t["visual_only"])
         self.assertGreaterEqual(t["precision"], 0.95)
+
+    def test_unknown_cars_raise_the_bar(self):
+        # Known cars: right, with margins spread 0.05-0.3. Unknown cars: always
+        # wrong, margins up to 0.1. Calibrating with them must demand a margin
+        # above where the unknowns sit.
+        rng = np.random.default_rng(2)
+        best = np.concatenate([rng.uniform(0.5, 0.9, 300), rng.uniform(0.5, 0.9, 300)])
+        margin = np.concatenate([rng.uniform(0.05, 0.3, 300), rng.uniform(0.0, 0.1, 300)])
+        correct = np.concatenate([np.ones(300, bool), np.zeros(300, bool)])
+        t = build.calibrate(best, margin, correct, 0.95, 30)
+        self.assertTrue(t["visual_only"])
+        self.assertGreaterEqual(t["min_margin"], 0.08)
 
     def test_no_trust_without_enough_held_out_answers_or_precision(self):
         t = build.calibrate(np.array([0.9] * 5), np.array([0.2] * 5), np.array([True] * 5), 0.95, 30)

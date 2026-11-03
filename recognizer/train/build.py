@@ -163,16 +163,36 @@ def evaluate(gallery: np.ndarray, gallery_labels: np.ndarray, queries: np.ndarra
     }
 
 
-def calibrate(best: np.ndarray, margin: np.ndarray, correct: np.ndarray, precision: float, min_support: int) -> dict:
+def familiarity_gate(raw_best_known: np.ndarray, percentile: float = 2.0) -> float:
+    """The base model's similarity a photo needs to its nearest training photo
+    to count as "a photo like the ones it learned from": what 98% of real
+    held-out car photos reach. Things that aren't diecast photos at all — and
+    measured, flat shapes score ~0.5 against real photos' ~0.7+ — fall below it."""
+    return float(np.percentile(raw_best_known, percentile)) if len(raw_best_known) else 1.0
+
+
+def raw_best(queries: np.ndarray, gallery: np.ndarray) -> np.ndarray:
+    out = np.empty(len(queries), dtype=np.float32)
+    for i in range(0, len(queries), 256):
+        out[i:i + 256] = (queries[i:i + 256] @ gallery.T).max(axis=1)
+    return out
+
+
+def calibrate(best: np.ndarray, margin: np.ndarray, correct: np.ndarray, precision: float, min_support: int,
+              eligible: np.ndarray | None = None) -> dict:
     """The loosest (similarity, margin) whose accepted answers reach `precision`
-    over at least `min_support` answers — most coverage at the required precision."""
+    over at least `min_support` answers — most coverage at the required precision.
+    `eligible` marks answers allowed at all (the familiarity gate); the rest
+    count as declined."""
+    if eligible is None:
+        eligible = np.ones(len(best), dtype=bool)
     choice = {"visual_only": False, "min_similarity": 1.0, "min_margin": 1.0, "precision": None, "coverage": 0.0, "support": 0}
     if len(best) < min_support:
         choice["reason"] = f"only {len(best)} held-out answers; need {min_support} to measure precision"
         return choice
-    for s in np.round(np.arange(0.30, 0.99, 0.01), 2):
-        for m in (0.0, 0.01, 0.02, 0.03, 0.05, 0.08, 0.12):
-            accept = (best >= s) & (margin >= m)
+    for s in np.round(np.arange(0.10, 0.99, 0.01), 2):
+        for m in (0.0, 0.01, 0.02, 0.03, 0.05, 0.08, 0.12, 0.16, 0.2):
+            accept = (best >= s) & (margin >= m) & eligible
             n = int(accept.sum())
             if n < min_support:
                 continue
@@ -196,6 +216,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--precision", type=float, default=0.95, help="precision visual-only answers must reach on held-out photos")
     p.add_argument("--min-support", type=int, default=30, help="held-out answers needed before precision counts as measured")
     p.add_argument("--exclude-source", action="append", default=[], help="leave out rows whose source is this; repeatable")
+    p.add_argument("--open-set", type=float, default=0.1,
+                   help="share of castings held out entirely, as cars the model doesn't know; any answer for them is wrong")
     args = p.parse_args(argv)
 
     model_dir = Path(args.model_dir)
@@ -209,25 +231,55 @@ def main(argv: list[str] | None = None) -> int:
     rows, keys = dedupe(rows, keys)
     print(f"{len(rows)} labelled images, {len({r['casting_id'] for r in rows})} castings")
     raw = np.stack([cache[k] for k in keys]).astype(np.float32)
-    labels = np.array([int(r["casting_id"]) for r in rows])
-    variations = np.array([int(r.get("variation_id") or 0) for r in rows])
+    # Labels are stable keys where the record has provenance, so a model
+    # trained on one database serves another; `id:<n>` otherwise.
+    labels = np.array([r.get("casting_key") or f"id:{int(r['casting_id'])}" for r in rows])
+    variations = np.array([r.get("variation_key") or (f"id:{int(r['variation_id'])}" if r.get("variation_id") else "") for r in rows])
     # Group = version where known, else the photo itself.
     groups = np.array([f"v{v}" if v else f"k{k}" for v, k in zip(variations, keys)])
 
     train_idx, test_idx = split(labels, args.holdout, groups=groups)
+    # Cars the model has never seen at all. A collector's car is often one
+    # (thousands of catalog castings have no photo yet), and the right answer
+    # for it is silence — so these are part of the calibration, as queries
+    # whose every answer is wrong. Without them the thresholds are tuned only
+    # on cars that are in the gallery, and anything car-shaped gets named.
+    castings = np.unique(labels)
+    open_idx = np.array([], dtype=int)
+    if len(castings) >= 20 and args.open_set > 0:
+        held = np.random.default_rng(11).choice(castings, max(1, int(len(castings) * args.open_set)), replace=False)
+        is_open = np.isin(labels, held)
+        open_idx = np.flatnonzero(is_open)
+        train_idx, test_idx = train_idx[~is_open[train_idx]], test_idx[~is_open[test_idx]]
+
+    plain_all = normalise(raw)
+    queries = np.concatenate([test_idx, open_idx]).astype(int)
+    familiarity = raw_best(plain_all[queries], plain_all[train_idx]) if len(queries) else np.zeros(0)
+    gate = familiarity_gate(familiarity[:len(test_idx)])
+
+    def measure(vectors):
+        known = evaluate(vectors[train_idx], labels[train_idx], vectors[test_idx], labels[test_idx])
+        if len(open_idx):
+            unknown = evaluate(vectors[train_idx], labels[train_idx], vectors[open_idx], np.full(len(open_idx), "", dtype=labels.dtype))
+            for k in ("_best", "_margin", "_correct"):
+                known[k] = np.concatenate([known[k], unknown[k]])
+        known["unknown_cars"] = int(len(open_idx))
+        return known
+
     plain = normalise(raw)
-    results = {"plain": evaluate(plain[train_idx], labels[train_idx], plain[test_idx], labels[test_idx]) if len(test_idx) else None}
+    results = {"plain": measure(plain) if len(test_idx) else None}
 
     head = fit_wccn(raw[train_idx], labels[train_idx])
     if head is not None and len(test_idx):
-        projected = head.apply(raw)
-        results["wccn"] = evaluate(projected[train_idx], labels[train_idx], projected[test_idx], labels[test_idx])
+        results["wccn"] = measure(head.apply(raw))
     use_head = bool(results.get("wccn") and results["wccn"]["top1"] >= results["plain"]["top1"] + 0.01)
     chosen = "wccn" if use_head else "plain"
 
     if results[chosen] is not None:
         r = results[chosen]
-        thresholds = calibrate(r["_best"], r["_margin"], r["_correct"], args.precision, args.min_support)
+        thresholds = calibrate(r["_best"], r["_margin"], r["_correct"], args.precision, args.min_support,
+                               eligible=familiarity >= gate)
+        thresholds["min_familiarity"] = round(gate, 4)
     else:
         thresholds = {"visual_only": False, "min_similarity": 1.0, "min_margin": 1.0,
                       "reason": "no casting has two photos yet, so nothing could be held out and measured"}
@@ -237,7 +289,8 @@ def main(argv: list[str] | None = None) -> int:
         head = fit_wccn(raw, labels)
     final = head.apply(raw) if use_head and head is not None else normalise(raw)
     model_dir.mkdir(parents=True, exist_ok=True)
-    arrays = {"vectors": final.astype(np.float16), "casting_ids": labels, "variation_ids": variations}
+    arrays = {"vectors": final.astype(np.float16), "raw_vectors": plain_all.astype(np.float16),
+              "casting_labels": labels, "variation_labels": variations}
     if use_head and head is not None:
         arrays |= {"head_mean": head.mean, "head_matrix": head.matrix}
     np.savez_compressed(model_dir / "model.npz", **arrays)

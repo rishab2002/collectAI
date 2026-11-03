@@ -44,14 +44,15 @@ data exactly as to catalog photos, so no scraped or unlicensed images.
 It also fills the catalog: a confirmed, consented photo can become the
 variation's catalog photo after admin approval.
 
-## Phase 3 — A trained visual recogniser — **built 2026-11-03**, waiting for data
+## Phase 3 — A trained visual recogniser — **built and trained 2026-11-03**
 
 Built as below with DINOv2-small (Apache 2.0) + a WCCN head + a nearest-
 neighbour gallery, numpy/onnxruntime at runtime, no pgvector (the gallery is a
 file the recognizer loads). It trusts looks alone only once held-out photos
-prove ≥ 95% precision; until there are several photos per car it corroborates
-and hints. Sources: consented scans, the owner's photos, licensed wiki photos.
-See README §5.10.
+prove ≥ 95% precision (unknown cars included) and the photo passes a
+familiarity gate. Trained on 27,729 wiki photos (Fandom's written consent,
+training only): 76.2% top-1 / 87.7% top-5 on held-out versions. Phone photos
+are the unmeasured part. See README §5.10.
 
 The original plan:
 

@@ -99,6 +99,16 @@ final class RecognitionIndex
             $castings[$castingId] = $c;
         }
 
+        $variationKeys = StableKeys::variations(array_column($variations, 'id'));
+
+        foreach ($variations as &$variation) {
+            $variation['key'] = $variationKeys[$variation['id']] ?? null;
+        }
+
+        unset($variation);
+
+        $castingKeys = StableKeys::castings(array_keys($castings));
+
         $details = DB::table('castings as c')
             ->leftJoin('models as m', 'm.id', '=', 'c.model_id')
             ->leftJoin('makes as mk', 'mk.id', '=', 'm.make_id')
@@ -117,6 +127,9 @@ final class RecognitionIndex
 
             $castingRows[] = [
                 'id' => $id,
+                // Provenance, the same in every database — what the visual
+                // model's labels are written in (StableKeys).
+                'key' => $castingKeys[$id] ?? null,
                 'name' => $detail->name,
                 'brand_ids' => array_values($c['brand_ids']),
                 'first_year' => $c['first_year'],

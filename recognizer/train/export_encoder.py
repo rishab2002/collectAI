@@ -15,6 +15,12 @@ from pathlib import Path
 
 MODEL = "facebook/dinov2-small"
 REVISION = "ed25f3a31f01632728cabb09d1542f84ab7b0056"
+# What the vectors depend on. Two exports of the same pinned weights give the
+# same numbers (to ~1e-5) even if the .onnx bytes differ, so the embedding
+# cache is keyed by this, not by the file's hash — a cache built on one
+# machine stays valid on another.
+IDENTITY = f"{MODEL}@{REVISION}/pooler/opset17/letterbox224-imagenet"
+
 NOTICE = (
     "encoder.onnx is DINOv2-small by Meta AI (https://huggingface.co/facebook/dinov2-small, "
     f"revision {REVISION}), licensed under the Apache License 2.0 "
@@ -49,6 +55,7 @@ def main(argv: list[str] | None = None) -> int:
         opset_version=17,
     )
     (out.parent / "NOTICE-encoder.txt").write_text(NOTICE + "\n", encoding="utf-8")
+    (out.parent / "encoder-id.txt").write_text(IDENTITY + "\n", encoding="utf-8")
     print(f"wrote {out} ({out.stat().st_size // 1_000_000} MB)")
     return 0
 

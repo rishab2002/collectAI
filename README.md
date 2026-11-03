@@ -106,6 +106,7 @@ git clone https://github.com/rishab2002/collectAI.git && cd collectAI && ./colle
 | `./collectai import` | Downloads the wiki dumps and runs the whole pipeline of §3–4 (~20 min) |
 | `./collectai publish` | After approving things in `/admin/proposals`: publishes them and refreshes the scanner |
 | `./collectai train` | Trains the scanner's visual model (§5.10) |
+| `./collectai model-pull` | Fetches the already-trained model and its data from the `training-data` branch (§5.10) |
 | `./collectai test` | Every test and formatting check |
 | `./collectai status` | What's running, and the recognizer's health |
 | `./collectai deploy` | **On the server:** pull the latest code, rebuild, restart (§8.5) |
@@ -806,10 +807,33 @@ and restarted at any time and carries on where it stopped:
 docker compose --profile training run --rm trainer python -m train.collect --labels /data/wiki-labels-hot-wheels.jsonl --labels /data/wiki-labels-matchbox.jsonl --model-dir /data/model --out /data/wiki-training
 ```
 
+**What it measured** (2026-11-03, trained on 27,729 photos of 1,678 castings:
+64% of the wiki collected, plus the licensed photos):
+
+| | Right car first | Right car in the top 5 |
+|---|---|---|
+| Base model alone | 62.9% | 76.3% |
+| **With the trained head** | **76.2%** | **87.7%** |
+
+When it names a car by looks alone it was right **95.0%** of the time, on
+2,122 test answers. It did so for 29.7% of test photos and said nothing for the
+rest. Those test photos include cars it has never seen at all (10% of castings
+held out completely), because silence is the right answer for those.
+
 **It refuses to guess until it has proven itself.** Training keeps back some
-photos and tests itself on them. It picks the similarity a match must reach for
-**95% of its answers to be right**, on at least 30 test answers. Until it can
-show that, looks alone never name a car. They only:
+photos and tests itself on them, and three things must all hold before looks
+alone name a car:
+
+- **The photo looks like a photo of a diecast car.** It must be at least as
+  close to the training photos as 98% of real test photos are (measured
+  0.704). Anything else, such as a plain shape, a hand or a coin, gets no
+  answer. Without this check, plain coloured blocks were "identified" as a
+  '68 El Camino. That was caught in testing, and is why the check exists.
+- **The best match is clearly ahead** of the next car (measured: 0.12).
+- **At those settings, 95% of its test answers were right**, over at least
+  30 answers, unknown cars included.
+
+Otherwise looks alone never name a car. They only:
 
 - put the version that looks most alike first;
 - nudge a text match (e.g. between two castings with the same name);
@@ -818,9 +842,35 @@ show that, looks alone never name a car. They only:
 
 **The test is deliberately hard.** It holds back whole *versions* of a car: it
 learns the casting from, say, the blue and black versions, and is tested on the
-red one it has never seen. **Your own photos make it better where it counts.**
-Wiki photos are mostly clean, side-on shots; photos from your phone teach it what
-a car looks like in a pile on your table.
+red one it has never seen.
+
+**Not measured yet: phone photos.** Every number above comes from wiki photos,
+which are mostly clean, side-on shots. A car in a pile on your table looks
+different. **Your own photos and consented scans are what close that gap**,
+both for accuracy and for the 95% check, since they become part of the test.
+Until you've checked it on your own cars, you can keep looks to hints only:
+
+```dotenv
+RECOGNIZER_TRUST_LOOKS=never
+```
+
+(then `docker compose up -d recognizer`). The default `auto` follows what
+training measured.
+
+**The trained model is saved on GitHub**, on a separate branch called
+`training-data`. It is never merged into `main`, and it holds no photos: just
+the model, the vectors and the labels (about 60 MB). Labels are the wiki's own
+keys (`hotwheels_fandom|page:1844:row:1`), not database numbers, so the model
+works with your database even though it was trained on another. To get it,
+then finish collecting the remaining 36% and retrain:
+
+```bash
+./collectai model-pull
+```
+
+```bash
+./collectai train
+```
 
 **Run a training** (after adding photos or confirming scans):
 
@@ -932,6 +982,7 @@ cd /opt/collectai && docker compose -f docker-compose.prod.yml up -d --force-rec
 | `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_ENDPOINT`, `R2_URL` | The R2 bucket. `R2_URL` is the public address photos are served from (`https://img.collectai.club`). Test with `php artisan capture:check-storage` |
 | `CATALOG_AI_DRIVER` | `local` (default): cards are read by the recognizer, cars named by `resources/data/vehicles.json` — nothing leaves the server. `claude`: use the Claude API instead |
 | `RECOGNIZER_URL` | Where the recognizer listens (`http://recognizer:8080` in Docker) |
+| `RECOGNIZER_TRUST_LOOKS` (`auto`) | `never` keeps the trained model to hints and ordering: no car is named by looks alone (§5.10) |
 | `RECOGNIZER_MIN_CONFIDENCE` (0.9), `RECOGNIZER_MIN_MARGIN` (0.08) | How sure the scanner must be, and how far ahead of the next car, before it offers a car. Raise for fewer, surer answers |
 | `SCAN_DISK` (`local`), `SCAN_MAX_PHOTOS` (6), `SCAN_UNCONSENTED_HOURS` (24) | Where scan pictures are kept (keep it private), photos per scan, and how long pictures of collectors who didn't tick "help teach" are kept at most |
 | `COLLECTAI_ANTHROPIC_KEY` | Only with `CATALOG_AI_DRIVER=claude`: the Claude API key |
@@ -1620,7 +1671,7 @@ docker compose exec app vendor/bin/pint --test
 ```
 
 The first runs the 364 tests; the second checks code formatting (drop `--test`
-to fix it). The recognizer has its own 35 tests, run from `recognizer/` (see
+to fix it). The recognizer has its own 40 tests, run from `recognizer/` (see
 §5.9 for the one-time setup):
 
 ```bash
