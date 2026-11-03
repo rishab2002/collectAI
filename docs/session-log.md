@@ -14,6 +14,47 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-11-03 (final) — Wiki photos for training, `./collectai`, release guides
+
+**Asked:** use all wiki photos for training (the owner holds Fandom's written
+consent, training only, model may run on the site); save cloud disk by cycling
+data through GitHub if needed; README guides for App Store uploads/updates and
+website updates; one file to simplify setup.
+
+**Built:**
+- `catalog:export-wiki-photo-labels` (TrainingPhotoLabels): every Versions-row
+  and infobox photo of each imported casting, labelled with casting and, from
+  the row, the exact variation. Measured: Hot Wheels 35,354 labels / 2,073
+  castings (96% to the variation), Matchbox 14,931 / 1,758 — 43,675 distinct
+  files. 8 placeholder files ("Image Not Available.jpg" alone was 2,273 rows)
+  are skipped.
+- `train.collect`: API + image server, identifying UA, 4 req/s, 448 px
+  thumbnails, embedded in memory and **never written to disk**; resumable, and
+  a row is written only once its vector is saved (a stop between saves first
+  left 301 orphaned rows — found, fixed, repaired on restart).
+- `train.build`: shared float16 cache (invalidated if the encoder changes),
+  de-duplication, held-out split by version, chunked evaluation.
+- `./collectai`: setup / import / publish / train / test / status / deploy /
+  backup / ios / ios-release / artisan, dev or prod read from `.env`,
+  `--dry-run`. shellcheck clean; dry-run checked in both modes.
+- iOS: real 1024 px opaque icon; `ITSAppUsesNonExemptEncryption=false`;
+  `ios-release` archives with a timestamp build number and uploads via
+  `xcodebuild -exportArchive` (destination upload) — not run, no Mac here.
+- README: §2.0 one command, §5.10 wiki training, §8.4 App Store release and
+  what needs a new build (only shell changes — the app loads the live site),
+  §8.5 website updates, rollback and data refreshes.
+
+**GitHub as overflow storage — not done, on purpose.** Not needed: vectors for
+all 43,675 photos are ~35 MB, and the photos are never stored. And pushing the
+photos would have put Fandom content permanently into git history, visible to
+anyone with repo access — at odds with "training only" — and against GitHub's
+size limits.
+
+**Gap found:** the site has no privacy-policy page, which App Store submission
+requires for apps with accounts.
+
+---
+
 ## 2026-11-03 (last) — Recognition phase 3: the trained visual model
 
 **Asked:** build phase 3 with consented scans and licensed wiki photos — and

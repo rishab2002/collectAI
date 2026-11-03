@@ -1,0 +1,329 @@
+#!/usr/bin/env bash
+# collectAI — every routine job in one command. Run from the repo folder:
+#
+#   ./collectai help
+#
+# It only strings together the commands documented in README.md; anything it
+# does you can also do by hand. Add --dry-run to any command to print what it
+# would run without running it.
+#
+# Development or production is read from .env: APP_ENV=production uses
+# docker-compose.prod.yml (plus docker-compose.tunnel.yml when
+# CLOUDFLARE_TUNNEL_TOKEN is set); anything else is the development stack.
+
+set -euo pipefail
+cd "$(dirname "$0")"
+
+DRY_RUN=0
+ARGS=()
+for arg in "$@"; do
+    if [ "$arg" = "--dry-run" ]; then DRY_RUN=1; else ARGS+=("$arg"); fi
+done
+set -- "${ARGS[@]+"${ARGS[@]}"}"
+
+say()  { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
+warn() { printf '\033[33m%s\033[0m\n' "$*" >&2; }
+die()  { printf '\033[31m%s\033[0m\n' "$*" >&2; exit 1; }
+
+run() {
+    printf '  $ %s\n' "$*"
+    [ "$DRY_RUN" = 1 ] || "$@"
+}
+
+env_value() {
+    [ -f .env ] || return 0
+    grep -E "^$1=" .env | tail -n 1 | cut -d= -f2- | sed 's/^"//; s/"$//'
+}
+
+production() { [ "$(env_value APP_ENV)" = "production" ]; }
+
+COMPOSE=(docker compose)
+if production; then
+    COMPOSE=(docker compose -f docker-compose.prod.yml)
+    if [ -n "$(env_value CLOUDFLARE_TUNNEL_TOKEN)" ]; then
+        COMPOSE+=(-f docker-compose.tunnel.yml)
+    fi
+fi
+
+artisan() {
+    if production; then
+        run "${COMPOSE[@]}" run --rm -T "${DUMP_MOUNT[@]+"${DUMP_MOUNT[@]}"}" web php artisan "$@"
+    else
+        run "${COMPOSE[@]}" exec -T app php artisan "$@"
+    fi
+}
+
+trainer() { run "${COMPOSE[@]}" --profile training run --rm trainer "$@"; }
+
+DUMPS=storage/app/wiki-dumps
+# Where the app container sees the dumps: the repo is bind-mounted in
+# development; production has no source mount, so the folder is mounted in.
+DUMP_MOUNT=()
+if production; then DUMP_MOUNT=(-v "$PWD/$DUMPS:/dumps:ro"); fi
+dump_path() {
+    if production; then echo "/dumps/$1"; else echo "$DUMPS/$1"; fi
+}
+
+download_dumps() {
+    say "Wiki dumps"
+    run mkdir -p "$DUMPS"
+    for f in h/ho/hotwheels_pages_current.xml.7z m/ma/matchbox_pages_current.xml.7z; do
+        local name="${f##*/}"
+        if [ -s "$DUMPS/$name" ]; then
+            echo "  have $name"
+        else
+            run curl -fL --retry 3 -o "$DUMPS/$name" "https://s3.amazonaws.com/wikia_xml_dumps/$f"
+        fi
+    done
+}
+
+wait_for_app() {
+    [ "$DRY_RUN" = 1 ] && return 0
+    printf '  waiting for the database'
+    for _ in $(seq 1 60); do
+        if "${COMPOSE[@]}" exec -T db pg_isready >/dev/null 2>&1; then echo " — ready"; return 0; fi
+        printf '.'; sleep 2
+    done
+    die " — the database did not come up. Check: ${COMPOSE[*]} logs db"
+}
+
+cmd_setup() {
+    production && die "setup is for your own computer. On the server use: ./collectai deploy (README §8)"
+    command -v docker >/dev/null || [ "$DRY_RUN" = 1 ] || die "Docker isn't installed: https://www.docker.com/products/docker-desktop/"
+
+    say "Settings (.env)"
+    if [ ! -f .env ]; then
+        run cp .env.example .env
+        if [ "$DRY_RUN" = 0 ]; then
+            sed -i.bak 's/^CAPTURE_DISK=.*/CAPTURE_DISK=local/' .env && rm -f .env.bak
+        fi
+        warn "  Created .env with photos on this computer (CAPTURE_DISK=local)."
+        warn "  Set ADMIN_EMAIL and ADMIN_PASSWORD in .env now if you want to choose them — otherwise a password is printed below."
+    else
+        echo "  .env exists — leaving it alone"
+    fi
+
+    say "Containers"
+    run "${COMPOSE[@]}" up -d --build
+    wait_for_app
+
+    say "App"
+    if [ -z "$(env_value APP_KEY)" ]; then artisan key:generate --force; fi
+    artisan migrate --force
+    artisan db:seed --class=AdminUserSeeder --force
+
+    say "Styles and scripts"
+    if command -v npm >/dev/null || [ "$DRY_RUN" = 1 ]; then
+        run npm install
+        run npm run build
+    else
+        warn "  npm isn't installed (https://nodejs.org) — pages will be unstyled until you run: npm install && npm run build"
+    fi
+
+    artisan catalog:export-recognition-index
+
+    say "Done"
+    echo "  Site:  http://localhost:8000      Admin: http://localhost:8000/login"
+    echo "  Next:  ./collectai import          (fill the catalog from the wikis, ~20 min)"
+}
+
+cmd_import() {
+    download_dumps
+    local hw mb
+    hw="$(dump_path hotwheels_pages_current.xml.7z)"
+    mb="$(dump_path matchbox_pages_current.xml.7z)"
+
+    say "Import the catalogs"
+    artisan catalog:import-wiki hot-wheels --from=1968 --to=2027 --dump="$hw"
+    artisan catalog:import-wiki matchbox --from=1953 --to=2027 --dump="$mb"
+    artisan catalog:import-wiki-catalog tomica
+    artisan catalog:import-wiki-catalog mini-gt
+
+    say "Group series into main lines"
+    artisan catalog:classify-series hot-wheels --dump="$hw"
+    artisan catalog:classify-series matchbox --dump="$mb"
+    artisan catalog:classify-series tomica
+    artisan catalog:classify-series mini-gt
+
+    say "Licensed photos, real cars, publish"
+    artisan catalog:import-wiki-photos hot-wheels --dump="$hw"
+    artisan catalog:import-wiki-photos matchbox --dump="$mb"
+    artisan catalog:identify-castings
+    artisan catalog:publish-imported
+    artisan catalog:export-recognition-index
+
+    say "Done"
+    echo "  Review what wasn't certain at /admin/proposals, then: ./collectai publish"
+}
+
+cmd_publish() {
+    say "Publish approved records and refresh the scanner's catalog"
+    artisan catalog:publish-imported
+    artisan catalog:export-recognition-index
+}
+
+cmd_train() {
+    download_dumps
+    local hw mb
+    hw="$(dump_path hotwheels_pages_current.xml.7z)"
+    mb="$(dump_path matchbox_pages_current.xml.7z)"
+
+    say "Labels for the wiki photos (training only — never shown on the site)"
+    artisan catalog:export-wiki-photo-labels hot-wheels --dump="$hw"
+    artisan catalog:export-wiki-photo-labels matchbox --dump="$mb"
+
+    say "Your photos, consented scans and licensed photos"
+    artisan catalog:export-training-data storage/app/recognition/training-data
+
+    say "Base image model (first time only)"
+    trainer sh -c 'test -s /data/model/encoder.onnx || python -m train.export_encoder --out /data/model/encoder.onnx'
+
+    say "Download and embed the wiki photos (resumable; hours the first time)"
+    trainer python -m train.collect \
+        --labels /data/wiki-labels-hot-wheels.jsonl --labels /data/wiki-labels-matchbox.jsonl \
+        --model-dir /data/model --out /data/wiki-training "$@"
+
+    say "Train, measure, calibrate"
+    trainer python -m train.build --data /data/training-data --data /data/wiki-training --model-dir /data/model
+
+    echo "  The recognizer picks up the new model by itself. Results: storage/app/recognition/model/manifest.json"
+}
+
+cmd_deploy() {
+    production || die "deploy runs on the server (APP_ENV=production in .env). On your computer use ./collectai setup."
+    [ -f .env ] || die "No .env — see README §8.2 step 1."
+
+    say "Code"
+    run git pull --ff-only
+
+    say "Build and restart (${COMPOSE[*]})"
+    run "${COMPOSE[@]}" up -d --build --remove-orphans
+
+    say "Scanner catalog"
+    artisan catalog:export-recognition-index
+
+    say "Done"
+    run "${COMPOSE[@]}" ps
+}
+
+cmd_backup() {
+    production || die "Backups run on the server."
+    run ./docker/backup/pg-dump-to-r2.sh
+}
+
+cmd_test() {
+    say "PHP tests and formatting"
+    production && die "Run tests on your own computer, not the server."
+    run "${COMPOSE[@]}" exec -T app php artisan test
+    run "${COMPOSE[@]}" exec -T app vendor/bin/pint --test
+    say "Recognizer tests"
+    run "${COMPOSE[@]}" run --rm --no-deps recognizer python -m unittest discover -s tests -t .
+}
+
+cmd_status() {
+    run "${COMPOSE[@]}" ps
+    if production; then
+        run "${COMPOSE[@]}" exec -T recognizer python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8080/health').read().decode())"
+    else
+        run curl -s http://localhost:8090/health
+        echo
+    fi
+}
+
+cmd_ios() {
+    [ "$(uname)" = "Darwin" ] || [ "$DRY_RUN" = 1 ] || die "The iPhone app is built on a Mac with Xcode."
+    say "iPhone project"
+    run npm install
+    run npx cap sync ios
+    run npx cap open ios
+}
+
+# Archive and upload to App Store Connect in one go (README §8.4).
+# Needs: Xcode, signed in to your Apple ID (Xcode › Settings › Accounts), and
+# APPLE_TEAM_ID in .env (developer.apple.com › Membership details).
+cmd_ios_release() {
+    [ "$(uname)" = "Darwin" ] || [ "$DRY_RUN" = 1 ] || die "Uploading to the App Store needs a Mac with Xcode."
+    local team version build archive export_dir
+    team="$(env_value APPLE_TEAM_ID)"
+    [ -n "$team" ] || die "Set APPLE_TEAM_ID in .env (developer.apple.com › Account › Membership details › Team ID)."
+    version="${1:-}"
+    build="$(date -u +%Y%m%d%H%M)"   # always higher than the last upload
+    archive="build/ios/collectAI-$build.xcarchive"
+    export_dir="build/ios/export-$build"
+
+    say "Sync web settings into the iPhone project"
+    run npm install
+    run npx cap sync ios
+
+    say "Archive (build $build${version:+, version $version})"
+    run xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
+        -destination 'generic/platform=iOS' -archivePath "$archive" archive \
+        -allowProvisioningUpdates DEVELOPMENT_TEAM="$team" CODE_SIGN_STYLE=Automatic \
+        CURRENT_PROJECT_VERSION="$build" ${version:+MARKETING_VERSION="$version"}
+
+    say "Upload to App Store Connect"
+    run mkdir -p "$export_dir"
+    if [ "$DRY_RUN" = 0 ]; then
+        cat > "$export_dir/ExportOptions.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>method</key><string>app-store-connect</string>
+    <key>destination</key><string>upload</string>
+    <key>teamID</key><string>$team</string>
+    <key>signingStyle</key><string>automatic</string>
+    <key>uploadSymbols</key><true/>
+</dict>
+</plist>
+PLIST
+    fi
+    run xcodebuild -exportArchive -archivePath "$archive" -exportPath "$export_dir" \
+        -exportOptionsPlist "$export_dir/ExportOptions.plist" -allowProvisioningUpdates
+
+    say "Uploaded"
+    echo "  In 10–30 minutes build $build appears in App Store Connect › your app › TestFlight."
+}
+
+cmd_artisan() { artisan "$@"; }
+
+cmd_help() {
+    cat <<'HELP'
+./collectai <command> [--dry-run]
+
+On your computer
+  setup            First-time setup: .env, containers, database, admin account, styles
+  import           Fill the catalog from the wikis and publish what's identified (~20 min)
+  publish          Publish what you approved in /admin/proposals; refresh the scanner
+  train            Train the scanner's visual model (README §5.10). Extra options go to
+                   train.collect, e.g. ./collectai train --limit 2000
+  test             All tests and formatting checks
+  status           What's running, and the recognizer's health
+  ios              Open the iPhone project in Xcode (Mac)
+  ios-release [v]  Archive and upload a new iPhone build to TestFlight (Mac); v = e.g. 1.1
+  artisan ...      Any php artisan command, e.g. ./collectai artisan catalog:update-prices
+
+On the server (APP_ENV=production)
+  deploy           Pull the latest code, rebuild, restart, refresh the scanner catalog
+  import / publish / train / artisan / status   as above, against production
+  backup           Back the database up to the private R2 bucket now
+HELP
+}
+
+command="${1:-help}"
+shift || true
+case "$command" in
+    setup) cmd_setup "$@" ;;
+    import) cmd_import "$@" ;;
+    publish) cmd_publish "$@" ;;
+    train) cmd_train "$@" ;;
+    deploy|update) cmd_deploy "$@" ;;
+    backup) cmd_backup "$@" ;;
+    test) cmd_test "$@" ;;
+    status) cmd_status "$@" ;;
+    ios) cmd_ios "$@" ;;
+    ios-release) cmd_ios_release "$@" ;;
+    artisan) cmd_artisan "$@" ;;
+    help|-h|--help) cmd_help ;;
+    *) die "Unknown command: $command — try ./collectai help" ;;
+esac

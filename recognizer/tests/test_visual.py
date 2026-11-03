@@ -88,6 +88,19 @@ class TrainingTest(unittest.TestCase):
         x = np.concatenate([c + noise * rng.normal(size=(per, 32)) for c in centres]).astype(np.float32)
         return x, np.repeat(np.arange(classes), per)
 
+    def test_split_holds_out_whole_versions(self):
+        labels = np.array([1, 1, 1, 1, 2, 2])
+        groups = np.array(["a", "a", "b", "b", "c", "c"])
+        train, test = build.split(labels, 0.5, groups=groups)
+        self.assertEqual(2, len(test))
+        self.assertEqual(1, len(set(groups[test])), "a held-out version is held out entirely")
+        self.assertNotIn(2, labels[test], "a casting with one version is never held out")
+
+    def test_dedupe_keeps_one_row_per_photo_and_casting(self):
+        rows = [{"casting_id": 1}, {"casting_id": 1}, {"casting_id": 2}]
+        kept, keys = build.dedupe(rows, ["x", "x", "x"])
+        self.assertEqual([1, 2], [r["casting_id"] for r in kept])
+
     def test_split_keeps_every_class_in_training_and_singletons_out_of_test(self):
         labels = np.array([1, 1, 1, 1, 1, 2, 3, 3])
         train, test = build.split(labels, 0.2)
@@ -129,7 +142,9 @@ class TrainingTest(unittest.TestCase):
             rows = []
             for i, (cid, bgr) in enumerate([(13, (40, 30, 200))] * 3 + [(10, (190, 90, 30))] * 3):
                 f = f"images/{i}.png"
-                cv2.imwrite(str(data / f), np.full((40, 90, 3), bgr, np.uint8))
+                img = np.full((40, 90, 3), bgr, np.uint8)
+                img[0, i] = 255          # distinct files: identical ones are de-duplicated
+                cv2.imwrite(str(data / f), img)
                 rows.append({"image": f, "casting_id": cid, "variation_id": 100 + i, "source": "own"})
             (data / "manifest.jsonl").write_text("\n".join(json.dumps(r) for r in rows))
 

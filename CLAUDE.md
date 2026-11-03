@@ -74,8 +74,8 @@ exists.*
 
 **Running:** `docker compose up -d` brings up `app` (:8000), `db` (Postgres 16,
 :5432), `redis` (:6379), `meilisearch` (:7700), `recognizer` (:8090).
-`php artisan test` → **361 passed, 1,466 assertions**; the recognizer's own
-`python -m unittest discover -s tests -t .` (in `recognizer/`) → **33 passed**
+`php artisan test` → **364 passed, 1,478 assertions**; the recognizer's own
+`python -m unittest discover -s tests -t .` (in `recognizer/`) → **35 passed**
 (both re-measured 2026-11-03, last). The `recognizer` Docker image has not been
 built yet — the Python ran in a venv with the same pinned versions.
 
@@ -1498,13 +1498,25 @@ measurements in the [session log](docs/session-log.md).*
   text candidate, order versions, and hint — and the hint shows live castings
   only.
 - **Training sources are `scan` (consented), `own` (photos with no licence),
-  `wiki_licensed`.** Unlicensed wiki photos are **not** a source: Fandom's
-  Terms of Use (fandom.com/terms-of-use) forbid using its content to train an
-  ML/AI system without Fandom's express prior written consent, and forbid
-  scrapers. The owner's lawyer cleared training under copyright (2026-11-03);
-  this contract term is separate and was raised with the owner. A written
-  consent would make them addable as another `--data` folder, no code change.
-  `manifest.json` records sources and licences of every trained model.
+  `wiki_licensed`, and `wiki_consented`** — every Versions/infobox photo of
+  the Hot Wheels and Matchbox wikis, **for training only**. Fandom's Terms of
+  Use forbid AI training on its content and scrapers without express written
+  consent; the owner stated (2026-11-03) that they **hold Fandom's written
+  consent** for this, and their lawyer cleared it — the owner keeps that
+  document. Rules that make "training only" true: a `wiki_consented` photo is
+  **never saved** (train.collect embeds it in memory and drops it), never a
+  `photos` row, never in R2, never shown. Placeholder files ("Image Not
+  Available", or one file across >3 castings) are skipped. Identifying user
+  agent, 4 requests/s. The deployed model's gallery holds their vectors — the
+  owner confirmed that use on the site is covered. `manifest.json` records the
+  sources and licences of every trained model.
+- **The held-out test holds out whole versions** (`split(groups=…)`): a car
+  is tested on a colour/version it never saw. Rows are de-duplicated by
+  (photo, casting) first. Don't switch to a per-image split to get a nicer
+  number.
+- **`./collectai` is a wrapper, not a second source of truth.** Every command
+  it runs is documented in the README; change a procedure in both places, and
+  keep `--dry-run` working (it is how the script is tested without Docker).
 - **Training and serving share one preprocessing function**
   (`visual.preprocess`); the recognizer image has onnxruntime only, the
   `train` Dockerfile stage adds CPU PyTorch. Services build `target: runtime`.

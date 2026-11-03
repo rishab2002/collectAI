@@ -86,7 +86,38 @@ Claude API is an optional switch (`CATALOG_AI_DRIVER=claude`), never required.
 You need **Docker Desktop** and **Node 22+** (for building the page styles).
 Everything else runs inside containers.
 
-### 2.1 First-time setup
+### 2.0 The quick way: one command
+
+Everything below is wrapped in **`./collectai`**, a script in the repo folder.
+It runs exactly the commands this README documents, printing each one as it
+goes, and `--dry-run` shows them without running anything:
+
+```bash
+git clone https://github.com/rishab2002/collectAI.git && cd collectAI && ./collectai setup
+```
+
+```bash
+./collectai import
+```
+
+| Command | Does |
+|---|---|
+| `./collectai setup` | First time on your computer: `.env`, containers, database, admin account, styles |
+| `./collectai import` | Downloads the wiki dumps and runs the whole pipeline of §3–4 (~20 min) |
+| `./collectai publish` | After approving things in `/admin/proposals`: publishes them and refreshes the scanner |
+| `./collectai train` | Trains the scanner's visual model (§5.10) |
+| `./collectai test` | Every test and formatting check |
+| `./collectai status` | What's running, and the recognizer's health |
+| `./collectai deploy` | **On the server:** pull the latest code, rebuild, restart (§8.5) |
+| `./collectai ios` / `ios-release 1.1` | Open the iPhone project / upload a new build to TestFlight (§8.4) |
+| `./collectai artisan …` | Any `php artisan` command |
+
+It reads `.env` to know where it is: `APP_ENV=production` means the server, and
+it then adds the production (and, with `CLOUDFLARE_TUNNEL_TOKEN` set, the
+tunnel) compose files by itself. `./collectai help` lists everything. The rest
+of this README is what each command does, step by step.
+
+### 2.1 First-time setup, step by step
 
 ```bash
 git clone https://github.com/rishab2002/collectAI.git
@@ -735,22 +766,45 @@ recognition is learned from collectAI's photos and runs on collectAI's server.
 The base image model is reused rather than trained from scratch, which would
 need millions of photos.)
 
-**What it learns from** (`catalog:export-training-data`):
+**The one-command way:** `./collectai train` does everything in this section,
+in order.
+
+**What it learns from** (`catalog:export-training-data`, plus the wiki photos):
 
 | Source | What | Count today |
 |---|---|---|
 | `scan` | Cars collectors confirmed or named in a scan, **only with "Help teach the scanner" ticked** | grows with use |
 | `own` | Your own catalog photos — *Add a car* and approved captures | grows as you add photos |
 | `wiki_licensed` | Wiki photos imported because they carry a reuse licence, with their licence and credit | 157 |
+| `wiki_consented` | **Every** photo in the Hot Wheels and Matchbox wikis' Versions tables and infoboxes, used under Fandom's written consent **for training only** | ~43,700 photos of ~3,800 castings |
 
-**Not a source: the wiki photos with no licence.** Fandom's Terms of Use
-forbid using its content to train a machine-learning or AI system without
-Fandom's express written consent, and forbid scrapers. That is a contract with
-Fandom, separate from the copyright question. If Fandom gives written consent
-(the request can go with [docs/source-permissions.md](docs/source-permissions.md)),
-those photos can be added to training without code changes: any folder of
-images plus a `manifest.jsonl` in the same format can be passed with another
-`--data`.
+**The wiki photos are for training only — never shown on the site.** They are
+used under Fandom's written consent to you (keep that document). They are never
+added to the catalog, the public pages or the photo bucket. In fact they are
+never even saved: `train.collect` downloads each one, turns it into its 384
+numbers and discards it. Only the numbers and the label are kept
+(`storage/app/recognition/model/`, about 35 MB for all of them). That is what
+the scanner uses on the site. Placeholder images ("Image Not Available") are
+skipped.
+
+The wiki photos are collected in two steps (`./collectai train` runs both).
+First list every photo with its label, from the dumps:
+
+```bash
+docker compose exec app php artisan catalog:export-wiki-photo-labels hot-wheels --dump=storage/app/wiki-dumps/hotwheels_pages_current.xml.7z
+```
+
+```bash
+docker compose exec app php artisan catalog:export-wiki-photo-labels matchbox --dump=storage/app/wiki-dumps/matchbox_pages_current.xml.7z
+```
+
+Then fetch and embed them. This runs at a polite 4 requests a second with an
+identifying user agent, so the first run takes about 4 hours. It can be stopped
+and restarted at any time and carries on where it stopped:
+
+```bash
+docker compose --profile training run --rm trainer python -m train.collect --labels /data/wiki-labels-hot-wheels.jsonl --labels /data/wiki-labels-matchbox.jsonl --model-dir /data/model --out /data/wiki-training
+```
 
 **It refuses to guess until it has proven itself.** Training keeps back some
 photos and tests itself on them. It picks the similarity a match must reach for
@@ -762,10 +816,11 @@ show that, looks alone never name a car. They only:
 - show "Looks most like …" as a hint, with a one-tap search, on cars it
   couldn't name.
 
-Today every car has one photo, so there is nothing to test on, and it is in
-this hint-only mode. **Your own photos change that.** Two or three photos of the
-same car, from different angles, are what let it test itself. Real accuracy has
-not been measured yet; there are no real photos to measure with.
+**The test is deliberately hard.** It holds back whole *versions* of a car: it
+learns the casting from, say, the blue and black versions, and is tested on the
+red one it has never seen. **Your own photos make it better where it counts.**
+Wiki photos are mostly clean, side-on shots; photos from your phone teach it what
+a car looks like in a pile on your table.
 
 **Run a training** (after adding photos or confirming scans):
 
@@ -774,10 +829,11 @@ docker compose exec app php artisan catalog:export-training-data storage/app/rec
 ```
 
 ```bash
-docker compose --profile training run --rm trainer
+docker compose --profile training run --rm trainer python -m train.build --data /data/training-data --data /data/wiki-training --model-dir /data/model
 ```
 
-The first run downloads the base model (88 MB, pinned revision) and builds the
+(`docker compose --profile training run --rm trainer` on its own trains on
+`training-data` alone.) The first run downloads the base model (88 MB, pinned revision) and builds the
 training image (CPU PyTorch, about 1 GB, used only for training). It prints how
 many photos it learned from, its measured top-1 and top-5 accuracy, and whether
 looks alone are trusted yet. The result goes to
@@ -1407,9 +1463,8 @@ Mode*). Pick the phone at the top of Xcode and press **▶ Run**.
 4. Install the **TestFlight** app on the iPhone and accept the invite.
 
 For every new upload, raise the **Build** number (target **App → General →
-Identity**). The app icon is still Capacitor's placeholder: replace it in Xcode
-under **App → Assets → AppIcon** with a 1024×1024 version of the collectAI icon
-(`public/icons/`) before inviting testers.
+Identity**) — or use `./collectai ios-release` below, which does it for you.
+The app icon is the collectAI car (1024×1024, made from `public/icons/`).
 
 **5. Test the camera.** In the app: sign in as the admin → **Admin → New
 capture** → tap **Card front**. iOS asks for camera permission once, showing
@@ -1424,13 +1479,130 @@ temporarily set `"url": "http://<your-Mac's-IP>:8000"` and `"cleartext": true`
 in `capacitor.config.json`, run `npx cap sync ios`, and start the app with
 `php artisan serve --host=0.0.0.0` on the Mac. Don't commit that change.
 
-**Before submitting to the public App Store:** Apple rejects apps that are
-"just a website" (guideline 4.2). TestFlight is fine as it is; a public release
-will want app-only features such as the multi-car scanner described in
-[docs/multi-car-recognition.md](docs/multi-car-recognition.md).
+#### The quick way to upload a build (one command, on the Mac)
+
+Once, in Xcode: **Xcode → Settings → Accounts → +** and sign in with your Apple
+developer Apple ID. Then put your Team ID in `.env` (developer.apple.com →
+**Account → Membership details → Team ID**):
+
+```dotenv
+APPLE_TEAM_ID=ABCDE12345
+```
+
+From then on, every upload is:
+
+```bash
+./collectai ios-release 1.0
+```
+
+It syncs the project, archives a Release build stamped with a new build number
+(the date and time, so it's always higher than the last), signs it with your
+team and uploads it to App Store Connect. The `1.0` is the version people see.
+Leave it off to keep the current one, and raise it (`1.1`, `2.0`) when you
+release something new to the public. 10–30 minutes later the build appears under
+**App Store Connect → your app → TestFlight**. The app declares that it uses
+only standard encryption (`ITSAppUsesNonExemptEncryption`), so there's no
+export question to answer per build. (This script has not been run on a real
+Mac from here, because there isn't one. If it stops at signing, use Xcode's
+**Product → Archive** route above once, then try again.)
+
+#### Release it on the public App Store
+
+1. **App Store Connect → your app → App Store** tab, under the version:
+   - **Screenshots** from an iPhone 6.9" (e.g. iPhone 16 Pro Max): the catalog,
+     a car page, Scan results, My collection.
+   - **Description** and **keywords**.
+   - **Support URL** (`https://collectai.club`).
+   - **Privacy Policy URL**, which is required because people create accounts.
+     *The site has no privacy page yet; it needs one before submission.*
+2. **App Privacy:** declare email address and user content (photos and the
+   collection), used for app functionality and not for tracking. Accounts can
+   be deleted in the app (**Account → Delete account**), which Apple requires.
+3. **Age rating** questionnaire, and **Pricing and Availability**.
+4. **Build:** pick the TestFlight build you tested.
+5. **App Review Information:** give a demo collector account (email and
+   password) and a note such as: "Sign in, tap Scan, photograph toy cars laid
+   out on a table; tap Add to my collection."
+6. **Add for Review → Submit.** Review usually takes one to two days.
+
+**Expect questions under guideline 4.2** ("minimum functionality"). Apple
+rejects apps that are just a website in a frame. collectAI's case is that the
+app is built around the camera: Scan and capture. Lead with that in the
+screenshots and the review note. If it's rejected, the usual fixes are native
+touches, such as a native camera button or offline access to your collection.
+
+#### How updates to the app work
+
+The iPhone app is a native shell that **loads the live website**
+(`server.url` in `capacitor.config.json`). So almost every change reaches the
+app without Apple:
+
+| You changed… | To get it into the app | Apple review? |
+|---|---|---|
+| Pages, features, styles, the catalog, the scanner, the model | Deploy the website (§8.5). The app shows it next time it's opened | **No** |
+| The app's name, icon, permissions text (`ios/App/App/Info.plist`), `capacitor.config.json`, a Capacitor plugin, the Capacitor version | `./collectai ios-release 1.1` → TestFlight → submit | Yes |
+
+So the loop for a new feature is: build and test it locally (`./collectai
+setup`, `./collectai test`), push it, run `./collectai deploy` on the server,
+and it's live on the site and in the app at once. A new App Store build is only
+for changes to the shell itself. Keep the website working for the app version
+people already have installed. They'll keep using the older shell for a while,
+so don't remove a page the shell relies on (for example `/login`).
 
 **Android** isn't set up yet; it's the same pattern
 (`npm install --save-exact @capacitor/android@8.5.3`, then `npx cap add android`).
+
+### 8.5 Updating the website: new features and new data
+
+**New features (code).** Work and test on your computer, then publish:
+
+1. Start the local stack (`./collectai setup` the first time,
+   `docker compose up -d` after) and make the change.
+2. `./collectai test`. Everything must pass.
+3. Commit and push to GitHub. Finished work goes to `main` (CLAUDE.md, *How to
+   work in this repo*).
+4. On the server:
+
+```bash
+ssh root@your-server-ip
+```
+
+```bash
+cd /opt/collectai && ./collectai deploy
+```
+
+`deploy` pulls `main`, rebuilds the images, restarts the containers (database
+changes are applied automatically as the new version starts) and refreshes the
+scanner's catalog. The site is unavailable for under a minute while it
+restarts. The iPhone app picks the change up by itself (§8.4).
+
+**If an update goes wrong**, go back to the version before it:
+
+```bash
+cd /opt/collectai && git log --oneline -5
+```
+
+```bash
+cd /opt/collectai && git checkout <previous-commit> && docker compose -f docker-compose.prod.yml -f docker-compose.tunnel.yml up -d --build
+```
+
+Then `git checkout main` again once the fix is pushed. (Drop the tunnel file
+from that command if you host without a tunnel.) A database change can't be
+undone this way. Restore the previous night's backup if one went wrong.
+
+**New data** — on the server:
+
+| You want… | Run |
+|---|---|
+| The latest wiki changes (new cars, new versions) | `./collectai import` — safe to re-run; it updates what exists and adds what's new |
+| What you approved in `/admin/proposals` to go live | `./collectai publish` |
+| The scanner to learn from new photos and scans | `./collectai train` |
+| Prices refreshed now rather than overnight | `./collectai artisan catalog:update-prices` |
+| A car typed in by hand | **Admin → Add a car** — live at once, no command |
+
+Everything that should happen regularly already does, by itself, in the
+`scheduler` container: prices nightly, the scanner's catalog nightly, and
+cleaning up unshared scan photos hourly.
 
 ---
 
@@ -1447,8 +1619,8 @@ docker compose exec app php artisan test
 docker compose exec app vendor/bin/pint --test
 ```
 
-The first runs the 361 tests; the second checks code formatting (drop `--test`
-to fix it). The recognizer has its own 33 tests, run from `recognizer/` (see
+The first runs the 364 tests; the second checks code formatting (drop `--test`
+to fix it). The recognizer has its own 35 tests, run from `recognizer/` (see
 §5.9 for the one-time setup):
 
 ```bash
@@ -1551,6 +1723,7 @@ or `docker compose -f docker-compose.prod.yml run --rm web php artisan <command>
 | `catalog:identify-castings` | Work out each car's real make/model — locally from `vehicles.json`, or with Claude if `CATALOG_AI_DRIVER=claude` | `--limit=`, `--dry-run`, `--threshold=`, `--regenerate` (Claude only) |
 | `catalog:export-recognition-index` | Write the catalog file the recognizer matches against (nightly on its own) | `--path=`, `--include-pending` |
 | `catalog:export-training-data {dir}` | Export labelled photos for training: consented scans, your own and licensed catalog photos (§5.10) | `--source=scan --source=own --source=wiki_licensed` |
+| `catalog:export-wiki-photo-labels {wiki}` | List every wiki photo of an imported car with its label, for training only (§5.10) | `--dump=`, `--out=` |
 | `catalog:prune-scans` | Delete pictures of unconsented scans past their window (hourly on its own) | — |
 | `catalog:publish-imported` | Publish imported releases/variations whose parents are live | `--dry-run` |
 | `catalog:update-prices` | Refresh prices (runs daily on its own via the scheduler) | `--limit=`, `--msrp-only`, `--dry-run` |
