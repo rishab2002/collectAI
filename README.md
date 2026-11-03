@@ -157,10 +157,22 @@ docker compose up -d
 
 ## 3. Fill the catalog from the wikis
 
-This loads **every year (1968–2027) of the Hot Wheels Wiki and the Matchbox
-Wiki** — about 3,600 castings, 35,000 releases and 47,000 variations — then
-groups the series into main lines and attaches the photos that are licensed
-for reuse. Each step is **safe to re-run**: it updates what it already created
+This loads **every year of the Hot Wheels Wiki (1968–2027) and the Matchbox
+Wiki (1953–2027, Lesney era included)**, then **Tomica — including Tomica
+Limited Vintage and TLV Neo — and Mini GT** from their wikis: about 6,800
+castings and 51,000 variations across four brands. It then groups the series
+into main lines and attaches the photos that are licensed for reuse.
+
+| Brand | Source | Castings | What's covered |
+|---|---|---|---|
+| Hot Wheels | Hot Wheels Wiki (dump) | 2,073 | Every year 1968–2027 |
+| Matchbox | Matchbox Wiki (dump) | 1,763 | 1953–2027, Lesney years included |
+| Tomica | Tomica Wiki (API) | 2,534 | Classic Tomica, Tomica Limited Vintage, TLV Neo, Tomica Premium, Tomica Limited |
+| Mini GT | Mini GT Wiki (API) | 440 | 2018–2022 only — the wiki stops there |
+
+Schuco, Para64, Inno64 and TrueScale/Mini GT's own websites are **not**
+sources — see [§11](#11-data-rules-you-must-not-break) for why and what to do
+about it. Each step is **safe to re-run**: it updates what it already created
 and never duplicates.
 
 Run the steps in this order.
@@ -200,7 +212,7 @@ docker compose exec app php artisan catalog:import-wiki hot-wheels --from=1968 -
 ```
 
 ```bash
-docker compose exec app php artisan catalog:import-wiki matchbox --from=1968 --to=2027 --dump=storage/app/wiki-dumps/matchbox_pages_current.xml
+docker compose exec app php artisan catalog:import-wiki matchbox --from=1953 --to=2027 --dump=storage/app/wiki-dumps/matchbox_pages_current.xml
 ```
 
 What it does: reads each year's "List of YYYY …" page to find the casting
@@ -217,7 +229,7 @@ What you should see (measured on the October 2026 dumps):
 | Variations | 33,744 | 13,449 |
 | Time | 7½–11 min | 3 min |
 
-A few hundred rows are reported as **skipped** — almost all are rows identical
+Matchbox starts at 1953 so the Lesney years are included. A few hundred rows are reported as **skipped** — almost all are rows identical
 in every column the importer reads (they differ only in the wiki's *Notes*
 prose, which is deliberately never imported). That is expected.
 
@@ -267,7 +279,48 @@ you — [§5](#5-day-to-day-add-cars-photos-and-captures).
 Add `--dry-run` to count licensed images without downloading anything. Cars that
 already have any photo are skipped, so your own photos are never replaced.
 
-### Step 5 — Identify the real cars, then publish (see §4)
+### Step 5 — Import Tomica and Mini GT (about 3 minutes)
+
+These two wikis publish no dump, so this reads them through the wiki API —
+about 75 polite requests for Tomica, one for Mini GT. No download step needed.
+
+```bash
+docker compose exec app php artisan catalog:import-wiki-catalog tomica
+```
+
+```bash
+docker compose exec app php artisan catalog:import-wiki-catalog mini-gt
+```
+
+```bash
+docker compose exec app php artisan catalog:classify-series tomica
+```
+
+```bash
+docker compose exec app php artisan catalog:classify-series mini-gt
+```
+
+What to expect:
+
+- **Tomica** — one brand with five lines: Classic Tomica (the numbered No. 1–140
+  range), Tomica Limited Vintage, Tomica Limited Vintage Neo, Tomica Premium and
+  Tomica Limited. Tomytec makes TLV for Takara Tomy, so it sits under Tomica
+  rather than as a separate brand. TLV variants that share a number (LV-01a,
+  LV-01b, LV-01c…) are one casting with several variations. About 150 pages
+  are skipped as "no year category" — they are year-summary pages, not cars.
+  The wiki also files some non-car items under TLV (e.g. Kaiyodo DioColle
+  diorama pieces); they come in as the wiki lists them.
+- **Mini GT** — 440 items from the wiki's 2018–2022 lists, in two lines (Mini GT
+  and Kaido House). Each item is its own casting, because the wiki doesn't say
+  which items share a tool.
+- **No photos** for either: none of the images on those wikis carry a reuse
+  licence. `catalog:import-wiki-photos` finds nothing to take there.
+
+To edit how these lines are named or grouped, see `config/catalog_lines.php`
+(the `tomica` and `mini-gt` entries) and
+`app/Services/Import/FandomWiki/TomicaArticles.php` (`LINES`).
+
+### Step 6 — Identify the real cars, then publish (see §4)
 
 Imported cars are still pending at this point. Continue with [§4](#4-make-it-go-live).
 
@@ -305,7 +358,8 @@ docker compose exec app php artisan catalog:identify-castings --limit=500
 ```
 
 Repeat until it reports nothing left. Each Claude call identifies 25 cars (set by
-`METADATA_BATCH_SIZE`). A full import is about 3,600 castings — roughly 145 calls.
+`METADATA_BATCH_SIZE`). A full import of all four brands is about 6,800
+castings — roughly 275 calls.
 
 For each car the AI answers *real* (make + model + generation), *fantasy*
 (no real car), or *unknown*. Then:
@@ -583,7 +637,7 @@ cd /opt/collectai && docker compose -f docker-compose.prod.yml run --rm -v ~/wik
 ```
 
 ```bash
-cd /opt/collectai && docker compose -f docker-compose.prod.yml run --rm -v ~/wiki-dumps:/dumps:ro web php artisan catalog:import-wiki matchbox --from=1968 --to=2027 --dump=/dumps/matchbox_pages_current.xml.7z
+cd /opt/collectai && docker compose -f docker-compose.prod.yml run --rm -v ~/wiki-dumps:/dumps:ro web php artisan catalog:import-wiki matchbox --from=1953 --to=2027 --dump=/dumps/matchbox_pages_current.xml.7z
 ```
 
 …and the same pattern for `catalog:classify-series`, `catalog:import-wiki-photos`,
@@ -646,6 +700,27 @@ docker compose exec app php artisan migrate:fresh --seed
 
 ## 11. Data rules you must not break
 
+### Why Schuco, Para64, Inno64 and the Mini GT website aren't imported
+
+Their terms were read on 2026-11-03:
+
+| Site | What its terms say |
+|---|---|
+| tsm-models.com (TrueScale / Mini GT) | Any use of the site's content or information other than shopping is "strictly prohibited" without written permission; images named explicitly |
+| paragonmodelstore.com (Para64 — para64.com redirects here) | "You agree not to reproduce, duplicate, copy … any portion of the Service … without express written permission" |
+| inno-models.com (Inno64) | "© INNO MODELS — All rights reserved"; no reuse terms |
+| schuco.de | No reuse terms at all, which by default means all rights reserved |
+
+So their catalogs and photos can't be copied **unless they give permission** —
+and manufacturers often will for a collector catalog that credits and links
+them. [docs/source-permissions.md](docs/source-permissions.md) has a short
+request you can send. If one says yes, keep the written permission and an
+importer can be built for that source.
+
+Until then, add their cars with **Add a car** (§5.1) and your own photos.
+
+### The rules
+
 These keep the catalog legal and original. The full reasoning is in
 [CLAUDE.md](CLAUDE.md) under *Data sources*.
 
@@ -675,6 +750,7 @@ or `docker compose -f docker-compose.prod.yml run --rm web php artisan <command>
 |---|---|---|
 | `catalog:import-wiki {hot-wheels\|matchbox}` | Import castings, releases and variations from a wiki | `--from=1968 --to=2027`, `--year=`, `--dump=`, `--limit=`, `--dry-run` |
 | `catalog:import-hot-wheels` | Same as `catalog:import-wiki hot-wheels` (older name) | same |
+| `catalog:import-wiki-catalog {tomica\|mini-gt}` | Import Tomica (all five lines) or Mini GT from their wikis' API | `--limit=`, `--dry-run` |
 | `catalog:classify-series {wiki}` | Place sub-series under main lines | `--dump=`, `--dry-run`, `--reclassify` |
 | `catalog:import-wiki-photos {wiki}` | One licensed, credited photo per imported car | `--dump=`, `--limit=`, `--dry-run` |
 | `catalog:identify-castings` | AI: work out each car's real make/model (needs API key) | `--limit=`, `--dry-run`, `--threshold=`, `--regenerate` |
@@ -692,7 +768,7 @@ docker compose exec app php artisan catalog:import-wiki hot-wheels --from=1968 -
 ```
 
 ```bash
-docker compose exec app php artisan catalog:import-wiki matchbox --from=1968 --to=2027 --dump=storage/app/wiki-dumps/matchbox_pages_current.xml
+docker compose exec app php artisan catalog:import-wiki matchbox --from=1953 --to=2027 --dump=storage/app/wiki-dumps/matchbox_pages_current.xml
 ```
 
 ```bash
@@ -709,6 +785,22 @@ docker compose exec app php artisan catalog:import-wiki-photos hot-wheels --dump
 
 ```bash
 docker compose exec app php artisan catalog:import-wiki-photos matchbox --dump=storage/app/wiki-dumps/matchbox_pages_current.xml
+```
+
+```bash
+docker compose exec app php artisan catalog:import-wiki-catalog tomica
+```
+
+```bash
+docker compose exec app php artisan catalog:import-wiki-catalog mini-gt
+```
+
+```bash
+docker compose exec app php artisan catalog:classify-series tomica
+```
+
+```bash
+docker compose exec app php artisan catalog:classify-series mini-gt
 ```
 
 ```bash

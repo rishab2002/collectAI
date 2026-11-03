@@ -324,8 +324,13 @@ class FandomWikiTest extends TestCase
 
     public function test_an_unknown_wiki_or_a_muddled_range_fails(): void
     {
-        $this->artisan('catalog:import-wiki', ['wiki' => 'tomica'])
+        $this->artisan('catalog:import-wiki', ['wiki' => 'lego'])
             ->expectsOutputToContain('Unknown wiki')
+            ->assertFailed();
+
+        // Known, but not organised by year index: pointed at the right command.
+        $this->artisan('catalog:import-wiki', ['wiki' => 'tomica'])
+            ->expectsOutputToContain('catalog:import-wiki-catalog tomica')
             ->assertFailed();
 
         $this->artisan('catalog:import-wiki', ['--year' => 2011, '--from' => 2010])

@@ -16,6 +16,13 @@ final class WikiPage
         public readonly int $pageId,
         public readonly ?int $revisionId,
         public readonly string $wikitext,
+        /**
+         * The article's categories, when the source fetched them — the API's
+         * category reads do; the dump and a plain page read don't need to.
+         *
+         * @var list<string>
+         */
+        public readonly array $categories = [],
     ) {}
 
     /**

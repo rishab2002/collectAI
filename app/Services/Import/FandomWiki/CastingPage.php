@@ -26,6 +26,14 @@ final class CastingPage
          * the casting, as a file name.
          */
         public readonly ?string $image = null,
+        /**
+         * An explicit provenance key, for sources where one casting is not one
+         * article: a Tomica Limited Vintage tool is several articles (LV-01a,
+         * LV-01b…) keyed by their shared base code, and a Mini GT item is a row
+         * in a yearly list keyed by its item number. Null means the article's
+         * page id, as for the Hot Wheels and Matchbox wikis.
+         */
+        private readonly ?string $key = null,
     ) {
         $this->wiki = $wiki ?? Wiki::hotWheels();
     }
@@ -42,7 +50,7 @@ final class CastingPage
      */
     public function sourceKey(): string
     {
-        return RecordSource::pageKey($this->pageId);
+        return $this->key ?? RecordSource::pageKey($this->pageId);
     }
 
     public function sourceUrl(): string
