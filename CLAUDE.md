@@ -1301,6 +1301,14 @@ and photos. Measured, not assumed — details in the [session log](docs/session-
   the full-size real car. Commons was rate-limited from the cloud network.
   An automated photo finder would find almost nothing and risk wrong-car
   photos, so none was built.
+- **HWRLC (hwrlc.com) is not a source — checked 2026-11-04.** Asked to import
+  its photos into the public catalog because it "has no copyright against"
+  reuse. It does: the footer reads "Copyright © 2026 HWRLC.com", it has a
+  DMCA takedown page, and nothing on it licenses reuse — silence is all rights
+  reserved, and its robots.txt `Crawl-delay: 3` governs crawling, not reuse.
+  The photos are one collector's own work. Nothing was downloaded. A written
+  yes from the owner (hwrlc.com/contact/, `docs/source-permissions.md`) is what
+  would change this, for the catalog or for training.
 - **Tomica, Mini GT and Inno64 wiki images carry no reuse licence** (150 of 150
   sampled on each; 4 on Mini GT are `{{Self}}` only), so those brands get no
   imported photos.

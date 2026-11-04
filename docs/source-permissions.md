@@ -14,6 +14,7 @@ worth it. Below is a request you can adapt.
 | Para64 / Paragon Models | the contact page on paragonmodelstore.com |
 | Inno64 / INNO Models | the contact page on inno-models.com |
 | Schuco | the contact form on schuco.de (Minimax Import & Export Co. Ltd., Macau) |
+| HWRLC.com (Red Line Club cars, run by a collector, "HWJamey") | the contact page, hwrlc.com/contact/ — ask for photos *and* credit wording; the same owner runs HWtreasure, HWredline and idChecklist |
 
 ## The request
 

@@ -1781,10 +1781,13 @@ When the rules below were first written (2026-11-03), the makers' terms said:
 | paragonmodelstore.com (Para64 — para64.com redirects here) | "You agree not to reproduce, duplicate, copy … any portion of the Service … without express written permission" |
 | inno-models.com (Inno64) | "© INNO MODELS — All rights reserved"; no reuse terms |
 | schuco.de | No reuse terms at all, which by default means all rights reserved |
+| hwrlc.com (HWRLC — a collector's Red Line Club site, checked 2026-11-04) | "Copyright © 2026 HWRLC.com", a DMCA takedown page, no licence or reuse terms; robots.txt asks for a 3-second crawl delay, which is about politeness, not permission |
 
 Permission has since come from TSM/Mini GT, Inno64 and Para64 (above).
-Schuco hasn't been asked; [docs/source-permissions.md](docs/source-permissions.md)
-is a short request you can send. Their cars go in through **Add a car** with
+Schuco and HWRLC haven't been asked; [docs/source-permissions.md](docs/source-permissions.md)
+is a short request you can send. HWRLC's photos are its owner's own work, so
+they can't go on the public site, or into training, until the owner (Jamey,
+hwrlc.com/contact/) says yes in writing. Their cars go in through **Add a car** with
 your own photos.
 
 ### The rules
