@@ -1961,8 +1961,35 @@ Allow policy listing emails, and One-time PIN as the login method*.
    **An application with no Allow policy denies everyone, including you.**
    That is Access's default, so do not save the application meaning to add the
    policy afterwards.
-5. **Login methods**: **One-time PIN**. 
+5. **Login methods**: **One-time PIN** — but it is not there until you add it,
+   and this is the step that looks finished and is not.
+
+   **One-time PIN is not enabled by default.** A new Zero Trust organisation
+   gets the **Cloudflare** identity provider instead, and nothing warns you.
+   The application then works, the policy is correct, and signing in fails
+   with **"your account has no access"**: Access authenticates you as your
+   *Cloudflare account*, whose email does not have to be — and usually is not —
+   the address you listed in the policy. Measured 2026-11-04 on the live site,
+   where the login page read `Sign in with: Cloudflare` and the words "one-time
+   PIN" appeared nowhere on it.
+
+   Add it first: **Zero Trust → Integrations → Identity providers → Add new
+   identity provider → One-time PIN.** Then check this application's **Login
+   methods** actually offer it, and reload the site: the login page should ask
+   for an email and send a code, rather than offering a Cloudflare button.
+
+   To see which methods a hostname really offers without guessing, read the
+   login page itself — `curl -sL https://collectai.club/` follows the redirect
+   to it, and its visible text names every button.
 6. **Session Duration**: **1 month**, so you are not asked every day. Create.
+
+**One application, both hostnames.** If you add the apex by creating a *second*
+application rather than adding a destination to the first, both match and
+Cloudflare's login page names them together (observed: `Log in to
+www&collectai`). It works, but two overlapping applications means two policies
+to keep in step, and the next person to change one will not know the other is
+there. Prefer one application with `collectai.club` and `www` as its two
+destinations.
 
 To let someone in later, add their email to that policy. To remove them, take
 it out. Nothing on the server changes either way.
