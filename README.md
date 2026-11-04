@@ -1204,6 +1204,32 @@ of it. Roughly in the order worth doing. Tick them off as you go.
       is the index doing its job rather than a broken scanner. More years is
       what makes the scanner genuinely useful, and it is the single highest-value
       thing left.
+- [ ] **Turn on price tracking** (§5.7). The code and the daily job exist and
+      are already running at 03:17 — doing nothing, because there are no eBay
+      keys. To light it up:
+
+      1. Create an application at **developer.ebay.com** and put its
+         **Production** *App ID* and *Cert ID* into **Railway's variables** as
+         `EBAY_CLIENT_ID` / `EBAY_CLIENT_SECRET`. (§5.7 says `.env`, which is
+         right on your Mac; the live site reads Railway's variables.)
+      2. Set `EBAY_LISTINGS_FALLBACK=true` straight away — **asking** prices,
+         readable by any developer account, and always labelled as asking.
+      3. **Sold** prices need eBay's permission: Marketplace Insights is a
+         restricted API you apply for from the developer portal. Set
+         `EBAY_INSIGHTS=true` once approved, and sold medians take over from
+         asking.
+      4. Fill in `config/catalog_prices.php` with MSRPs you actually know. It is
+         empty on purpose — a guessed MSRP would be displayed as fact. That one
+         is a repo file, so it ships with `git push` rather than a variable.
+      5. Rehearse before trusting it, through `railway ssh`:
+         `php artisan catalog:update-prices --limit=10 --dry-run`.
+
+      Worth doing **after** importing more years, not before: it only prices
+      cars that are **published**, so with 212 live castings it has almost
+      nothing to work on, and `PRICE_DAILY_BUDGET` (4,500 calls, ~3 per car)
+      is sized for a catalog thousands of times larger. Never scrape eBay's
+      pages instead — that breaks eBay's User Agreement, and
+      [§11](#11-data-rules-you-must-not-break) explains what else is off limits.
 - [ ] **Before submitting the iPhone app**, turn Access off (§8.6, *Opening it
       to everyone later*). Apple's reviewers cannot receive your login codes.
       Keep the transform rule and `ORIGIN_MODE=railway` — those are what stop
