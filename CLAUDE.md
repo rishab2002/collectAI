@@ -5,7 +5,10 @@ domain model, conventions and current state only have to be explained once.
 **Treat this file as the source of truth, not the conversation history** —
 update it whenever a convention changes.
 
-**Last edited:** 2026-11-04 night (every wiki photo collected and the model
+**Last edited:** 2026-11-04 (**the site is DEPLOYED and LIVE at
+https://collectai.club** — Railway + Supabase, measured below; the 525 is gone.
+One thing is not done: **Cloudflare Access is not on it, so it is public**).
+Before that, 2026-11-04 night (every wiki photo collected and the model
 retrained — numbers under Current state; HWRLC checked and declined as a
 source; Railway + Supabase + Cloudflare Access hosting, `ORIGIN_MODE=railway`,
 README §8.6. Before that, 2026-11-03 (recognition phase 3: the trained visual model,
@@ -106,15 +109,24 @@ can't catch it, because `CaptureTest` calls `Queue::fake()` on purpose (see
 
 ### What is actually on the internet
 
-*Measured 2026-08-10, re-measured twice on 2026-11-03 with `dig`, `curl`,
-`openssl s_client` and `capture:check-storage`. The app half of this domain has
-never been connected. The photo half works.*
+*Measured 2026-11-04 04:34 UTC with `curl` and `capture:check-storage`.
+**Both halves of this domain now work.** The app is deployed; what is missing is
+the password in front of it.*
 
-| Host | Measured 2026-08-10 |
+| Host | Measured 2026-11-04 |
 |---|---|
 | `img.collectai.club` | **Working.** `capture:check-storage` passes all four steps: write, read, public fetch, delete. Root and unknown keys 404 by design — that is not breakage. It answered **522** for part of 2026-11-03; see the note below, because the cause is worth recognising rather than re-debugging |
-| `collectai.club` | **Porkbun parking page.** `200` over HTTP, **`525`** over HTTPS |
-| `www.collectai.club` | Same parking page, same behaviour |
+| `collectai.club` | **Live — the app, on Railway, through Cloudflare.** `200`, `x-railway-edge: atl1`, `x-railway-request-id`, `cf-ray`, the app's own CSP and `Strict-Transport-Security`, a `secure` `collectai-session` cookie. The home page renders the catalog and says **212 castings** under Hot Wheels. `/login` 200, `/admin` 302 to login, `/up` 200 |
+| `www.collectai.club` | **`301`** to the apex — the Cloudflare redirect rule works |
+
+**It has no password on it.** The intended gate is Cloudflare Access (README
+§8.6 Step 5) and it is **not applied**: the apex answers `200`, not a `302` to
+`…cloudflareaccess.com`, and the string `cloudflareaccess` appears nowhere in
+the response. The origin secret *is* in place — nginx would 403 otherwise — so
+Steps 6 and 7 landed and Step 5 did not. Consequences while it stays that way:
+the catalog is world-readable, `/register` is open so strangers can create
+collector accounts, and `/login` is exposed to the throttle rather than to
+nothing. `/admin` still needs the admin account, and that is unchanged.
 
 **The 522 the photo host showed on 2026-11-03 was the zone sitting in the wrong
 Cloudflare account, and it is worth recognising on sight.** The domain's
@@ -155,8 +167,10 @@ pulled from `web`) — Postgres on Supabase's session pooler, the site behind
 Cloudflare Access while it's developed. The original direct target is a single AWS Lightsail box: `docker-compose.prod.yml` plus the
 Dockerfile's `prod` stage (nginx + php-fpm under supervisord, a separate
 `queue:work` container, Postgres, Redis), with `docs/deploy.md` as the runbook.
-Nothing has been provisioned, so the table above is still exactly what is on the
-internet — the 525 stands until someone works through the runbook.
+**That Railway + Supabase shape is what is now actually running** — see the
+table above, measured 2026-11-04. The Lightsail and DigitalOcean routes remain
+written and unrun; `docs/deploy.md` describes a deployment that was never made.
+Don't read either of those as the live setup.
 
 **The `prod` image builds and the stack boots — verified locally 2026-08-10.**
 `web` reaches healthy, `/login` renders with its compiled assets (the
@@ -488,13 +502,20 @@ apart — 12 pending proposals is the expected total, not a regression.
   Comparison Agent's job; the skipped list from `--regenerate` is the worklist.
   One of them is a genuine correction worth taking: `Custom '41 Willys Coupe`
   is a Willys **Americar**, not "Coupe".
-- **Deploy to the apex.** `collectai.club` is registered and delegated to
-  Cloudflare but nothing is deployed, so the capture screen has never run on a
-  phone — which is the only place it's meant to run. The app is now installable
-  the moment it's served over HTTPS, and HTTPS already terminates at the
-  Cloudflare edge, so the install prompt should work the moment an origin
-  exists. What is measured to be live, and why the apex returns 525 today, is in
-  [What is actually on the internet](#what-is-actually-on-the-internet).
+- **Put Cloudflare Access on the live site — it is public right now.** The
+  deploy landed on 2026-11-04 and the password did not; README §8.6 Step 5 is
+  the two minutes of clicks that fixes it, and
+  [What is actually on the internet](#what-is-actually-on-the-internet) has the
+  measurement. Nothing else about the deployment is outstanding.
+- **Then check the back door**, which has never been measured against the real
+  deployment: `curl -s -o /dev/null -w '%{http_code}' https://<the Railway
+  domain>/` must be **403**. That is `ORIGIN_MODE=railway` refusing a request
+  that did not come through Cloudflare, and it is the whole reason Access in
+  front of the Cloudflare hostname is sufficient. If it answers 200, Access can
+  be perfectly configured and the site is still open.
+- **The capture screen has now run somewhere it can be used on a phone** for
+  the first time, and has never been tried there. Same for `/scan`, which needs
+  the `recognizer` service answering on Railway's private network.
 
   **The host decision is made and the configuration is written: AWS Lightsail,
   one box, `docker-compose.prod.yml`.** Chosen over ECS/RDS/ElastiCache because
