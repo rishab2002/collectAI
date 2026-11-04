@@ -1938,12 +1938,22 @@ Allow policy listing emails, and One-time PIN as the login method*.
    green row with a correct-looking policy.
 
    It is worse than half-covered, because of Step 6's WWW→root redirect rule:
-   on `www` that rule rewrites even Cloudflare's own
-   `/cdn-cgi/access/login` (measured: `301` to the apex), so every visitor to
-   `www` is handed straight to the unprotected apex. **Protecting only `www`
-   protects nothing at all.** Check both with
-   `curl -s -o /dev/null -w '%{http_code}' https://collectai.club/cdn-cgi/access/login`
-   — a `404` there means the apex is open whatever the dashboard shows.
+   on `www` that rule rewrites even Cloudflare's own `/cdn-cgi/access/login`
+   (measured: `301` to the apex), so every visitor to `www` is handed straight
+   to the unprotected apex. **Protecting only `www` protects nothing at all.**
+
+   The check that settles it is the apex's **redirect target**:
+
+   ```bash
+   curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' https://collectai.club/
+   ```
+
+   `302` to `https://<team>.cloudflareaccess.com/…` means the apex is covered.
+   A bare `200` means it is not. Do **not** test
+   `/cdn-cgi/access/login` instead: it answers `404` whether or not the
+   hostname is protected — measured both ways on 2026-11-04 — because the real
+   login path carries the hostname (`/cdn-cgi/access/login/collectai.club`).
+   It looks like a coverage probe and discriminates nothing.
 4. **Access policies** — add one: action **Allow**, rule type **Include**,
    selector **Emails**, and list your own address plus anyone testing with
    you. Name it something like `People I invited`.
