@@ -1708,6 +1708,16 @@ Three services, each doing the part it's best at:
 | **Cloudflare** (already set up) | The domain, HTTPS, and **the password on the site** (Cloudflare Access) | Free. Access is free for up to 50 people |
 | **R2** (already set up) | Photos, at `img.collectai.club` | Free tier |
 
+> **Railway's "config as code" is on the way out.** `railway/web.json` and
+> `railway/recognizer.json` still work, but Railway has deprecated that
+> mechanism and says such files stop being read on **2026-12-01**; the
+> replacement is Infrastructure as Code (`.railway/railway.ts`). So this guide
+> does not use them: every setting is either a dashboard field or a service
+> variable, both of which are unaffected. The two JSON files are kept in the
+> repo for now — they do no harm and record what the settings should be — but
+> do not build the deployment on them. Checked 2026-11-03 against
+> docs.railway.com; confirm the date there before relying on it.
+
 **Expect roughly $10–20 a month while you develop**, almost all of it Railway:
 the scanner keeps its model in memory (about half a gigabyte), and Railway
 charges for memory by the hour. That is an estimate, not a measurement:
@@ -1837,11 +1847,18 @@ three in your password manager, not in a file in the project.
    Railway's GitHub app access to that repository when asked.
 2. Open the new service → **Settings**:
    - **Service name**: `web`. The scanner finds the website by this name.
-   - **Source**: branch `main`. From now on every push to `main` deploys.
-   - **Config-as-code**: set the file path to `railway/web.json`. It tells
-     Railway to build the `Dockerfile` and to check `/up` before switching
-     traffic to a new version.
+     Renaming is **right-click the service → Update Info**, not a field on the
+     Settings page.
+   - **Service Source**: branch `main`. From now on every push to `main`
+     deploys. (Railway calls this *Service Source*; it is the repo and branch.)
    - **Region**: the one next to your Supabase region.
+   - Nothing to set for the build: Railway finds the `Dockerfile` at the
+     repository root by itself.
+   - **Healthcheck** (Settings → Deploy): path `/up`, timeout `300`. Worth
+     doing — it makes Railway wait for the app to answer before sending it
+     traffic, instead of switching over to a container that is still migrating.
+     If you cannot find the field, set `RAILWAY_HEALTHCHECK_TIMEOUT_SEC=300` as
+     a variable and move on; it is not required to go live.
 3. **Attach a volume** (right-click the service → **Attach volume**, or the
    **+ Create** menu → **Volume**), mount path
    `/var/www/html/storage/app/private`. Scan photos live there. Without a
@@ -1860,18 +1877,20 @@ three in your password manager, not in a file in the project.
 
 5. In the same project: **+ Create → GitHub repo → `collectAI`** again. This
    makes a second service from the same code. In its **Settings**:
-   - **Service name**: `recognizer`. The website finds it by this name.
-   - **Source**: branch `main`.
-   - **Config-as-code**: `railway/recognizer.json`. It builds
-     `railway/recognizer.Dockerfile`, which unpacks the trained model from
-     `training/` into the image.
+   - **Service name**: `recognizer`. The website finds it by this name
+     (right-click → **Update Info**).
+   - **Service Source**: branch `main`.
    - **Region**: the same as `web`.
+   - **This service must be told which Dockerfile to build**, or Railway
+     builds the root one and you get a second copy of the website. That is the
+     `RAILWAY_DOCKERFILE_PATH` line in its variables below.
    - **No public domain.** Don't generate one. The scanner has no password of
      its own, and only `web` should reach it, over the private network.
-6. Its **Variables → Raw Editor**: the four lines at the very end of
-   `.env.railway.example`, without the `#`. They are references
+6. Its **Variables → Raw Editor**: the five lines at the very end of
+   `.env.railway.example`, without the `#`. Three are references
    (`${{web.…}}`), so they copy the values from `web` and stay in step with
-   them.
+   them; `RAILWAY_DOCKERFILE_PATH` is what points this service at the
+   scanner's Dockerfile instead of the website's.
 
 **Deploy both** (the first builds take several minutes each; the scanner's is
 the bigger one). What the logs should show:
