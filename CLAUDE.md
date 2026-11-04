@@ -127,7 +127,11 @@ not exist.
 recommended target (README §8.3, 2026-11-03) is a **$12 DigitalOcean Droplet
 reached through a Cloudflare Tunnel** (`docker-compose.tunnel.yml` on top of
 the prod file — no open ports, no origin certificate), photos and backups on
-R2. The original direct target is a single AWS Lightsail box: `docker-compose.prod.yml` plus the
+R2. **The owner's chosen shape (2026-11-04) is Railway + Supabase + Cloudflare**
+(README §8.6): one Railway service built from the `Dockerfile` with
+`ORIGIN_MODE=railway`, Postgres on Supabase's session pooler, the site behind
+Cloudflare Access while it's developed; no recognizer, worker or scheduler on
+Railway yet (services can't share the recognition folder). The original direct target is a single AWS Lightsail box: `docker-compose.prod.yml` plus the
 Dockerfile's `prod` stage (nginx + php-fpm under supervisord, a separate
 `queue:work` container, Postgres, Redis), with `docs/deploy.md` as the runbook.
 Nothing has been provisioned, so the table above is still exactly what is on the
@@ -1715,12 +1719,34 @@ why it says what it says. None of it has run against real infrastructure yet.*
   `$origin_https` on) **and** removes `web`'s published ports. Those two belong
   together: trusting Docker ranges is safe only while `cloudflared` is the sole
   way in. The tunnel routes to `http://web:80`, not 443.
+- **Railway mode (`ORIGIN_MODE=railway`, README §8.6, 2026-11-04) gates on
+  a secret header, not on addresses.** Railway's edge is shared and routes on
+  `Host`, so anyone can reach the container through it and skip Cloudflare
+  (and Access, the password); and every request arrives from Railway's proxy,
+  so the Cloudflare IP allow-list can't apply. A Cloudflare Transform Rule
+  *sets* `X-Origin-Auth: $ORIGIN_SECRET` on every request; the entrypoint
+  writes `origin-mode-railway.conf` over `origin-mode.conf`, and nginx refuses
+  anything without it except `/up` (Railway's healthcheck). Only then is it
+  safe to trust any peer for `CF-Connecting-IP`. **Every origin mode defines
+  `$origin_https` and `$origin_allowed`**; nginx.conf 403s on the latter.
+  Measured with nginx 1.24: no/wrong header 403, forged `CF-Connecting-IP`
+  without the header 403, `/up/../admin` 403, secret 200 with the visitor's
+  IP. `map_hash_bucket_size 128` is load-bearing — a 64-character secret
+  failed "could not build map_hash" at the default, so the build check uses
+  the longest secret the entrypoint accepts (100).
+- **Railway SSL is Cloudflare *Full*, not Full (strict)** — Railway's own
+  docs: strict doesn't work with a proxied domain. Not Flexible either.
+- **The password while developing is Cloudflare Access** (email allow-list +
+  one-time PIN), not app code: free, keeps bots off the paid server, and
+  changes no Laravel behaviour. It must be off before App Store review.
 - **No HTTP→HTTPS redirect at the origin.** TLS is the edge's job. An
   origin-side redirect is precisely what turns a Cloudflare **Flexible** SSL
   setting into an infinite loop, and Flexible is the tempting wrong fix for the
   525 — it clears the error while sending origin traffic in the clear.
 - **`.env` is mounted read-only; configuration never arrives as process
-  environment.** Same rule as `docker-compose.yml`'s missing `env_file`, and it
+  environment** — except in Railway mode, where there is no file to mount and
+  the variables are the single source (the entrypoint refuses a `.env` *and*
+  Railway mode together). Same rule as `docker-compose.yml`'s missing `env_file`, and it
   still holds here even though there are no tests to corrupt: Laravel's Dotenv
   reads `$_SERVER` first, so an injected value cannot be overridden from the
   file. Read-only additionally means a stray `key:generate` on the box cannot
