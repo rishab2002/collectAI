@@ -1730,6 +1730,10 @@ first. Until then:
   database, not lost). They are read once a worker and the scanner are added.
 - **Browsing, Add a car, review, accounts and collections** all work.
 
+`railway/worker.json` and `railway/scheduler.json` are ready for when they're
+added: each is another service from the same repository, with the same
+variables, pointed at its own file.
+
 #### How it fits together
 
 ```
