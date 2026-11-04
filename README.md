@@ -1983,6 +1983,20 @@ Allow policy listing emails, and One-time PIN as the login method*.
    to it, and its visible text names every button.
 6. **Session Duration**: **1 month**, so you are not asked every day. Create.
 
+**Require "Login methods", never "Authentication method".** They read as
+synonyms in the policy builder and are not. *Authentication method* matches the
+**AMR claim** an identity provider returns (RFC 8176), where `otp` means a
+**TOTP authenticator app** — Cloudflare's emailed One-time PIN asserts no such
+claim, so the rule can never be satisfied. The user is therefore never
+"allowed", so no PIN is sent, so they can never authenticate to satisfy it:
+a deadlock that presents exactly as mail going missing. Measured on this
+deployment 2026-11-04, with a correct Allow/Include/Emails list and
+`require: [{"auth_method": {"auth_method": "otp"}}]`. Cloudflare's own
+*common Access policies* page prescribes Include → Emails plus Require →
+**Login methods** → One-time PIN. Simplest of all: **leave Require empty** —
+the application's login methods already decide how people sign in, and the
+email list is the gate that matters.
+
 **If the PIN never arrives, you are not in the policy — the page lies.**
 Cloudflare's own documentation: *"Cloudflare only sends the email if the user is
 allowed by an Access policy."* A blocked address gets **no email at all**, while
