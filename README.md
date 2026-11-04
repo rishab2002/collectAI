@@ -1914,15 +1914,29 @@ to everything but `/up`, which Step 8 uses to prove the back door is shut.
 Do this before Step 6, so the site is never reachable without it, not even
 for a minute.
 
+Cloudflare renames these screens fairly often. The path below was checked on
+2026-11-03 against developers.cloudflare.com; if a label has moved again, the
+shape to look for is *an Access application covering both hostnames, with one
+Allow policy listing emails, and One-time PIN as the login method*.
+
 1. Cloudflare dashboard → **Zero Trust**. The first time, pick a team name
    and the **Free** plan.
-2. **Access → Applications → Add an application → Self-hosted.**
-3. Name: `collectAI`. Session duration: **1 month**, so you aren't asked
-   every day. Add two public hostnames: `collectai.club` and
-   `www.collectai.club`.
-4. Add a policy: name `People I invited`, action **Allow**, include
-   **Emails**, and list your email plus anyone else who should get in.
-5. Login methods: **One-time PIN** (on by default). Save.
+2. **Access controls → Applications → Create new application → Self-hosted
+   and private → Add public hostname.** (Older docs call this
+   *Access → Applications → Add an application → Self-hosted*.)
+3. Pick `collectai.club` from the **Domain** dropdown. Add a second public
+   hostname for `www`. The domain has to be an active zone on your account,
+   which it is — but it does **not** need a DNS record yet, which is why this
+   step comes before Step 6.
+4. **Access policies** — add one: action **Allow**, rule type **Include**,
+   selector **Emails**, and list your own address plus anyone testing with
+   you. Name it something like `People I invited`.
+
+   **An application with no Allow policy denies everyone, including you.**
+   That is Access's default, so do not save the application meaning to add the
+   policy afterwards.
+5. **Login methods**: **One-time PIN**. 
+6. **Session Duration**: **1 month**, so you are not asked every day. Create.
 
 To let someone in later, add their email to that policy. To remove them, take
 it out. Nothing on the server changes either way.
