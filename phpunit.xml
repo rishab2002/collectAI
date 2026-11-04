@@ -50,6 +50,20 @@
         <env name="DB_USERNAME" value="diecast" force="true"/>
         <env name="DB_PASSWORD" value="diecast" force="true"/>
         <env name="DB_URL" value="" force="true"/>
+        <!--
+            The documented defaults, pinned here because the suite asserts the
+            behaviour they produce. They are read from .env otherwise, and a
+            development copy that has been nudged - IMPORT_AUTO_APPROVE_THRESHOLD
+            at 0.85 rather than 0.9, say - silently changes what the suite is
+            testing. LocalAiTest's "'67 Camaro" scores exactly 0.85, so at that
+            value it auto-approved and the test failed with nothing in the diff
+            to point at .env. Same class of trap as DB_DATABASE above: a value
+            the suite depends on belongs in this file, not in whatever .env the
+            machine happens to have.
+        -->
+        <env name="IMPORT_AUTO_APPROVE_THRESHOLD" value="0.9" force="true"/>
+        <env name="IMPORT_GENERATION_THRESHOLD" value="0.65" force="true"/>
+        <env name="REVIEW_AUTO_APPROVE_THRESHOLD" value="1.0" force="true"/>
         <env name="MAIL_MAILER" value="array" force="true"/>
         <env name="QUEUE_CONNECTION" value="sync" force="true"/>
         <env name="SESSION_DRIVER" value="array" force="true"/>

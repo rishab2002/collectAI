@@ -14,6 +14,92 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-11-03 (duplicate) — The Railway route built twice; what was kept
+
+**Asked:** walk the owner through getting the site live on collectai.club
+behind a password, using the Supabase and Railway projects already connected to
+the repo. They said plainly they were overwhelmed and did not know how to "set
+passwords in GitHub".
+
+**What happened:** the whole route was built here — `ORIGIN_MODE=platform` with
+three nginx includes, configuration from process environment, a `SITE_PASSWORD`
+session gate with middleware, controller, view and ten tests, a 470-line
+walkthrough, README and CLAUDE.md updates — tested green (374 passed, pint
+clean) and smoke-tested end to end against a real Postgres. Then `git push` was
+**rejected**, because `origin/main` already had it: `81797fb` "Host on Railway
++ Supabase, password-protected with Access" and `0a1d6fe` "Run the scanner on
+Railway", pushed from another session.
+
+**The duplicate was thrown away, not merged.** That is the whole lesson of the
+two earlier collisions this log already records — two schemas, then two
+importers, both merged because git had nothing to conflict on and took the
+union. A clean merge reconciles text, not designs.
+
+**And the existing one is better**, which made the decision easy:
+
+- It closes a hole the duplicate left open. Railway's edge is shared by every
+  Railway app and routes on the Host header, so `Host: collectai.club` against
+  that edge reaches the container and skips Cloudflare — password included.
+  `origin-mode-railway.conf` refuses anything without a secret header that a
+  Cloudflare Transform Rule sets on every request for the zone. The duplicate
+  allowed all peers and only suggested deleting the generated domain, which
+  does not close it.
+- Cloudflare Access instead of a shared secret: a list of emails, a one-time
+  PIN, strangers turned away at the edge before they cost Railway time. No
+  shared string to leak or rotate, and no application code at all.
+- The recognizer deploys too (model baked into its image, catalog pulled over
+  the private network every 15 minutes), and the worker and scheduler run
+  inside `web`. The duplicate had none of that and said so as a limitation.
+- Config-as-code (`railway/web.json`), the Supabase Data API turned off, a
+  volume for scan crops, and `pg_dump | psql` to carry the existing catalog
+  across — all things the duplicate missed.
+
+**Why the existing warning did not prevent it.** CLAUDE.md said to run
+`git branch -a` before starting a named piece of work. Nothing local would have
+shown this: the work was pushed straight to `main` from another session, and
+`git branch -a` without a fetch prints stale remote-tracking refs. The rule is
+now `git fetch && git log --oneline HEAD..origin/main`, which is what would
+have caught it in one command before any code was written.
+
+### The two things kept, because `main` lacks them
+
+Both are independent of the hosting design and were already written and tested:
+
+- **`DB_SEARCH_PATH`** (`config/database.php`, default `public`, so nothing
+  changes anywhere else). Laravel issues `set search_path` per connection, so
+  it is also the list Postgres resolves an operator class against. Enabling
+  `pg_trgm` from Supabase's Extensions page installs it into a schema called
+  `extensions`, after which `CREATE EXTENSION IF NOT EXISTS` is satisfied and
+  every trigram index in `2026_08_02_100000` fails with "operator class
+  gin_trgm_ops does not exist" — while the extension is installed and fine.
+  README §8.6 defuses this by telling the owner not to enable extensions by
+  hand, which is the right first line; this is the way out once they have, and
+  it is a plausible click for someone being walked through that dashboard for
+  the first time. `.env.railway.example` carries it commented out, beside the
+  error message that sends you looking for it.
+- **The three review thresholds pinned in `phpunit.xml`.** `LocalAiTest` was
+  failing on `main` before any of this work: the suite reads `.env` off disk,
+  the local copy carries `IMPORT_AUTO_APPROVE_THRESHOLD=0.85` rather than the
+  documented 0.9, and `'67 Camaro` scores exactly 0.85 — so it auto-approved
+  where the test expects it held, with nothing in the diff to point at `.env`.
+  Same class of trap as `DB_DATABASE`, and the same fix for the same reason: a
+  value the suite asserts on belongs in that file, not in whatever `.env` the
+  machine happens to have. **No measured threshold was changed.**
+
+### Worth keeping from the discarded work, if it is ever wanted
+
+Nothing was salvaged beyond the two above, and nothing should be without a
+reason. For the record, the discarded branch also had: a smoke-test script that
+boots the prod image with no `.env` against a throwaway Postgres and checks the
+health route, the redirect chain, the headers, the asset serving and a full
+login round trip; and a verification pass that corrected two claims made from
+reading code rather than running it (`SESSION_SECURE_COOKIE` does not depend on
+the origin mode — Laravel applies it unconditionally; and a missing origin mode
+does not reliably 403, because the Cloudflare allow list already admits the
+private ranges for the tunnel's cloudflared). The second of those is worth
+knowing against the Railway mode too, which does not rely on the allow list at
+all.
+
 ## 2026-11-04 (late night) — The scanner on Railway
 
 - **Asked for: the scanner on Railway.** The obstacle was that compose shares

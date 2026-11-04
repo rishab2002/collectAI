@@ -95,7 +95,16 @@ return [
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,
-            'search_path' => 'public',
+            // Laravel issues `set search_path` on every connection, so this is
+            // also the list Postgres resolves an operator class against.
+            // 2026_08_02_100000 creates pg_trgm and the trigram indexes name
+            // gin_trgm_ops, which means a managed Postgres that keeps its
+            // extensions in a schema of their own (Supabase uses `extensions`)
+            // needs that schema here or every GIN index in the schema fails to
+            // build with "operator class gin_trgm_ops does not exist" — a
+            // migration error that reads like a missing extension when the
+            // extension is in fact installed and simply out of scope.
+            'search_path' => env('DB_SEARCH_PATH', 'public'),
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 
