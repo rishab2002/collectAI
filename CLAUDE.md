@@ -591,6 +591,17 @@ from anywhere.
   the result is coherent** — `git merge` reconciles text, not designs. Before
   starting a named piece of work, `git branch -a` and skim the branches that
   aren't merged yet.
+- **`git fetch` BEFORE you check, and read `origin/main` — not just branches.**
+  It happened a third time on 2026-11-03: a whole Railway + Supabase hosting
+  route, with a password gate, was built here while `origin/main` already had a
+  better one (Cloudflare Access, a secret origin header closing a back door the
+  duplicate had left open, the recognizer deployed too). It was caught only by
+  `git push` being rejected. Nothing local would have shown it: the work was
+  pushed to `main` from elsewhere, and `git branch -a` without a fetch prints
+  stale remote-tracking refs. The duplicate was thrown away rather than merged
+  — see the [session log](docs/session-log.md). Work in this repo arrives from
+  more than one session, so the first command of a named piece of work is
+  `git fetch && git log --oneline HEAD..origin/main`.
 - **A merge that touches a file both sides rewrote deserves a re-read, not a
   resolution.** Every contested file in that merge silently resolved one way
   while the surrounding code came from the other, which is how `config/catalog.php`
