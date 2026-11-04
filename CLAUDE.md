@@ -6,8 +6,8 @@ domain model, conventions and current state only have to be explained once.
 update it whenever a convention changes.
 
 **Last edited:** 2026-11-04 (**the site is DEPLOYED and LIVE at
-https://collectai.club** — Railway + Supabase, measured below; the 525 is gone.
-One thing is not done: **Cloudflare Access is not on it, so it is public**).
+https://collectai.club**, Railway + Supabase, **behind Cloudflare Access** —
+all measured below; the 525 is gone).
 Before that, 2026-11-04 night (every wiki photo collected and the model
 retrained — numbers under Current state; HWRLC checked and declined as a
 source; Railway + Supabase + Cloudflare Access hosting, `ORIGIN_MODE=railway`,
@@ -116,17 +116,46 @@ the password in front of it.*
 | Host | Measured 2026-11-04 |
 |---|---|
 | `img.collectai.club` | **Working.** `capture:check-storage` passes all four steps: write, read, public fetch, delete. Root and unknown keys 404 by design — that is not breakage. It answered **522** for part of 2026-11-03; see the note below, because the cause is worth recognising rather than re-debugging |
-| `collectai.club` | **Live — the app, on Railway, through Cloudflare.** `200`, `x-railway-edge: atl1`, `x-railway-request-id`, `cf-ray`, the app's own CSP and `Strict-Transport-Security`, a `secure` `collectai-session` cookie. The home page renders the catalog and says **212 castings** under Hot Wheels. `/login` 200, `/admin` 302 to login, `/up` 200 |
+| `collectai.club` | **Live and private.** `302` to `solitary-king-b1ed.cloudflareaccess.com` — Cloudflare Access, email allow-list + one-time PIN. Behind it the app serves from Railway (`x-railway-edge: atl1`, `cf-ray`, the app's own CSP and HSTS, a `secure` `collectai-session` cookie) and the home page renders **212 castings** under Hot Wheels |
 | `www.collectai.club` | **`301`** to the apex — the Cloudflare redirect rule works |
 
-**It has no password on it.** The intended gate is Cloudflare Access (README
-§8.6 Step 5) and it is **not applied**: the apex answers `200`, not a `302` to
-`…cloudflareaccess.com`, and the string `cloudflareaccess` appears nowhere in
-the response. The origin secret *is* in place — nginx would 403 otherwise — so
-Steps 6 and 7 landed and Step 5 did not. Consequences while it stays that way:
-the catalog is world-readable, `/register` is open so strangers can create
-collector accounts, and `/login` is exposed to the throttle rather than to
-nothing. `/admin` still needs the admin account, and that is unchanged.
+**How to check Access is really on, and the probe that fooled this session for
+three rounds.** The answer is the apex's redirect target:
+`curl -s -o /dev/null -w '%{http_code} %{redirect_url}' https://collectai.club/`
+— `302` to `…cloudflareaccess.com` is covered, bare `200` is not. Confirm by
+following it: `curl -sL` should return the Access login page with no catalog
+content in it (measured: `212 castings` and `Hot Wheels` both absent).
+**`/cdn-cgi/access/login` is not a coverage probe** — it answers `404` whether
+or not the hostname is protected, measured both ways, because the real path
+carries the hostname. It was read as proof the apex had no application, which
+was true at the time by coincidence.
+
+**The back door was probed and no bypass was found, but the `ORIGIN_MODE=railway`
+403 itself is still unproven in production.** Measured 2026-11-04: the service's
+generated domain (`h2lfe7eb.up.railway.app`) answers **404** `{"message":
+"Application not found"}` with `x-railway-fallback: true` on every path, `/up`
+included — Railway's edge routes nothing on that hostname any more, so there is
+no second front door to gate. Sending `Host: collectai.club` straight at
+Railway's edge address (`--resolve`, skipping Cloudflare entirely) returns
+**502** `Application failed to respond` and **no catalog content** (`212
+castings` and `Hot Wheels` both absent). So nothing reachable from the public
+internet serves the catalog without Access. What was *not* observed is nginx
+answering **403** to a request lacking `X-Origin-Auth`, because with the
+generated domain gone there is no longer an unprotected hostname to send one
+from. The gate is demonstrably configured — traffic through Cloudflare works,
+which requires the transform rule — but treat its refusal half as reasoned,
+not measured, on this deployment. Re-test it by generating a Railway domain
+temporarily, where **403** is the correct answer.
+
+**The trap that actually caused it: the Access application covered `www` only.**
+A self-hosted application with one destination, `www.collectai.club`, left the
+apex completely open while the dashboard showed a green row with a correct
+Allow + email + PIN policy. Nothing reports a half-covered application. And it
+was worse than half: the Step 6 WWW→root redirect rule rewrites even
+`/cdn-cgi/access/login` on `www` (measured `301`), so every `www` visitor is
+forwarded to the open apex before Access runs. **The apex is the hostname that
+must be a destination**; `www` alone protects nothing. Fixed by adding
+`collectai.club` to the same application.
 
 **The 522 the photo host showed on 2026-11-03 was the zone sitting in the wrong
 Cloudflare account, and it is worth recognising on sight.** The domain's
@@ -502,17 +531,6 @@ apart — 12 pending proposals is the expected total, not a regression.
   Comparison Agent's job; the skipped list from `--regenerate` is the worklist.
   One of them is a genuine correction worth taking: `Custom '41 Willys Coupe`
   is a Willys **Americar**, not "Coupe".
-- **Put Cloudflare Access on the live site — it is public right now.** The
-  deploy landed on 2026-11-04 and the password did not; README §8.6 Step 5 is
-  the two minutes of clicks that fixes it, and
-  [What is actually on the internet](#what-is-actually-on-the-internet) has the
-  measurement. Nothing else about the deployment is outstanding.
-- **Then check the back door**, which has never been measured against the real
-  deployment: `curl -s -o /dev/null -w '%{http_code}' https://<the Railway
-  domain>/` must be **403**. That is `ORIGIN_MODE=railway` refusing a request
-  that did not come through Cloudflare, and it is the whole reason Access in
-  front of the Cloudflare hostname is sufficient. If it answers 200, Access can
-  be perfectly configured and the site is still open.
 - **The capture screen has now run somewhere it can be used on a phone** for
   the first time, and has never been tried there. Same for `/scan`, which needs
   the `recognizer` service answering on Railway's private network.
