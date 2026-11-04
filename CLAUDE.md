@@ -531,6 +531,18 @@ apart — 12 pending proposals is the expected total, not a regression.
   Comparison Agent's job; the skipped list from `--regenerate` is the worklist.
   One of them is a genuine correction worth taking: `Custom '41 Willys Coupe`
   is a Willys **Americar**, not "Coupe".
+- **Rotate the admin password before Cloudflare Access ever comes off.** The
+  live admin account is `admin@example.test` with the password that was set on
+  2026-08-09: **8 characters, a single common dictionary word**, predating this
+  app's own 12-character policy. It is survivable only because Access stands in
+  front of `/login`, and [Deployment](#deployment) records that Access **must be
+  off before App Store review** — at which point a dictionary word becomes the
+  only thing guarding the admin area of a public site. Change it on `/account`,
+  where `Password::defaults()` applies (12+, letters and numbers, and in
+  production checked against known breaches, so the current one cannot be
+  re-entered). Change the address too: `.test` is a reserved domain, so password
+  reset could never reach it. Neither is reachable from the seeder — it will not
+  reset an account that exists.
 - **The capture screen has now run somewhere it can be used on a phone** for
   the first time, and has never been tried there. Same for `/scan`, which needs
   the `recognizer` service answering on Railway's private network.
