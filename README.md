@@ -1928,6 +1928,22 @@ Allow policy listing emails, and One-time PIN as the login method*.
    hostname for `www`. The domain has to be an active zone on your account,
    which it is — but it does **not** need a DNS record yet, which is why this
    step comes before Step 6.
+
+   **The apex is the one that matters, and leaving it out fails silently.**
+   Measured 2026-11-04 on the live site: an application whose only destination
+   was `www.collectai.club` left `collectai.club` completely open — `200`, the
+   whole catalog readable, and `/cdn-cgi/access/login` on the apex answering
+   `404`, which is Cloudflare saying no application covers this hostname.
+   Nothing anywhere reports a half-covered application; the dashboard shows a
+   green row with a correct-looking policy.
+
+   It is worse than half-covered, because of Step 6's WWW→root redirect rule:
+   on `www` that rule rewrites even Cloudflare's own
+   `/cdn-cgi/access/login` (measured: `301` to the apex), so every visitor to
+   `www` is handed straight to the unprotected apex. **Protecting only `www`
+   protects nothing at all.** Check both with
+   `curl -s -o /dev/null -w '%{http_code}' https://collectai.club/cdn-cgi/access/login`
+   — a `404` there means the apex is open whatever the dashboard shows.
 4. **Access policies** — add one: action **Allow**, rule type **Include**,
    selector **Emails**, and list your own address plus anyone testing with
    you. Name it something like `People I invited`.
