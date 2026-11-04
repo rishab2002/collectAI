@@ -1648,6 +1648,23 @@ measurements in the [session log](docs/session-log.md).*
   failures — without the first the bar sat at the grid floor; without the
   second, flat coloured blocks were "identified" ('68 El Camino, a hub). Don't
   remove either to raise coverage.
+- **`resolved: 0` in the startup line is normal — it is not a broken model.**
+  `server.py` prints `visual model: {…}` when the process boots, and
+  `VisualModel.__init__` sets `casting_ids = resolve(labels, {})` against an
+  *empty* key map, so every label is -1 and the count is 0. Binding happens in
+  `pipeline.py` on the first scan (`visual.bind(index)`), not at load. A healthy
+  Railway boot therefore reads `index: fetched … KB from
+  http://<web>.railway.internal/internal/recognition-index` then `visual model:
+  {'images': 62149, 'castings': 15796, 'resolved': 0, 'visual_only': True, …}`
+  — measured 2026-11-04 on the live deployment. The number that means something
+  is what a scan returns, or `resolved` in `/health` *after* one. Misread once
+  already as "the model matched nothing in the catalog"; if that line is ever
+  made less misleading, say `pending` rather than a count.
+- **What the scanner can offer is limited to *live* castings**
+  (`allowed = set(index.castings)` in `pipeline.py`), so a model trained on
+  15,796 castings served against a catalog with 212 live ones can only ever
+  name those 212 and answers "not sure" for the rest. That is the index doing
+  its job, not a recognition failure.
 - **Model labels are stable provenance keys** (`StableKeys`:
   `source|source_key`, or `id:<n>` for hand-made records); the recognizer
   resolves them through the catalog index (`VisualModel.bind`). Labelling by
