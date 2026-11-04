@@ -77,8 +77,9 @@ exists.*
 
 **Running:** `docker compose up -d` brings up `app` (:8000), `db` (Postgres 16,
 :5432), `redis` (:6379), `meilisearch` (:7700), `recognizer` (:8090).
-`php artisan test` → **380 passed, 1,552 assertions**; the recognizer's own
-`python -m unittest discover -s tests -t .` (in `recognizer/`) → **44 passed**
+`php artisan test` → **385 passed, 1,569 assertions**; the recognizer's own
+`python -m unittest discover -s tests -t .` (in `recognizer/`) → **52 passed**
+(1 skipped where the machine has no IPv6)
 (both re-measured 2026-11-03, last). The `recognizer` Docker image has not been
 built yet — the Python ran in a venv with the same pinned versions.
 
@@ -131,10 +132,12 @@ recommended target (README §8.3, 2026-11-03) is a **$12 DigitalOcean Droplet
 reached through a Cloudflare Tunnel** (`docker-compose.tunnel.yml` on top of
 the prod file — no open ports, no origin certificate), photos and backups on
 R2. **The owner's chosen shape (2026-11-04) is Railway + Supabase + Cloudflare**
-(README §8.6): one Railway service built from the `Dockerfile` with
-`ORIGIN_MODE=railway`, Postgres on Supabase's session pooler, the site behind
-Cloudflare Access while it's developed; no recognizer, worker or scheduler on
-Railway yet (services can't share the recognition folder). The original direct target is a single AWS Lightsail box: `docker-compose.prod.yml` plus the
+(README §8.6): two Railway services — `web` (the `Dockerfile`,
+`ORIGIN_MODE=railway`, queue worker + scheduler inside via `RUN_QUEUE_WORKER` /
+`RUN_SCHEDULER`, a volume for scan crops) and `recognizer`
+(`railway/recognizer.Dockerfile`, model baked in from `training/`, catalog index
+pulled from `web`) — Postgres on Supabase's session pooler, the site behind
+Cloudflare Access while it's developed. The original direct target is a single AWS Lightsail box: `docker-compose.prod.yml` plus the
 Dockerfile's `prod` stage (nginx + php-fpm under supervisord, a separate
 `queue:work` container, Postgres, Redis), with `docs/deploy.md` as the runbook.
 Nothing has been provisioned, so the table above is still exactly what is on the
@@ -1741,6 +1744,26 @@ why it says what it says. None of it has run against real infrastructure yet.*
   the longest secret the entrypoint accepts (100).
 - **Railway SSL is Cloudflare *Full*, not Full (strict)** — Railway's own
   docs: strict doesn't work with a proxied domain. Not Flexible either.
+- **On Railway the recognizer is its own service and nothing is shared on
+  disk** (2026-11-04). The model is **baked into its image** by
+  `railway/recognizer.Dockerfile` (built from the repo root; its
+  `.dockerignore` sibling replaces the root one, which excludes `training/`),
+  so a model pushed to `training/` redeploys it — no model-publisher. The
+  **catalog index is pulled**: `GET /internal/recognition-index`
+  (`routes/internal.php`, outside the `web` group — no session, no CSRF),
+  `Authorization: Bearer RECOGNIZER_INDEX_TOKEN`, **404 when the token is unset
+  or wrong** (unset under compose, where the volume is used instead), written
+  on first request if missing, ETag → 304. `index_sync.py` polls every 15
+  minutes, sending `X-Origin-Auth` too because nginx's Railway gate applies on
+  the private network as well. The recognizer listens on `::` (dual-stack —
+  Railway's private network is IPv6) and gets no public domain.
+- **On Railway the queue worker and scheduler run inside `web`**
+  (`RUN_QUEUE_WORKER` / `RUN_SCHEDULER` → supervisord programs, as www-data).
+  Not a cost tweak only: `catalog:prune-scans` must delete unshared scan
+  crops from the disk they are on, and Railway services don't share disks. The
+  entrypoint refuses anything but true/false (a typo silently disabling the
+  privacy-promised prune is the failure it prevents). Scan crops need a volume
+  on `web` at `storage/app/private`. Don't enable Railway's sleep on `web`.
 - **The password while developing is Cloudflare Access** (email allow-list +
   one-time PIN), not app code: free, keeps bots off the paid server, and
   changes no Laravel behaviour. It must be off before App Store review.

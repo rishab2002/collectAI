@@ -40,7 +40,7 @@
         <section>
             <h2 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Who else handles it</h2>
             <ul class="mt-2 list-disc space-y-2 pl-5">
-                <li>Our hosting provider runs the servers your data is stored on.</li>
+                <li>Our hosting providers run the servers and the database your data is stored on.</li>
                 <li>Cloudflare delivers the site and catalog photos and protects it from attacks; your requests pass through its network.</li>
                 <li>Price look-ups ask eBay's official service about cars in the catalog. No personal information is included.</li>
             </ul>

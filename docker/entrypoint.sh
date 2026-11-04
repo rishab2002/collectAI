@@ -94,6 +94,17 @@ fix_permissions() {
     chown -R www-data:www-data storage bootstrap/cache
 }
 
+# true/false for supervisord, which accepts nothing else. A typo is fatal
+# rather than read as "off": RUN_SCHEDULER=ture silently disabling the hourly
+# scan-photo cleanup would break what the privacy policy promises.
+flag() {
+    case "$1" in
+        true | 1 | yes) echo true ;;
+        false | 0 | no | "") echo false ;;
+        *) return 1 ;;
+    esac
+}
+
 # Railway mode: install the nginx origin mode that admits only requests
 # carrying Cloudflare's secret header. A short or odd secret is refused rather
 # than written: it is pasted into an nginx string, and a guessable one is no
@@ -158,13 +169,20 @@ require_env_file
 case "$role" in
     web)
         configure_origin_mode
+        # supervisord.conf reads these for the optional queue-worker and
+        # scheduler programs; it refuses to start if either is undefined.
+        RUN_QUEUE_WORKER="$(flag "${RUN_QUEUE_WORKER:-}")" \
+            || { log "FATAL: RUN_QUEUE_WORKER must be true or false"; exit 1; }
+        RUN_SCHEDULER="$(flag "${RUN_SCHEDULER:-}")" \
+            || { log "FATAL: RUN_SCHEDULER must be true or false"; exit 1; }
+        export RUN_QUEUE_WORKER RUN_SCHEDULER
         wait_for_database
         log "running migrations"
         php artisan migrate --force
         warm_caches
         fix_permissions
         ensure_certificate
-        log "starting nginx + php-fpm"
+        log "starting nginx + php-fpm (queue worker: ${RUN_QUEUE_WORKER}, scheduler: ${RUN_SCHEDULER})"
         exec supervisord -c /etc/supervisord.conf
         ;;
 
