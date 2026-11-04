@@ -1170,6 +1170,46 @@ them as how your site works today. `docs/deploy.md` is in the same position.
 | Back door | None found. Railway's generated domain is deleted, and `Host: collectai.club` aimed straight at Railway's edge gets `502` with no content |
 | Admin | `/login`, then `/admin`. A **different** login from the Cloudflare gate — see below |
 
+### What is left to do
+
+Nothing here is urgent and nothing here is blocking; the site works without any
+of it. Roughly in the order worth doing. Tick them off as you go.
+
+- [ ] **Change the admin email** off `admin@example.test` on `/account`.
+      `.test` is a reserved domain that can receive no mail, so password reset
+      could never reach you — and that stops being a detail the day Cloudflare
+      Access comes off. `AdminUserSeeder` will not do it for you; it never
+      touches an account that already exists.
+- [ ] **Set a Railway email alert** at **railway.com/workspace/usage** →
+      *Set Usage Limits* → **Custom email alert**, a dollar or two above the $5
+      Hobby includes. Not in project settings — it is per account. Leave the
+      hard limit blank unless you would rather the site go down than be billed.
+- [ ] **Look at Railway → Usage** after a day or two. It shows the real split
+      between `collectai` and `recognizer`; the scanner holds about half a
+      gigabyte of model resident and is billed for it whether anyone scans or
+      not. That number tells you whether keeping it up is worth it to you.
+- [ ] **Take a backup**, and then keep taking one weekly — Supabase Free keeps
+      none you can download. The command is in §8.6's *Day to day*. Write it
+      somewhere private and **outside this repo**: a dump holds every account's
+      email and password hash.
+- [ ] **Install the Railway CLI** (§8.6, *Day to day*) when you first need to
+      run an artisan command against the live database. Nothing needs it yet.
+- [ ] **Try capture on your phone.** Open collectai.club on it, through Access,
+      then **Admin → New capture**. This has never been run on a real phone,
+      and a camera form on a phone is the thing the whole app exists for. It was
+      verified in an emulator only (§8.4).
+- [ ] **Import more years** (§3). The scanner's model knows 15,796 castings but
+      only ever offers cars that are **live** in your catalog — currently 212,
+      all 2011 Hot Wheels. So scanning anything else says "not sure", and that
+      is the index doing its job rather than a broken scanner. More years is
+      what makes the scanner genuinely useful, and it is the single highest-value
+      thing left.
+- [ ] **Before submitting the iPhone app**, turn Access off (§8.6, *Opening it
+      to everyone later*). Apple's reviewers cannot receive your login codes.
+      Keep the transform rule and `ORIGIN_MODE=railway` — those are what stop
+      people going around Cloudflare — and make sure the admin password is one
+      you are happy having on a public site first.
+
 ### Two logins, and they are not the same thing
 
 This confuses everyone exactly once, so it is worth stating plainly:
