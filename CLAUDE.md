@@ -106,17 +106,30 @@ can't catch it, because `CaptureTest` calls `Queue::fake()` on purpose (see
 
 ### What is actually on the internet
 
-*Measured 2026-08-10 with `dig`, `curl`, `openssl s_client` and
-`capture:check-storage`; the two hostnames re-measured 2026-11-03 with `dig`,
-`curl` and `openssl s_client`. The app half of this domain has never been
-connected. The photo half was connected on 2026-08-09 and **is not answering as
-of 2026-11-03** — see the row below before assuming photos work.*
+*Measured 2026-08-10, re-measured twice on 2026-11-03 with `dig`, `curl`,
+`openssl s_client` and `capture:check-storage`. The app half of this domain has
+never been connected. The photo half works.*
 
 | Host | Measured 2026-08-10 |
 |---|---|
-| `img.collectai.club` | **Was working 2026-08-10, answering 522 on 2026-11-03.** DNS still resolves to Cloudflare (104.21.48.71, 172.67.181.50) and TLS still terminates with a valid edge certificate (`CN=ebb65834.sni.cloudflaressl.com`, Google Trust Services, valid to 2027-01-05), so the failure is behind the edge: **522 is "origin unreachable"**, three attempts, not transient. On an R2 custom domain that points at the binding between the hostname and the bucket, not at DNS or the certificate — check Cloudflare → R2 → `collectai-photos` → Settings → Public access → Custom domains, and that the bucket still exists under that name. Do **not** diagnose this as DNS or a certificate problem; both measure clean. Earlier state, for comparison: valid cert and `capture:check-storage` passing all four steps (write, read, public fetch, delete), with the root and unknown keys 404 by design |
+| `img.collectai.club` | **Working.** `capture:check-storage` passes all four steps: write, read, public fetch, delete. Root and unknown keys 404 by design — that is not breakage. It answered **522** for part of 2026-11-03; see the note below, because the cause is worth recognising rather than re-debugging |
 | `collectai.club` | **Porkbun parking page.** `200` over HTTP, **`525`** over HTTPS |
 | `www.collectai.club` | Same parking page, same behaviour |
+
+**The 522 the photo host showed on 2026-11-03 was the zone sitting in the wrong
+Cloudflare account, and it is worth recognising on sight.** The domain's
+nameservers had been changed away from Cloudflare and the zone ended up outside
+the account that owns the R2 bucket (account `0beee57f817c38484c3e3275ef6fe723`,
+which is the hex in `R2_ENDPOINT`). An R2 custom domain is a binding between a
+hostname and a bucket **inside one account**; with the zone elsewhere the
+binding cannot resolve, so the edge terminates TLS correctly and then has no
+origin to reach — 522. The same misplacement hid the domain from **Zero Trust**,
+whose Access applications can only cover zones in their own account, which is
+how it was found. Two symptoms, one cause. So: **R2 custom domains and
+Cloudflare Access both require the zone to live in the same Cloudflare account
+as the resource.** When either breaks, compare the account id in the dashboard
+URL against the one in `R2_ENDPOINT` before looking at DNS or certificates —
+both of those measured clean throughout.
 
 **The 525 is not a broken deployment — it is the absence of one.** DNS is
 correctly delegated to Cloudflare (`cris`/`suzanne.ns.cloudflare.com`), and the
