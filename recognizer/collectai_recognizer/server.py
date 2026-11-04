@@ -3,27 +3,32 @@
 Standard library only. It listens on the private Docker network; it has no
 authentication of its own and must not be published to the internet.
 
-    GET  /health        index and Tesseract status
+    GET  /health        index, model and Tesseract status
     POST /recognize     body = one image; finds and identifies every car
     POST /read-card     body = one image; reads a card into the OCR schema
 
 Query parameters on POST: min_confidence, min_margin, crops=0, and on
 /recognize layout=auto|pile|single (single = one car or base, close up).
 The index file is re-read whenever it changes on disk, so a fresh export
-needs no restart.
+needs no restart. With RECOGNIZER_INDEX_URL set (Railway), the recognizer
+fetches that file from the app itself — see index_sync.
+
+Listens on IPv4 for "0.0.0.0", or on IPv6 *and* IPv4 for "::" — what
+Railway's private network needs.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import socket
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, ocr
+from . import __version__, index_sync, ocr
 from .catalog import CatalogIndex
 from .pipeline import decode, read_card, recognise
 from .segment import LAYOUTS
@@ -88,7 +93,7 @@ class IndexCache:
         return self._error
 
 
-def make_handler(cache: IndexCache, defaults: dict, models: ModelCache | None = None):
+def make_handler(cache: IndexCache, defaults: dict, models: ModelCache | None = None, sync=None):
     class Handler(BaseHTTPRequestHandler):
         server_version = f"collectai-recognizer/{__version__}"
 
@@ -114,6 +119,7 @@ def make_handler(cache: IndexCache, defaults: dict, models: ModelCache | None = 
                 "index": index.summary() if index else None,
                 "index_error": cache.error,
                 "model": model.summary() if (model := models.get() if models else None) else None,
+                "index_sync": sync.summary() if sync else None,
             })
 
         def do_POST(self):
@@ -152,14 +158,35 @@ def make_handler(cache: IndexCache, defaults: dict, models: ModelCache | None = 
     return Handler
 
 
+class DualStackServer(ThreadingHTTPServer):
+    """IPv6 and IPv4 on one socket, for host "::"."""
+
+    address_family = socket.AF_INET6
+
+    def server_bind(self):
+        try:
+            self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+        except (AttributeError, OSError):
+            pass
+        super().server_bind()
+
+
+def make_server(host: str, port: int, handler) -> ThreadingHTTPServer:
+    return (DualStackServer if ":" in host else ThreadingHTTPServer)((host, port), handler)
+
+
 def serve(host: str, port: int, index_path: str, min_confidence: float, min_margin: float, model_dir: str | None = None) -> None:
+    sync = index_sync.from_env(index_path)
+    if sync:
+        sync.fetch()  # once before serving, so a fresh container has an index at once
+        sync.start()
     cache = IndexCache(index_path)
     cache.get()
     models = ModelCache(model_dir) if model_dir else None
     model = models.get() if models else None
     print(f"visual model: {model.summary() if model else 'none (text and colour only)'}", flush=True)
-    handler = make_handler(cache, {"min_confidence": min_confidence, "min_margin": min_margin}, models)
-    httpd = ThreadingHTTPServer((host, port), handler)
+    handler = make_handler(cache, {"min_confidence": min_confidence, "min_margin": min_margin}, models, sync)
+    httpd = make_server(host, port, handler)
     print(f"collectAI recognizer {__version__} on http://{host}:{port} · index {index_path}"
           f" ({cache.error or 'loaded'}) · tesseract: {ocr.available() or 'MISSING'}", flush=True)
     httpd.serve_forever()

@@ -1203,7 +1203,7 @@ it runs on:
 | Option | Effort | Notes |
 |---|---|---|
 | **DigitalOcean Droplet + Cloudflare Tunnel** (cheapest, ~$12/month) | [§8.3](#83-host-it-on-digitalocean-the-most-cost-effective-setup) | The recommended plan, with costs. DigitalOcean *Spaces* is storage only and can't run the app |
-| **Railway + Supabase + Cloudflare**, password-protected (~$5/month while you build) | [§8.6](#86-host-it-on-cloudflare--supabase--railway-password-protected-while-you-build) | No server to look after; deploys on every push to `main`. The scanner isn't included yet |
+| **Railway + Supabase + Cloudflare**, password-protected (roughly $10–20/month while you build) | [§8.6](#86-host-it-on-cloudflare--supabase--railway-password-protected-while-you-build) | No server to look after; deploys on every push to `main`, scanner included |
 | **Cloudflare Tunnel** on any other machine | [§8.2](#82-host-it-with-cloudflare-cloudflare-tunnel) | No open ports, no certificate. Runs on a Lightsail/VPS server or on a Mac you leave on |
 | **AWS Lightsail**, direct | Follow [docs/deploy.md](docs/deploy.md) exactly | Pick an instance with at least 2 GB of RAM (4 GB is comfortable with the recognizer). Can also use the tunnel instead of steps 4, 7 and 8 |
 | **Any other Ubuntu server with Docker** — Hetzner, Linode, Vultr… | Same runbook | Only step 1 (creating the server and opening ports 80 and 443) differs; from step 2 on, the commands are identical |
@@ -1703,13 +1703,17 @@ Three services, each doing the part it's best at:
 
 | Service | Does | Plan to start on |
 |---|---|---|
-| **Railway** (railway.com) | Runs the website: builds it from GitHub every time you push to `main` | Hobby, $5/month (includes $5 of usage) |
+| **Railway** (railway.com) | Two services, both rebuilt from GitHub whenever you push to `main`: **`web`** (the website, plus its background worker and scheduled jobs) and **`recognizer`** (the car scanner, with the trained model built in) | Hobby, $5/month (includes $5 of usage) |
 | **Supabase** (supabase.com) | The PostgreSQL database | Free: 500 MB. Your whole catalog measured 126 MB |
 | **Cloudflare** (already set up) | The domain, HTTPS, and **the password on the site** (Cloudflare Access) | Free. Access is free for up to 50 people |
 | **R2** (already set up) | Photos, at `img.collectai.club` | Free tier |
 
-**Expect about $5 a month while you develop.** Check railway.com/pricing and
-supabase.com/pricing before you start, because prices change. When you launch
+**Expect roughly $10–20 a month while you develop**, almost all of it Railway:
+the scanner keeps its model in memory (about half a gigabyte), and Railway
+charges for memory by the hour. That is an estimate, not a measurement:
+Railway's **Usage** page shows the real figure after a day or two. Check
+railway.com/pricing and supabase.com/pricing before you start, because prices
+change. When you launch
 publicly, Supabase Pro ($25/month) adds daily backups and stops the free plan's
 pausing (a free project is paused after a week with no activity; you restore it
 from the Supabase dashboard).
@@ -1722,27 +1726,30 @@ turned away by Cloudflare before they reach Railway, so they use none of the
 server time you pay for. Your own admin login on the site still works as before,
 behind it.
 
-**What is left out for now, to keep it to one service.** The car scanner (the
-`recognizer`), the background worker and the scheduler aren't set up on Railway
-yet. Railway services can't share a folder, and the scanner reads the catalog
-index and the model from the app's folder, which needs a small code change
-first. Until then:
+**Everything works on Railway**, the scanner included. Railway services can't
+share a folder the way the compose setup does, so two things are done
+differently:
 
-- **Scan** says the scanner is unavailable.
-- Photos sent from **Capture** are stored and wait in the queue (in the
-  database, not lost). They are read once a worker and the scanner are added.
-- **Browsing, Add a car, review, accounts and collections** all work.
+- **The trained model is built into the scanner's image.** Pushing a newly
+  trained model to `training/` on `main` rebuilds and redeploys the scanner by
+  itself.
+- **The scanner fetches the catalog from the website** over Railway's private
+  network, every 15 minutes (only if it changed), using a token only the two
+  services know. Cars you approve reach the scanner after the nightly catalog
+  export.
 
-`railway/worker.json` and `railway/scheduler.json` are ready for when they're
-added: each is another service from the same repository, with the same
-variables, pointed at its own file.
+The background worker (reads Capture photos) and the scheduler (nightly
+catalog export, hourly deletion of scan photos nobody agreed to share) run
+inside `web`. The deletion has to run where the photos are stored.
 
 #### How it fits together
 
 ```
-visitor ─▶ Cloudflare ─▶ Railway ─▶ the app ─▶ Supabase (database)
-           │  Access asks for your email and code
-           │  adds a secret header to every request
+visitor ─▶ Cloudflare ─▶ Railway: web ─▶ Supabase (database)
+           │  Access asks for          │  ▲
+           │  your email and code      │  │ private network: the catalog,
+           │  adds a secret header     ▼  │ every 15 minutes
+           │                     Railway: recognizer (no public address)
            └─ photos: img.collectai.club (R2), straight from Cloudflare
 ```
 
@@ -1750,7 +1757,8 @@ Railway's front door is shared by every Railway app, so anyone could reach yours
 through it directly and skip Cloudflare, and with it the password. The
 app's web server (nginx, in **Railway mode**) turns away every request that
 doesn't carry a secret header. Only Cloudflare adds that header. The one
-exception is `/up`, the "is it running" check Railway itself calls.
+exception is `/up`, the "is it running" check Railway itself calls. The
+scanner has no public address at all: only `web` can reach it.
 
 #### Step 1 — The database (Supabase)
 
@@ -1800,7 +1808,7 @@ with the same email and password as on your computer. *(Prefer to start empty?
 Skip this step: the first deploy builds the empty tables itself, and Step 7
 shows how to create the admin account.)*
 
-#### Step 3 — Make two secrets
+#### Step 3 — Make three secrets
 
 On your Mac, in the project folder:
 
@@ -1812,31 +1820,75 @@ docker compose exec app php artisan key:generate --show
 openssl rand -hex 32
 ```
 
-The first is the **APP_KEY**. The second is the **ORIGIN_SECRET**, the header
-value only Cloudflare will know. Keep both in your password manager, not in a
-file in the project.
+```bash
+openssl rand -hex 32
+```
 
-#### Step 4 — The website (Railway)
+The first is the **APP_KEY**. The second is the **ORIGIN_SECRET**, the header
+value only Cloudflare (and your scanner) will know. The third is the
+**RECOGNIZER_INDEX_TOKEN**, which lets the scanner fetch the catalog. Keep all
+three in your password manager, not in a file in the project.
+
+#### Step 4 — The website and the scanner (Railway)
+
+**The website (`web`):**
 
 1. railway.com → **New Project → Deploy from GitHub repo** → `collectAI`. Allow
    Railway's GitHub app access to that repository when asked.
 2. Open the new service → **Settings**:
+   - **Service name**: `web`. The scanner finds the website by this name.
    - **Source**: branch `main`. From now on every push to `main` deploys.
    - **Config-as-code**: set the file path to `railway/web.json`. It tells
      Railway to build the `Dockerfile` and to check `/up` before switching
      traffic to a new version.
    - **Region**: the one next to your Supabase region.
-3. **Variables → Raw Editor.** Paste the whole of `.env.railway.example`, then
-   fill in the blanks: `ORIGIN_SECRET` and `APP_KEY` from Step 3; `DB_HOST`,
-   `DB_USERNAME` and `DB_PASSWORD` from Step 1; and the `R2_…` keys (the same
-   as in your local `.env`). **Update variables.**
-4. Let it deploy (the first build takes several minutes). In **Deployments →
-   View logs** you should see `origin mode: railway`, `running migrations`
-   (nothing to do if Step 2 ran) and `starting nginx + php-fpm`, and the
-   deployment turns green.
+3. **Attach a volume** (right-click the service → **Attach volume**, or the
+   **+ Create** menu → **Volume**), mount path
+   `/var/www/html/storage/app/private`. Scan photos live there. Without a
+   volume, every deploy would delete them, including the ones collectors
+   agreed to share for training.
+4. **Variables → Raw Editor.** Paste `.env.railway.example` down to the line
+   of `====` (leave out the `recognizer` block at the end). Then fill in the
+   blanks:
+   - `APP_KEY`, `ORIGIN_SECRET` and `RECOGNIZER_INDEX_TOKEN` from Step 3.
+   - `DB_HOST`, `DB_USERNAME` and `DB_PASSWORD` from Step 1.
+   - The `R2_…` keys, the same as in your local `.env`.
 
-If the service has a generated `….up.railway.app` address, leave it: it answers
-403 to everything but `/up`, which Step 8 uses to prove the back door is shut.
+   Then **Update variables**.
+
+**The scanner (`recognizer`):**
+
+5. In the same project: **+ Create → GitHub repo → `collectAI`** again. This
+   makes a second service from the same code. In its **Settings**:
+   - **Service name**: `recognizer`. The website finds it by this name.
+   - **Source**: branch `main`.
+   - **Config-as-code**: `railway/recognizer.json`. It builds
+     `railway/recognizer.Dockerfile`, which unpacks the trained model from
+     `training/` into the image.
+   - **Region**: the same as `web`.
+   - **No public domain.** Don't generate one. The scanner has no password of
+     its own, and only `web` should reach it, over the private network.
+6. Its **Variables → Raw Editor**: the four lines at the very end of
+   `.env.railway.example`, without the `#`. They are references
+   (`${{web.…}}`), so they copy the values from `web` and stay in step with
+   them.
+
+**Deploy both** (the first builds take several minutes each; the scanner's is
+the bigger one). What the logs should show:
+
+- **`web`** (**Deployments → View logs**): `origin mode: railway`,
+  `running migrations` (nothing to do if Step 2 ran) and `starting nginx +
+  php-fpm (queue worker: true, scheduler: true)`. The deployment turns green.
+- **`recognizer`**: `index: fetched … KB from http://web…`, then
+  `visual model: {'images': 62149, …}`. If it says `HTTP 404 … check
+  RECOGNIZER_INDEX_TOKEN` or `HTTP 403 … check ORIGIN_SECRET`, the reference
+  lines didn't copy; compare the two services' variables.
+- If the scanner's build fails with `"/training": not found`, Railway ignored
+  `railway/recognizer.Dockerfile.dockerignore`. Tell me, or temporarily take
+  `training` out of the root `.dockerignore`.
+
+If `web` has a generated `….up.railway.app` address, leave it: it answers 403
+to everything but `/up`, which Step 8 uses to prove the back door is shut.
 
 #### Step 5 — Put the password on (Cloudflare Access), before the domain points anywhere
 
@@ -1858,7 +1910,7 @@ it out. Nothing on the server changes either way.
 
 #### Step 6 — Point collectai.club at Railway
 
-1. Railway → your service → **Settings → Networking → Custom Domain** →
+1. Railway → the `web` service → **Settings → Networking → Custom Domain** →
    `collectai.club`. If asked for a port, choose **80**. Railway shows two
    records to create: a **CNAME** and a **TXT**. Both are needed: without the
    TXT, Railway answers 404.
@@ -1917,13 +1969,28 @@ curl -s -o /dev/null -w '%{http_code}\n' https://YOUR-SERVICE.up.railway.app/
 `403` is correct. Anything else means the site can be reached without the
 password: check `ORIGIN_MODE=railway` is set and redeploy.
 
+The scanner: sign in, open **Scan**, and photograph a car or two. It answers
+once it has looked at every car in the photo, so a big pile takes longer. "The scanner is unavailable" means `web` can't reach
+`recognizer`: check the scanner's service name is exactly `recognizer` and
+that its log shows it serving. Cars it names have to be **live** in the
+catalog: it only offers cars collectors can add.
+
 #### Day to day
 
-- **Publishing a change:** push to `main`. Railway builds it, waits for `/up`,
-  then switches over, with no downtime. To go back, **Deployments → the
+- **Publishing a change:** push to `main`. Railway rebuilds what changed:
+  `web` for app changes, `recognizer` for scanner code or a new model in
+  `training/`. `web` waits for `/up` before switching over. Because it has a
+  volume, expect a few seconds of downtime per deploy: a volume can only be
+  attached to one running copy at a time. To go back, **Deployments → the
   previous one → Redeploy**.
+- **A newly trained model** (`./collectai train` on your Mac, which saves it
+  to `training/`): commit and push. The scanner rebuilds with it, and nothing
+  else is needed.
 - **Running a command** (publish what you approved, an import, a price
-  update): `railway ssh`, then the `php artisan …` command from §8.5. The
+  update): `railway ssh` (pick the `web` service), then the `php artisan …`
+  command from §8.5. After approving cars, `php artisan
+  catalog:export-recognition-index` there makes the scanner see them within
+  15 minutes instead of after the nightly export. The
   wiki dumps are large, so run imports on your Mac against the local database
   and copy across as in Step 2.
 - **Backups** (Supabase Free keeps none you can download). Once a week, on
@@ -1936,10 +2003,9 @@ password: check `ORIGIN_MODE=railway` is set and redeploy.
   Keep the files somewhere private. They contain every account's email and
   password hash. If the Supabase dashboard shows a newer PostgreSQL major
   version than 17, change `postgres:17-alpine` to match.
-- **Cheaper still while nobody uses it:** Railway service → Settings →
-  **Serverless**. The site sleeps after about ten minutes without traffic. The
-  first visit after that waits while it starts (it runs migrations and warms its
-  caches, so allow up to a minute).
+- **Don't turn on Railway's Serverless (sleep) setting for `web`.** The
+  scheduler runs inside it, and the hourly deletion of unshared scan photos is
+  a promise in the privacy policy.
 
 #### Opening it to everyone later
 
@@ -1965,8 +2031,8 @@ docker compose exec app php artisan test
 docker compose exec app vendor/bin/pint --test
 ```
 
-The first runs the 380 tests; the second checks code formatting (drop `--test`
-to fix it). The recognizer has its own 44 tests, run from `recognizer/` (see
+The first runs the 385 tests; the second checks code formatting (drop `--test`
+to fix it). The recognizer has its own 52 tests, run from `recognizer/` (see
 §5.9 for the one-time setup):
 
 ```bash

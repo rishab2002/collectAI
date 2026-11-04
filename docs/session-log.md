@@ -14,6 +14,38 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-11-04 (late night) — The scanner on Railway
+
+- **Asked for: the scanner on Railway.** The obstacle was that compose shares
+  one folder between app and recognizer (catalog index, model), and Railway
+  services can't share disks.
+- **Model: baked into the image** (`railway/recognizer.Dockerfile`, repo-root
+  context, its own `.dockerignore` allow-list because the root one excludes
+  `training/`). A two-stage build unpacks only the model group; simulated with
+  a stdlib-only Python and it produced files byte-identical to the trained
+  model (171 MB). Considered: fetching the model at boot (needs a host for 171
+  MB and a credential) — baking keeps "commit the model, deploy picks it up".
+- **Index: pulled from the app.** `GET /internal/recognition-index`, token-
+  guarded, 404 otherwise, sessionless (first attempt with `withoutMiddleware`
+  failed: the CSRF middleware needs a session too — so the route lives in
+  `routes/internal.php`, outside the `web` group). The recognizer's
+  `index_sync` polls with ETag. Measured end to end locally: real `artisan
+  serve` + real recognizer — 404 without token, fetched index byte-identical,
+  `/health` shows index, model (62,149 photos) and sync status.
+- **Worker + scheduler inside `web`** via supervisord flags. Found while
+  designing it: a separate scheduler service would have run
+  `catalog:prune-scans` against its own empty disk, deleting rows but leaving
+  unshared scan crops on `web`'s disk for good — breaking the privacy policy's
+  24-hour promise. Flags are validated (a typo is fatal, not "off"); supervisord
+  parsing checked with the real `supervisor` package, on and off.
+- **IPv6**: the recognizer binds `::` dual-stack on Railway. Unmeasured here
+  (the sandbox has no IPv6; that test skips) — the first Railway deploy is its
+  first run.
+- Privacy policy: "hosting provider" → "providers … servers and the database".
+- Gate: 385 PHP tests / 1,569 assertions, 52 recognizer tests, pint, shellcheck.
+
+---
+
 ## 2026-11-04 (night) — Every wiki photo; HWRLC declined; Railway hosting
 
 - **Wiki collection finished and retrained.** The remaining 15,958 wiki photos

@@ -1,0 +1,10 @@
+# Replaces the root .dockerignore for railway/recognizer.Dockerfile (BuildKit
+# reads <Dockerfile>.dockerignore beside the Dockerfile). Allow-list: only
+# what that Dockerfile copies.
+*
+!recognizer/requirements.txt
+!recognizer/collectai_recognizer
+!recognizer/data
+!recognizer/train
+!training
+**/__pycache__

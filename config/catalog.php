@@ -118,6 +118,12 @@ return [
         'url' => rtrim((string) env('RECOGNIZER_URL', 'http://recognizer:8080'), '/'),
         'timeout' => (int) env('RECOGNIZER_TIMEOUT', 120),
         'index_path' => env('RECOGNIZER_INDEX_PATH', storage_path('app/recognition/catalog-index.json')),
+        // When the recognizer runs where it can't share the app's folder
+        // (Railway: services have separate disks), it fetches the index from
+        // GET /internal/recognition-index with this token. Unset — the default,
+        // and right for docker compose, where the index is a shared volume —
+        // and that route answers 404 to everyone.
+        'index_token' => env('RECOGNIZER_INDEX_TOKEN') ?: null,
         'min_confidence' => (float) env('RECOGNIZER_MIN_CONFIDENCE', 0.9),
         'min_margin' => (float) env('RECOGNIZER_MIN_MARGIN', 0.08),
         'disk' => env('SCAN_DISK', 'local'),
