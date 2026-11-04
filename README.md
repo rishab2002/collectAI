@@ -1118,77 +1118,134 @@ docker compose exec app php artisan catalog:import-wiki hot-wheels --year=2027
 
 ## 8. Deploy to collectai.club
 
-Production is one server running `docker-compose.prod.yml` — nginx + PHP, a
-queue worker, a scheduler (prices, the nightly recognition index, scan
-pruning), the recognizer, PostgreSQL and Redis — behind Cloudflare. Put your
-eBay keys (§5.7) in the server's `.env` too.
+**The site is live.** <https://collectai.club> serves the catalog over HTTPS,
+behind a password, on the architecture below. It went up on 2026-11-04; the
+`525` error this section used to be about is gone.
 
-There are two ways to connect that server to Cloudflare. Pick one:
+```
+        you, on a phone or laptop
+                  |
+                  v
+        Cloudflare ── Access asks your email, emails a code
+          │          ── adds the secret header that proves a
+          │             request came through it
+          v
+        Railway ── service `collectai` (web): nginx + PHP,
+          │   │      plus the queue worker and the scheduler
+          │   │      inside it, and a volume for scan photos
+          │   └──── service `recognizer`: the car scanner, model
+          │          baked into its image, catalog pulled from
+          │          `web` over Railway's private network
+          v
+        Supabase ── PostgreSQL: the catalog, accounts, sessions,
+                    the job queue
 
-| | **Cloudflare Tunnel** ([§8.2](#82-host-it-with-cloudflare-cloudflare-tunnel)) — easiest | **Direct** ([docs/deploy.md](docs/deploy.md)) |
+        photos: img.collectai.club (Cloudflare R2), served
+                straight from Cloudflare, never through Railway
+```
+
+| Piece | Does | Plan |
 |---|---|---|
-| The server can be | Any machine with Docker, **including your own Mac** | A cloud server with a public IP |
-| Ports to open | None | 80 and 443 |
-| HTTPS certificate on the server | Not needed | A Cloudflare Origin Certificate |
-| DNS records | Created for you by Cloudflare | Two A records you edit |
-| Start command | `docker compose -f docker-compose.prod.yml -f docker-compose.tunnel.yml up -d --build` | `docker compose -f docker-compose.prod.yml up -d --build` |
+| **Railway** | Both services, rebuilt from GitHub on every push to `main` | Hobby, $5/month including $5 of usage |
+| **Supabase** | PostgreSQL | Free — 500 MB, and this catalog is 26 MB |
+| **Cloudflare** | DNS, HTTPS, and the password (Access) | Free — Access covers 50 people |
+| **R2** | Photos at `img.collectai.club` | Free tier |
+| **Porkbun** | **Nothing.** It is only where the domain was bought | — |
 
-Either way the order matters: for the direct route, test against the server's
-IP before touching DNS, and switch Cloudflare to *Full (strict)* only after the
-certificate is installed.
+**[§8.6](#86-host-it-on-cloudflare--supabase--railway-password-protected-while-you-build)
+is the runbook for this**, step by step, and the only part of §8 that describes
+what is actually running. §8.1–8.3 are other ways to host the app — a rented
+server with `docker-compose.prod.yml` — which are written, reasoned and **have
+never been run**. Keep them for the day Railway stops suiting you; don't read
+them as how your site works today. `docs/deploy.md` is in the same position.
 
-Once the site is up, fill it the same way as §3–4, with two differences:
-commands use `docker compose -f docker-compose.prod.yml run --rm web …`, and the
-dumps have to be mounted into the container because production has no project
-folder inside it:
+### What is live, measured 2026-11-04
+
+| | |
+|---|---|
+| `collectai.club` | `302` to Cloudflare Access; behind it the catalog, **212 castings** |
+| `www.collectai.club` | `301` to the apex |
+| `img.collectai.club` | Working — `capture:check-storage` passes write, read, public fetch, delete |
+| Scanner | Running: model loaded (62,149 photos / 15,796 castings), index pulled from `web` |
+| Back door | None found. Railway's generated domain is deleted, and `Host: collectai.club` aimed straight at Railway's edge gets `502` with no content |
+| Admin | `/login`, then `/admin`. A **different** login from the Cloudflare gate — see below |
+
+### Two logins, and they are not the same thing
+
+This confuses everyone exactly once, so it is worth stating plainly:
+
+| | Email | Secret |
+|---|---|---|
+| **Cloudflare Access** — the gate in front of the whole site | your real email | a code Cloudflare emails you |
+| **`/login`** — the app's own admin account | whatever `ADMIN_EMAIL` is | your admin password |
+
+Typing your real email into `/login` fails, because no such account exists in
+the app. Getting through Access does not sign you in to the site.
+
+### Deploying a change
 
 ```bash
-mkdir -p ~/wiki-dumps
+git push
+```
+
+That is all. Railway rebuilds whatever changed — `web` for app code,
+`recognizer` for scanner code or a new model in `training/` — and migrations run
+by themselves as the new container starts. `web` waits for `/up` to answer
+before traffic moves across. To roll back: **Deployments → the previous one →
+Redeploy**.
+
+Because `web` has a volume, expect a few seconds of downtime per deploy: a
+volume attaches to one running copy at a time.
+
+### Filling the catalog now that it is hosted
+
+**Run imports on your Mac, pointed at Supabase** — not on Railway. The wiki
+dumps are hundreds of megabytes and Railway's shell is the wrong place to
+download and unpack them. Set the connection once in a terminal tab (this asks
+for the password rather than leaving it in your shell history):
+
+```bash
+printf 'Supabase database password: ' && read -rs PW && printf '\n' && export SUPA_HOST=aws-0-us-east-1.pooler.supabase.com SUPA_USER=postgres.PROJECTREF DB_PASSWORD="$PW" && unset PW && echo set
+```
+
+Then run any §3–§4 command with the database pointed at Supabase, for example:
+
+```bash
+docker compose run --rm -e DB_HOST="$SUPA_HOST" -e DB_USERNAME="$SUPA_USER" -e DB_PASSWORD -e DB_DATABASE=postgres -e DB_SSLMODE=require app php artisan catalog:import-wiki hot-wheels --year=2011
+```
+
+Start with one year to prove the connection before running sixty. Photos need
+`CAPTURE_DISK=r2` and the `R2_…` values, which your local `.env` already has, so
+imported photos land in the bucket the live site serves from.
+
+Afterwards, so the scanner sees the new cars within 15 minutes instead of
+waiting for the nightly export (needs the Railway CLI — see §8.6's *Day to
+day*):
+
+```bash
+railway ssh
 ```
 
 ```bash
-curl -fL -o ~/wiki-dumps/hotwheels_pages_current.xml.7z https://s3.amazonaws.com/wikia_xml_dumps/h/ho/hotwheels_pages_current.xml.7z
+php artisan catalog:export-recognition-index
 ```
 
-```bash
-curl -fL -o ~/wiki-dumps/matchbox_pages_current.xml.7z https://s3.amazonaws.com/wikia_xml_dumps/m/ma/matchbox_pages_current.xml.7z
-```
+### What is not deployed
 
-```bash
-cd /opt/collectai && docker compose -f docker-compose.prod.yml run --rm -v ~/wiki-dumps:/dumps:ro web php artisan catalog:import-wiki hot-wheels --from=1968 --to=2027 --dump=/dumps/hotwheels_pages_current.xml.7z
-```
+- **Redis** — sessions, cache and the queue all live in Postgres on this
+  architecture, so there is nothing to add or pay for.
+- **Meilisearch** — `laravel/scout` is not installed; it would index nothing.
+- **Prices** — needs eBay keys (§5.7); the scheduler runs the job and it does
+  nothing without them.
+- **Outgoing email** — `MAIL_MAILER=log`, so password reset cannot work. The
+  Access code is emailed by Cloudflare, not by the app, which is why signing in
+  works anyway.
 
-```bash
-cd /opt/collectai && docker compose -f docker-compose.prod.yml run --rm -v ~/wiki-dumps:/dumps:ro web php artisan catalog:import-wiki matchbox --from=1953 --to=2027 --dump=/dumps/matchbox_pages_current.xml.7z
-```
+### 8.1 Other ways to host it — none of them is what is running
 
-…and the same pattern for `catalog:classify-series`, `catalog:import-wiki-photos`,
-`catalog:identify-castings` and `catalog:publish-imported`. The `.7z` files can
-be passed directly; they are unpacked on the fly. In production
-`CAPTURE_DISK=r2`, so imported photos go straight to the R2 bucket.
-
-**Deploying a code update** (on the server):
-
-```bash
-cd /opt/collectai && git pull && docker compose -f docker-compose.prod.yml up -d --build
-```
-
-With a tunnel, add the second file to every `docker compose` command — that
-one and all the `run --rm web …` commands above:
-
-```bash
-cd /opt/collectai && git pull && docker compose -f docker-compose.prod.yml -f docker-compose.tunnel.yml up -d --build
-```
-
-Migrations run automatically when the new container starts. After the first
-deploy, write the recognizer's catalog file once rather than waiting for the
-night (§5.8):
-
-```bash
-cd /opt/collectai && docker compose -f docker-compose.prod.yml run --rm web php artisan catalog:export-recognition-index
-```
-
-### 8.1 Choosing where to host it (Porkbun, DigitalOcean, Lightsail, any server)
+Kept for the day Railway stops suiting you, or if you ever want everything on
+one machine you control. **None of these has been run**, and switching to one
+means moving the database off Supabase too.
 
 **Porkbun is where you bought the domain, not where the site runs.** Its
 hosting plans are for static sites and WordPress; this app needs a server that
@@ -1760,16 +1817,24 @@ Railway is worth doing anything about.
 - **Measure before changing anything.** Railway's **Usage** page shows what each
   service actually costs after a day or two. The $10–20 above is an estimate,
   and the split between the two services is the thing worth knowing.
-- **Set a soft usage limit, and think twice about a hard one.** Railway's **Cost
-  Control** settings take two numbers. The **soft limit** only emails you when
-  usage reaches it (Railway also mails at 75%, 90% and 100%) and changes
-  nothing — set this, a dollar or two above the $5 the Hobby plan includes, and
-  you will hear about a surprise instead of reading about it on an invoice. The
-  **hard limit** is different: when billing-cycle usage reaches it Railway
-  **takes every workload offline**, so the site goes down, and services may need
-  redeploying afterwards. Its minimum is $10. That is a reasonable ceiling for a
-  catalog nobody depends on yet and a bad one the moment somebody does; decide
-  which you have before setting it.
+- **Set a usage limit — and note it is not in your project's settings.** It is
+  per **account or workspace**: go to **railway.com/workspace/usage** and press
+  **Set Usage Limits**. (Looking for it under the project or the service is the
+  obvious move and finds nothing.) The modal offers two numbers, separately for
+  **Compute Usage** and **Agent Usage**:
+
+  - **Custom email alert** — the soft one. It emails you at the threshold and
+    touches nothing. Railway also mails at 75%, 90% and 100%. **Set this**, a
+    dollar or two above the $5 Hobby includes, and a surprise reaches you before
+    the invoice does.
+  - **Hard limit** — when billing-cycle usage reaches it, Railway **takes every
+    workload offline**: the site goes down, and services may need redeploying
+    afterwards. The minimum is $10, so it catches nothing smaller. Leave it
+    blank to get the alert only.
+
+  A hard cap is sensible for a catalog nobody depends on, and actively wrong
+  once somebody does — it converts an unexpected cost into unexpected downtime,
+  which is not obviously the better failure. Decide which you have.
 
 **The password: Cloudflare Access.** Instead of one shared password, Cloudflare
 keeps a list of email addresses allowed in (yours, plus anyone testing with
@@ -2147,8 +2212,25 @@ catalog: it only offers cars collectors can add.
 - **A newly trained model** (`./collectai train` on your Mac, which saves it
   to `training/`): commit and push. The scanner rebuilds with it, and nothing
   else is needed.
+- **The Railway CLI**, which `railway ssh` below needs. Once, on your Mac:
+
+  ```bash
+  brew install railway && railway login
+  ```
+
+  Then link this folder to the project (once per machine):
+
+  ```bash
+  cd ~/Documents/GitHub/collectAI && railway link
+  ```
+
+  `railway login` opens a browser to authorise; `railway link` asks which
+  project, and then which service each later command acts on. **The web service
+  is whatever you named it** — on this deployment it is `collectai`, not `web`;
+  the recognizer's log tells you (`index: fetched … from
+  http://collectai.railway.internal/…`).
 - **Running a command** (publish what you approved, an import, a price
-  update): `railway ssh` (pick the `web` service), then the `php artisan …`
+  update): `railway ssh` (pick the web service), then the `php artisan …`
   command from §8.5. After approving cars, `php artisan
   catalog:export-recognition-index` there makes the scanner see them within
   15 minutes instead of after the nightly export. The
