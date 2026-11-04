@@ -1194,10 +1194,43 @@ of it. Roughly in the order worth doing. Tick them off as you go.
       email and password hash.
 - [ ] **Install the Railway CLI** (§8.6, *Day to day*) when you first need to
       run an artisan command against the live database. Nothing needs it yet.
-- [ ] **Try capture on your phone.** Open collectai.club on it, through Access,
-      then **Admin → New capture**. This has never been run on a real phone,
-      and a camera form on a phone is the thing the whole app exists for. It was
-      verified in an emulator only (§8.4).
+- [ ] **Try capture on your phone — and start with Add to Home Screen, not the
+      App Store.** Open collectai.club on the phone, get through Access, then
+      **Share → Add to Home Screen**. It installs as an app: own icon, no
+      browser chrome, and **Admin → New capture** opens the rear camera
+      directly. That is the whole PWA shell doing its job, it costs nothing, it
+      needs no Apple account and no review, and it works behind Access. Capture
+      has never been run on a real phone — only in an emulator (§8.4) — so this
+      is also the first real test of the thing the app exists for.
+- [ ] **Then decide whether you need the App Store at all.** The native shell
+      (Capacitor, `ios/`) is a wrapper that loads `https://collectai.club`, so
+      it shows the same screens as the home-screen install. What it buys you is
+      distribution and the App Store's own polish; what it costs is an **Apple
+      Developer account at $99/year** and a release process. Three tiers, and
+      most people stop at the first:
+
+      | | Needs | Access can stay on? |
+      |---|---|---|
+      | **Add to Home Screen** | nothing | **Yes** |
+      | **TestFlight** (§8.4) — the app on your own phone, and up to 100 testers | Apple Developer account, a Mac, Xcode | **Yes** — the Access page simply appears inside the app |
+      | **Public App Store** (§8.4, *Release it on the public App Store*) | all of the above plus review | **No** — see below |
+
+      **If the app is just for you taking photos, TestFlight is the end of the
+      road.** It is the same build, on your phone, behind the password, with no
+      review and nobody else involved. Builds expire after 90 days, which is the
+      only real cost. Going public is a separate decision about who should see
+      the catalog, not about how you take photos.
+- [ ] **Only if you go public: turn Access off first.** Apple's reviewers cannot
+      receive your one-time codes, so review fails while the gate is up — and
+      removing it makes the catalog world-readable, which is the actual
+      decision. Before doing it: make sure the admin password is one you are
+      happy having on a public site, and keep the Cloudflare transform rule and
+      `ORIGIN_MODE=railway` in place — those are what stop people reaching
+      Railway around Cloudflare, and they have nothing to do with the password.
+      Also check `ios/App/App/Info.plist` still carries
+      `NSCameraUsageDescription` and the photo-library strings: **without them
+      iOS terminates the app the moment capture opens the camera**, and that is
+      a rejection.
 - [ ] **Import more years** (§3). The scanner's model knows 15,796 castings but
       only ever offers cars that are **live** in your catalog — currently 212,
       all 2011 Hot Wheels. So scanning anything else says "not sure", and that
@@ -1230,11 +1263,10 @@ of it. Roughly in the order worth doing. Tick them off as you go.
       is sized for a catalog thousands of times larger. Never scrape eBay's
       pages instead — that breaks eBay's User Agreement, and
       [§11](#11-data-rules-you-must-not-break) explains what else is off limits.
-- [ ] **Before submitting the iPhone app**, turn Access off (§8.6, *Opening it
-      to everyone later*). Apple's reviewers cannot receive your login codes.
-      Keep the transform rule and `ORIGIN_MODE=railway` — those are what stop
-      people going around Cloudflare — and make sure the admin password is one
-      you are happy having on a public site first.
+- [ ] **Keep an eye on the data rules** ([§11](#11-data-rules-you-must-not-break))
+      whenever a new source of photos or prices tempts you. Several makers'
+      written permissions cover training only, not the public catalog, and the
+      distinction is easy to lose months later.
 
 ### Two logins, and they are not the same thing
 
