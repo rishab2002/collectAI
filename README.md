@@ -1983,6 +1983,24 @@ Allow policy listing emails, and One-time PIN as the login method*.
    to it, and its visible text names every button.
 6. **Session Duration**: **1 month**, so you are not asked every day. Create.
 
+**If the PIN never arrives, you are not in the policy — the page lies.**
+Cloudflare's own documentation: *"Cloudflare only sends the email if the user is
+allowed by an Access policy."* A blocked address gets **no email at all**, while
+the login page still says a code has been emailed. So "the PIN never came" is
+not a mail problem to chase; it means the address you typed is not matched by
+any Allow policy on the application. Check the policy's **Emails** value
+character for character against what you are typing, and if the selector is
+**Emails ending in** rather than **Emails**, that it really covers your domain.
+Only once you have ruled that out is it worth allow-listing the sender
+(`noreply@notify.cloudflare.com`, domain `notify.cloudflare.com`, IPs
+`104.30.16.2`–`104.30.16.7`). A PIN expires after 10 minutes, is single use, and
+requesting a new one invalidates the last.
+
+**With two applications on one hostname, check both policies.** Either can
+refuse you, and the login page names them together without saying which denied
+the request — observed as `Log in to www&collectai` on the live site, with no
+PIN arriving.
+
 **One application, both hostnames.** If you add the apex by creating a *second*
 application rather than adding a destination to the first, both match and
 Cloudflare's login page names them together (observed: `Log in to
