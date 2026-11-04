@@ -20,7 +20,7 @@ public/fonts-manifest.dev.json
 # a stale bundle if that stage is ever skipped or reordered.
 public/build
 
-# Not part of the web image. training/ (the packed model, ~200 MB) reaches the
+# Not part of the web image. training/ (the packed model, ~230 MB) reaches the
 # recognizer through model-publisher's bind mount; ios/ is the Capacitor shell;
 # storage/app/recognition and storage/app/private are volumes in production
 # (docker-compose.prod.yml) and, locally, hold gigabytes of training data that

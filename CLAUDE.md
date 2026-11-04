@@ -5,7 +5,10 @@ domain model, conventions and current state only have to be explained once.
 **Treat this file as the source of truth, not the conversation history** —
 update it whenever a convention changes.
 
-**Last edited:** 2026-11-03, last (recognition phase 3: the trained visual model,
+**Last edited:** 2026-11-04 night (every wiki photo collected and the model
+retrained — numbers under Current state; HWRLC checked and declined as a
+source; Railway + Supabase + Cloudflare Access hosting, `ORIGIN_MODE=railway`,
+README §8.6. Before that, 2026-11-03 (recognition phase 3: the trained visual model,
 `recognizer/train/`, `catalog:export-training-data` sources; unlicensed wiki
 photos ruled out by Fandom's ToU. Before that, hosting: Cloudflare Tunnel mode and the
 DigitalOcean plan in README §8.2–8.3; fixed an nginx allow-list that would have
@@ -357,12 +360,14 @@ queue worker, `APP_URL=http://localhost` — reachable only from this Mac on
   DINOv2-small (Apache 2.0, pinned revision) exported to ONNX; training embeds
   labelled photos, fits a WCCN head only if it beats plain on held-out top-1,
   calibrates thresholds, and writes `storage/app/recognition/model/`
-  (gitignored). **Measured 2026-11-04** (the model in `training/`): 46,217
-  photos / 14,156 classes (27,572 wiki, 157 licensed, 5,770 HWPriceGuide,
-  9,907 Horizon, 1,250 Mini GT, 1,154 Inno64, 407 Para64): held-out versions
-  top-1 **74.5%**, top-5 **85.4%** (base alone 63.0 / 76.8); looks-only
-  **95.1%** precise on 2,604 answers, 30.4% coverage; familiarity gate 0.709.
-  The wiki-only model was 76.2 / 87.7 — more look-alikes, more brands. Wiki photos only — **phone-photo accuracy is
+  (gitignored). **Measured 2026-11-04, final** (the model in `training/`): 62,149
+  photos / 15,796 classes (43,504 wiki — the whole wiki set, 25 files
+  unfetchable — 157 licensed, 5,770 HWPriceGuide, 9,907 Horizon, 1,250 Mini
+  GT, 1,154 Inno64, 407 Para64): 8,236 held-out versions, top-1 **73.3%**,
+  top-5 **85.2%** (base alone 61.0 / 74.8); looks-only **95.1%** precise on
+  3,397 answers, 25.5% coverage; familiarity gate 0.714. The 27,572-wiki-photo
+  model was 74.5 / 85.4 on an easier split; wiki-only 76.2 / 87.7 — more
+  look-alikes, more brands. Wiki photos only — **phone-photo accuracy is
   unmeasured.** The model + vectors + keyed labels live in **`training/` on
   main** (packed: text gzipped, files split < 45 MB, `PACKED.json` checksums;
   `recognizer/train/package.py`). The app never reads it; `model-publisher`

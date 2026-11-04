@@ -831,21 +831,24 @@ and restarted at any time and carries on where it stopped:
 docker compose --profile training run --rm trainer python -m train.collect --labels /data/wiki-labels-hot-wheels.jsonl --labels /data/wiki-labels-matchbox.jsonl --model-dir /data/model --out /data/wiki-training
 ```
 
-**What it measured** (2026-11-04, the model now in `training/`: 46,217 photos
-of 14,156 cars and products: 27,572 wiki, 157 licensed, 5,770 HWPriceGuide,
-9,907 Horizon, 1,250 Mini GT, 1,154 Inno64, 407 Para64):
+**What it measured** (2026-11-04, the model now in `training/`: 62,149 photos
+of 15,796 cars and products: 43,504 wiki — every wiki photo, collection
+finished — 157 licensed, 5,770 HWPriceGuide, 9,907 Horizon, 1,250 Mini GT,
+1,154 Inno64, 407 Para64; tested on 8,236 held-out photos):
 
 | | Right car first | Right car in the top 5 |
 |---|---|---|
-| Base model alone | 63.0% | 76.8% |
-| **With the trained head** | **74.5%** | **85.4%** |
+| Base model alone | 61.0% | 74.8% |
+| **With the trained head** | **73.3%** | **85.2%** |
 
 When it names a car by looks alone it was right **95.1%** of the time, on
-2,604 test answers. It did so for 30.4% of test photos and said nothing for the
+3,397 test answers. It did so for 25.5% of test photos and said nothing for the
 rest. Those test photos include catalog castings it has never seen at all (10%
-held out completely), because silence is the right answer for those. (The
-wiki-only model scored 76.2% / 87.7%: the maker products add ~12,000
-look-alikes to choose between, in exchange for recognising those brands.)
+held out completely), because silence is the right answer for those. (With 27,572 wiki photos instead of every one, the same mix scored 74.5% /
+85.4% on a smaller, easier test set: the extra 16,000 photos brought in some
+1,600 more cars to tell apart. The wiki-only model scored 76.2% / 87.7%: the
+maker products add ~12,000 look-alikes, in exchange for recognising those
+brands.)
 
 **It refuses to guess until it has proven itself.** Training keeps back some
 photos and tests itself on them, and three things must all hold before looks
@@ -853,7 +856,7 @@ alone name a car:
 
 - **The photo looks like a photo of a diecast car.** It must be at least as
   close to the training photos as 98% of real test photos are (measured
-  0.709). Anything else, such as a plain shape, a hand or a coin, gets no
+  0.714). Anything else, such as a plain shape, a hand or a coin, gets no
   answer. Without this check, plain coloured blocks were "identified" as a
   '68 El Camino. That was caught in testing, and is why the check exists.
 - **The best match is clearly ahead** of the next car (measured: 0.12).
