@@ -107,12 +107,14 @@ can't catch it, because `CaptureTest` calls `Queue::fake()` on purpose (see
 ### What is actually on the internet
 
 *Measured 2026-08-10 with `dig`, `curl`, `openssl s_client` and
-`capture:check-storage`. The app half of this domain has never been connected;
-the photo half has been since 2026-08-09.*
+`capture:check-storage`; the two hostnames re-measured 2026-11-03 with `dig`,
+`curl` and `openssl s_client`. The app half of this domain has never been
+connected. The photo half was connected on 2026-08-09 and **is not answering as
+of 2026-11-03** — see the row below before assuming photos work.*
 
 | Host | Measured 2026-08-10 |
 |---|---|
-| `img.collectai.club` | **Working.** R2 custom domain, valid Cloudflare cert (`Verify return code: 0`). `capture:check-storage` passes all four steps: write, read, public fetch, delete. Root and unknown keys 404 by design — that is not breakage |
+| `img.collectai.club` | **Was working 2026-08-10, answering 522 on 2026-11-03.** DNS still resolves to Cloudflare (104.21.48.71, 172.67.181.50) and TLS still terminates with a valid edge certificate (`CN=ebb65834.sni.cloudflaressl.com`, Google Trust Services, valid to 2027-01-05), so the failure is behind the edge: **522 is "origin unreachable"**, three attempts, not transient. On an R2 custom domain that points at the binding between the hostname and the bucket, not at DNS or the certificate — check Cloudflare → R2 → `collectai-photos` → Settings → Public access → Custom domains, and that the bucket still exists under that name. Do **not** diagnose this as DNS or a certificate problem; both measure clean. Earlier state, for comparison: valid cert and `capture:check-storage` passing all four steps (write, read, public fetch, delete), with the root and unknown keys 404 by design |
 | `collectai.club` | **Porkbun parking page.** `200` over HTTP, **`525`** over HTTPS |
 | `www.collectai.club` | Same parking page, same behaviour |
 
