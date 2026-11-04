@@ -1760,6 +1760,16 @@ Railway is worth doing anything about.
 - **Measure before changing anything.** Railway's **Usage** page shows what each
   service actually costs after a day or two. The $10–20 above is an estimate,
   and the split between the two services is the thing worth knowing.
+- **Set a soft usage limit, and think twice about a hard one.** Railway's **Cost
+  Control** settings take two numbers. The **soft limit** only emails you when
+  usage reaches it (Railway also mails at 75%, 90% and 100%) and changes
+  nothing — set this, a dollar or two above the $5 the Hobby plan includes, and
+  you will hear about a surprise instead of reading about it on an invoice. The
+  **hard limit** is different: when billing-cycle usage reaches it Railway
+  **takes every workload offline**, so the site goes down, and services may need
+  redeploying afterwards. Its minimum is $10. That is a reasonable ceiling for a
+  catalog nobody depends on yet and a bad one the moment somebody does; decide
+  which you have before setting it.
 
 **The password: Cloudflare Access.** Instead of one shared password, Cloudflare
 keeps a list of email addresses allowed in (yours, plus anyone testing with
