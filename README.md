@@ -1728,6 +1728,39 @@ publicly, Supabase Pro ($25/month) adds daily backups and stops the free plan's
 pausing (a free project is paused after a week with no activity; you restore it
 from the Supabase dashboard).
 
+**Keeping the idle cost down.** Only Railway charges by the hour, so only
+Railway is worth doing anything about.
+
+- **Cloudflare costs nothing here** — Access is free to 50 people, and R2's free
+  tier is 10 GB with this catalog using almost none of it. Nothing to tune.
+- **Supabase Free costs nothing idle** (26 MB of its 500 MB, measured
+  2026-11-04) and **will not pause while `web` is deployed**: the scheduler and
+  queue worker talk to it constantly, which is what the 7-day inactivity timer
+  watches for. If you ever tear Railway down, the project pauses and you restore
+  it from the dashboard within a year.
+- **The scanner is the expensive service**, because it holds its model in
+  memory — roughly half a gigabyte, billed by the hour whether anyone scans or
+  not. **If you are not using `/scan`, delete the `recognizer` service.** That
+  is the one change that actually moves the bill. Recreating it later is the
+  five minutes in Step 4: new service from the repo, name it `recognizer`, paste
+  its five variables.
+- **Railway's Serverless mode is the obvious answer and the wrong one here.**
+  It stops compute charges after 10 minutes idle, but **the idle timer is reset
+  by *outbound* traffic, not by visitors.** `web` runs `queue:work --sleep=3`
+  and `schedule:work`, both of which talk to Supabase every few seconds, so it
+  would never sleep at all; and `index_sync` in the recognizer polls `web` every
+  15 minutes, so that service would sleep for about 5 minutes in every 15 while
+  paying a cold start that reloads half a gigabyte of model each time. Deleting
+  the scanner beats sleeping it. (`web` must not sleep regardless — the
+  scheduler lives in it, and the hourly deletion of unshared scan photos is a
+  promise in the privacy policy.)
+- **A smaller lever on `web`**: set `RUN_QUEUE_WORKER=false` while you are not
+  photographing cars. The worker exists to read captured cards; nothing else
+  queues work. Leave `RUN_SCHEDULER=true`.
+- **Measure before changing anything.** Railway's **Usage** page shows what each
+  service actually costs after a day or two. The $10–20 above is an estimate,
+  and the split between the two services is the thing worth knowing.
+
 **The password: Cloudflare Access.** Instead of one shared password, Cloudflare
 keeps a list of email addresses allowed in (yours, plus anyone testing with
 you). A visitor types their email and Cloudflare emails a 6-digit code. Only
