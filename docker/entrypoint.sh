@@ -11,6 +11,12 @@
 # ahead of everything else, so values injected into the process environment
 # become impossible to override from the file. Reading .env off disk keeps one
 # source of truth.
+#
+# The one exception is ORIGIN_MODE=railway (README §8.6). Railway has no file
+# to mount: configuration *is* the service's variables, so there the process
+# environment is the single source of truth and no .env exists to disagree
+# with it. That mode also needs ORIGIN_SECRET, the header value Cloudflare adds
+# to every request — see docker/nginx/origin-mode-railway.conf.
 
 set -eu
 
@@ -20,7 +26,24 @@ log() {
     echo "[entrypoint] $*"
 }
 
+origin_mode="${ORIGIN_MODE:-direct}"
+
 require_env_file() {
+    case "$origin_mode" in
+        direct | railway) ;;
+        *)
+            log "FATAL: unknown ORIGIN_MODE '${origin_mode}' (direct or railway)"
+            exit 1
+            ;;
+    esac
+    if [ "$origin_mode" = railway ]; then
+        if [ -f /var/www/html/.env ]; then
+            log "FATAL: ORIGIN_MODE=railway takes configuration from Railway's"
+            log "variables, but a .env file is also present. Remove one."
+            exit 1
+        fi
+        return
+    fi
     if [ ! -f /var/www/html/.env ]; then
         log "FATAL: no .env mounted at /var/www/html/.env"
         log "Copy .env.production.example, fill it in, and mount it. See docs/deploy.md."
@@ -71,6 +94,27 @@ fix_permissions() {
     chown -R www-data:www-data storage bootstrap/cache
 }
 
+# Railway mode: install the nginx origin mode that admits only requests
+# carrying Cloudflare's secret header. A short or odd secret is refused rather
+# than written: it is pasted into an nginx string, and a guessable one is no
+# gate at all. `openssl rand -hex 32` makes a good one.
+configure_origin_mode() {
+    case "$origin_mode" in
+        direct) ;;
+        railway)
+            if ! printf '%s' "${ORIGIN_SECRET:-}" | grep -Eq '^[A-Za-z0-9]{32,100}$'; then
+                log "FATAL: ORIGIN_MODE=railway needs ORIGIN_SECRET: 32 to 100 letters"
+                log "and digits (openssl rand -hex 32), the same value as Cloudflare's"
+                log "X-Origin-Auth transform rule. See README section 8.6."
+                exit 1
+            fi
+            sed "s/__ORIGIN_SECRET__/${ORIGIN_SECRET}/" \
+                /etc/nginx/origin-mode-railway.conf > /etc/nginx/origin-mode.conf
+            log "origin mode: railway (requests need Cloudflare's X-Origin-Auth header)"
+            ;;
+    esac
+}
+
 # nginx.conf includes /etc/nginx/ssl.conf rather than naming a certificate
 # directly, because ./certs is mounted read-only and so cannot receive a
 # generated fallback. This writes that include to point wherever a usable pair
@@ -85,11 +129,17 @@ EOF
         return
     fi
 
-    log "WARNING: no origin certificate at /etc/nginx/certs/origin.{pem,key}"
-    log "WARNING: generating a self-signed pair so the container can boot."
-    log "WARNING: Cloudflare Full (strict) REJECTS this with error 526."
-    log "WARNING: For the real deployment, mount a Cloudflare Origin CA"
-    log "WARNING: certificate instead. See docs/deploy.md."
+    if [ "$origin_mode" = railway ]; then
+        # Railway's edge terminates TLS and forwards to port 80; the 443
+        # server only needs *a* certificate to start, and nothing connects to it.
+        log "railway mode: TLS terminates at Railway's edge, port 443 unused"
+    else
+        log "WARNING: no origin certificate at /etc/nginx/certs/origin.{pem,key}"
+        log "WARNING: generating a self-signed pair so the container can boot."
+        log "WARNING: Cloudflare Full (strict) REJECTS this with error 526."
+        log "WARNING: For the real deployment, mount a Cloudflare Origin CA"
+        log "WARNING: certificate instead. See docs/deploy.md."
+    fi
 
     mkdir -p /etc/nginx/certs-selfsigned
     openssl req -x509 -nodes -newkey rsa:2048 -days 365 \
@@ -107,6 +157,7 @@ require_env_file
 
 case "$role" in
     web)
+        configure_origin_mode
         wait_for_database
         log "running migrations"
         php artisan migrate --force

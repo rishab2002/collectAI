@@ -19,3 +19,13 @@ public/fonts-manifest.dev.json
 # Rebuilt by the `assets` stage. Copying the host's copy in only risks shipping
 # a stale bundle if that stage is ever skipped or reordered.
 public/build
+
+# Not part of the web image. training/ (the packed model, ~230 MB) reaches the
+# recognizer through model-publisher's bind mount; ios/ is the Capacitor shell;
+# storage/app/recognition and storage/app/private are volumes in production
+# (docker-compose.prod.yml) and, locally, hold gigabytes of training data that
+# would otherwise be copied into every build.
+training
+ios
+storage/app/recognition
+storage/app/private

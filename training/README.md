@@ -61,9 +61,11 @@ a car (`visual_only`, at the measured precision).
 
 ## The model saved here
 
-Trained 2026-11-04 on 46,217 photos of 14,156 cars and products. On held-out
-versions it was right first 74.5% of the time and in the top 5 85.4% of the
-time. Looks-only answers were 95.1% precise, at 30.4% coverage. It has not yet
+Trained 2026-11-04 on 62,149 photos of 15,796 cars and products (every wiki
+photo, plus the five permitted makers' and sellers' photos). On 8,236 held-out
+photos of versions it never saw, it was right first 73.3% of the time and in
+the top 5 85.2% of the time. Looks-only answers were 95.1% precise on 3,397
+answers, at 25.5% coverage. It has not yet
 been measured on phone photos; your own photos and consented scans fix that the
 next time you train.
 

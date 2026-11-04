@@ -154,6 +154,7 @@ COPY docker/nginx/app.conf /etc/nginx/app.conf
 COPY docker/nginx/cloudflare-ips.conf /etc/nginx/cloudflare-ips.conf
 COPY docker/nginx/cloudflare-allow.conf /etc/nginx/cloudflare-allow.conf
 COPY docker/nginx/origin-mode.conf /etc/nginx/origin-mode.conf
+COPY docker/nginx/origin-mode-railway.conf /etc/nginx/origin-mode-railway.conf
 COPY docker/supervisord.conf /etc/supervisord.conf
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint
 RUN chmod +x /usr/local/bin/entrypoint
@@ -179,6 +180,11 @@ RUN composer dump-autoload --optimize --no-dev
 # php-fpm running happily the whole time, which points the investigation at the
 # wrong process.
 #
+# Both origin modes the image can write are checked: the direct one as built,
+# and the Railway template (written over origin-mode.conf at boot when
+# ORIGIN_MODE=railway) with a stand-in secret of the longest length the
+# entrypoint accepts, 100 characters — a long map key is what failed first.
+#
 # A throwaway certificate is needed because nginx.conf includes ssl.conf, which
 # the entrypoint only writes at boot once it knows whether a real origin
 # certificate was mounted. All three files are removed again so nothing here can
@@ -190,6 +196,11 @@ RUN openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
     && printf 'ssl_certificate /tmp/build-check.pem;\nssl_certificate_key /tmp/build-check.key;\n' \
         > /etc/nginx/ssl.conf \
     && nginx -t \
+    && cp /etc/nginx/origin-mode.conf /tmp/origin-mode.direct \
+    && sed 's/__ORIGIN_SECRET__/0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000/' \
+        /etc/nginx/origin-mode-railway.conf > /etc/nginx/origin-mode.conf \
+    && nginx -t \
+    && mv /tmp/origin-mode.direct /etc/nginx/origin-mode.conf \
     && rm -f /tmp/build-check.key /tmp/build-check.pem /etc/nginx/ssl.conf
 
 EXPOSE 80 443

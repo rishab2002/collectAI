@@ -831,21 +831,24 @@ and restarted at any time and carries on where it stopped:
 docker compose --profile training run --rm trainer python -m train.collect --labels /data/wiki-labels-hot-wheels.jsonl --labels /data/wiki-labels-matchbox.jsonl --model-dir /data/model --out /data/wiki-training
 ```
 
-**What it measured** (2026-11-04, the model now in `training/`: 46,217 photos
-of 14,156 cars and products: 27,572 wiki, 157 licensed, 5,770 HWPriceGuide,
-9,907 Horizon, 1,250 Mini GT, 1,154 Inno64, 407 Para64):
+**What it measured** (2026-11-04, the model now in `training/`: 62,149 photos
+of 15,796 cars and products: 43,504 wiki — every wiki photo, collection
+finished — 157 licensed, 5,770 HWPriceGuide, 9,907 Horizon, 1,250 Mini GT,
+1,154 Inno64, 407 Para64; tested on 8,236 held-out photos):
 
 | | Right car first | Right car in the top 5 |
 |---|---|---|
-| Base model alone | 63.0% | 76.8% |
-| **With the trained head** | **74.5%** | **85.4%** |
+| Base model alone | 61.0% | 74.8% |
+| **With the trained head** | **73.3%** | **85.2%** |
 
 When it names a car by looks alone it was right **95.1%** of the time, on
-2,604 test answers. It did so for 30.4% of test photos and said nothing for the
+3,397 test answers. It did so for 25.5% of test photos and said nothing for the
 rest. Those test photos include catalog castings it has never seen at all (10%
-held out completely), because silence is the right answer for those. (The
-wiki-only model scored 76.2% / 87.7%: the maker products add ~12,000
-look-alikes to choose between, in exchange for recognising those brands.)
+held out completely), because silence is the right answer for those. (With 27,572 wiki photos instead of every one, the same mix scored 74.5% /
+85.4% on a smaller, easier test set: the extra 16,000 photos brought in some
+1,600 more cars to tell apart. The wiki-only model scored 76.2% / 87.7%: the
+maker products add ~12,000 look-alikes, in exchange for recognising those
+brands.)
 
 **It refuses to guess until it has proven itself.** Training keeps back some
 photos and tests itself on them, and three things must all hold before looks
@@ -853,7 +856,7 @@ alone name a car:
 
 - **The photo looks like a photo of a diecast car.** It must be at least as
   close to the training photos as 98% of real test photos are (measured
-  0.709). Anything else, such as a plain shape, a hand or a coin, gets no
+  0.714). Anything else, such as a plain shape, a hand or a coin, gets no
   answer. Without this check, plain coloured blocks were "identified" as a
   '68 El Camino. That was caught in testing, and is why the check exists.
 - **The best match is clearly ahead** of the next car (measured: 0.12).
@@ -1200,6 +1203,7 @@ it runs on:
 | Option | Effort | Notes |
 |---|---|---|
 | **DigitalOcean Droplet + Cloudflare Tunnel** (cheapest, ~$12/month) | [§8.3](#83-host-it-on-digitalocean-the-most-cost-effective-setup) | The recommended plan, with costs. DigitalOcean *Spaces* is storage only and can't run the app |
+| **Railway + Supabase + Cloudflare**, password-protected (~$5/month while you build) | [§8.6](#86-host-it-on-cloudflare--supabase--railway-password-protected-while-you-build) | No server to look after; deploys on every push to `main`. The scanner isn't included yet |
 | **Cloudflare Tunnel** on any other machine | [§8.2](#82-host-it-with-cloudflare-cloudflare-tunnel) | No open ports, no certificate. Runs on a Lightsail/VPS server or on a Mac you leave on |
 | **AWS Lightsail**, direct | Follow [docs/deploy.md](docs/deploy.md) exactly | Pick an instance with at least 2 GB of RAM (4 GB is comfortable with the recognizer). Can also use the tunnel instead of steps 4, 7 and 8 |
 | **Any other Ubuntu server with Docker** — Hetzner, Linode, Vultr… | Same runbook | Only step 1 (creating the server and opening ports 80 and 443) differs; from step 2 on, the commands are identical |
@@ -1693,6 +1697,259 @@ Everything that should happen regularly already does, by itself, in the
 `scheduler` container: prices nightly, the scanner's catalog nightly, and
 cleaning up unshared scan photos hourly.
 
+### 8.6 Host it on Cloudflare + Supabase + Railway (password-protected while you build)
+
+Three services, each doing the part it's best at:
+
+| Service | Does | Plan to start on |
+|---|---|---|
+| **Railway** (railway.com) | Runs the website: builds it from GitHub every time you push to `main` | Hobby, $5/month (includes $5 of usage) |
+| **Supabase** (supabase.com) | The PostgreSQL database | Free: 500 MB. Your whole catalog measured 126 MB |
+| **Cloudflare** (already set up) | The domain, HTTPS, and **the password on the site** (Cloudflare Access) | Free. Access is free for up to 50 people |
+| **R2** (already set up) | Photos, at `img.collectai.club` | Free tier |
+
+**Expect about $5 a month while you develop.** Check railway.com/pricing and
+supabase.com/pricing before you start, because prices change. When you launch
+publicly, Supabase Pro ($25/month) adds daily backups and stops the free plan's
+pausing (a free project is paused after a week with no activity; you restore it
+from the Supabase dashboard).
+
+**The password: Cloudflare Access.** Instead of one shared password, Cloudflare
+keeps a list of email addresses allowed in (yours, plus anyone testing with
+you). A visitor types their email and Cloudflare emails a 6-digit code. Only
+listed addresses ever get one. It also keeps costs down: bots and strangers are
+turned away by Cloudflare before they reach Railway, so they use none of the
+server time you pay for. Your own admin login on the site still works as before,
+behind it.
+
+**What is left out for now, to keep it to one service.** The car scanner (the
+`recognizer`), the background worker and the scheduler aren't set up on Railway
+yet. Railway services can't share a folder, and the scanner reads the catalog
+index and the model from the app's folder, which needs a small code change
+first. Until then:
+
+- **Scan** says the scanner is unavailable.
+- Photos sent from **Capture** are stored and wait in the queue (in the
+  database, not lost). They are read once a worker and the scanner are added.
+- **Browsing, Add a car, review, accounts and collections** all work.
+
+`railway/worker.json` and `railway/scheduler.json` are ready for when they're
+added: each is another service from the same repository, with the same
+variables, pointed at its own file.
+
+#### How it fits together
+
+```
+visitor ─▶ Cloudflare ─▶ Railway ─▶ the app ─▶ Supabase (database)
+           │  Access asks for your email and code
+           │  adds a secret header to every request
+           └─ photos: img.collectai.club (R2), straight from Cloudflare
+```
+
+Railway's front door is shared by every Railway app, so anyone could reach yours
+through it directly and skip Cloudflare, and with it the password. The
+app's web server (nginx, in **Railway mode**) turns away every request that
+doesn't carry a secret header. Only Cloudflare adds that header. The one
+exception is `/up`, the "is it running" check Railway itself calls.
+
+#### Step 1 — The database (Supabase)
+
+1. supabase.com → **New project**. Name it `collectai`. Choose a **database
+   password made of letters and digits only** (no symbols, so it can go in a
+   URL as is). Pick the region closest to where Railway will run, for example
+   *East US (North Virginia)* with Railway's *US East*.
+2. **Turn off the Data API.** Supabase normally publishes every table through
+   a web API. This app talks to the database directly and doesn't need it.
+   Left on, your `users` table, password hashes included, is one API key away
+   from the internet. If the new-project form offers **Enable Data API**,
+   untick it. Otherwise: **Project Settings → Data API** and turn it off (or
+   remove `public` from the exposed schemas).
+3. **Connect** (top of the project page) → **Session pooler**. Note the host
+   (`aws-0-….pooler.supabase.com`), the port (`5432`), the database
+   (`postgres`) and the user (`postgres.` followed by your project's id).
+   Use the *session pooler*, not *Direct connection* (IPv6 only, which Railway
+   can't reach) and not the *Transaction pooler* on port 6543 (it breaks the
+   database statements PHP uses).
+
+Don't enable any extensions by hand. The app turns on the one it needs
+(`pg_trgm`) itself.
+
+#### Step 2 — Copy your catalog into it
+
+Your computer's database already holds everything you've imported and
+approved. Copy all of it across in one go, on your Mac, with the local stack
+running (`docker compose up -d`). Put your own values in the first command:
+
+```bash
+export SUPABASE_URL='postgresql://postgres.PROJECTID:PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres?sslmode=require'
+```
+
+```bash
+docker compose exec -T db pg_dump -U diecast -d diecast --no-owner --no-privileges | docker run -i --rm postgres:17-alpine psql "$SUPABASE_URL"
+```
+
+It takes a few minutes. One or two errors about `COMMENT ON EXTENSION` are
+harmless; an error about a table is not. Then check the count:
+
+```bash
+docker run --rm postgres:17-alpine psql "$SUPABASE_URL" -c "select count(*) from castings"
+```
+
+This copies your user accounts too, including your admin login, so you sign in
+with the same email and password as on your computer. *(Prefer to start empty?
+Skip this step: the first deploy builds the empty tables itself, and Step 7
+shows how to create the admin account.)*
+
+#### Step 3 — Make two secrets
+
+On your Mac, in the project folder:
+
+```bash
+docker compose exec app php artisan key:generate --show
+```
+
+```bash
+openssl rand -hex 32
+```
+
+The first is the **APP_KEY**. The second is the **ORIGIN_SECRET**, the header
+value only Cloudflare will know. Keep both in your password manager, not in a
+file in the project.
+
+#### Step 4 — The website (Railway)
+
+1. railway.com → **New Project → Deploy from GitHub repo** → `collectAI`. Allow
+   Railway's GitHub app access to that repository when asked.
+2. Open the new service → **Settings**:
+   - **Source**: branch `main`. From now on every push to `main` deploys.
+   - **Config-as-code**: set the file path to `railway/web.json`. It tells
+     Railway to build the `Dockerfile` and to check `/up` before switching
+     traffic to a new version.
+   - **Region**: the one next to your Supabase region.
+3. **Variables → Raw Editor.** Paste the whole of `.env.railway.example`, then
+   fill in the blanks: `ORIGIN_SECRET` and `APP_KEY` from Step 3; `DB_HOST`,
+   `DB_USERNAME` and `DB_PASSWORD` from Step 1; and the `R2_…` keys (the same
+   as in your local `.env`). **Update variables.**
+4. Let it deploy (the first build takes several minutes). In **Deployments →
+   View logs** you should see `origin mode: railway`, `running migrations`
+   (nothing to do if Step 2 ran) and `starting nginx + php-fpm`, and the
+   deployment turns green.
+
+If the service has a generated `….up.railway.app` address, leave it: it answers
+403 to everything but `/up`, which Step 8 uses to prove the back door is shut.
+
+#### Step 5 — Put the password on (Cloudflare Access), before the domain points anywhere
+
+Do this before Step 6, so the site is never reachable without it, not even
+for a minute.
+
+1. Cloudflare dashboard → **Zero Trust**. The first time, pick a team name
+   and the **Free** plan.
+2. **Access → Applications → Add an application → Self-hosted.**
+3. Name: `collectAI`. Session duration: **1 month**, so you aren't asked
+   every day. Add two public hostnames: `collectai.club` and
+   `www.collectai.club`.
+4. Add a policy: name `People I invited`, action **Allow**, include
+   **Emails**, and list your email plus anyone else who should get in.
+5. Login methods: **One-time PIN** (on by default). Save.
+
+To let someone in later, add their email to that policy. To remove them, take
+it out. Nothing on the server changes either way.
+
+#### Step 6 — Point collectai.club at Railway
+
+1. Railway → your service → **Settings → Networking → Custom Domain** →
+   `collectai.club`. If asked for a port, choose **80**. Railway shows two
+   records to create: a **CNAME** and a **TXT**. Both are needed: without the
+   TXT, Railway answers 404.
+2. Cloudflare → `collectai.club` → **DNS → Records**:
+   - **Delete** the two old Porkbun parking **A** records (`collectai.club`
+     and `www`).
+   - Add the **CNAME**: name `@`, target as Railway shows it, **Proxied**
+     (orange cloud). Cloudflare allows a CNAME on the bare domain.
+   - Add the **TXT** exactly as Railway shows it.
+   - Add `www`: a **CNAME**, name `www`, target `collectai.club`, **Proxied**.
+3. Cloudflare → **Rules → Redirect Rules** → create from the template
+   **"Redirect from WWW to root"**, so `www.collectai.club` lands on
+   `collectai.club`.
+
+#### Step 7 — The two Cloudflare settings that make it work
+
+1. **SSL/TLS → Overview → Full.** Not *Full (strict)*: Railway's docs say
+   strict doesn't work with a proxied domain. Not *Flexible*, which would send
+   your traffic to Railway unencrypted. Then **SSL/TLS → Edge Certificates →
+   Always Use HTTPS: On.**
+2. **The secret header.** **Rules → Overview → Create rule → Request Header
+   Transform Rule.** Name `Origin secret`; apply to **all incoming requests**;
+   then **Set static**, header name `X-Origin-Auth`, value: your
+   `ORIGIN_SECRET`. Deploy.
+
+The order matters: until the rule exists, the app answers every visitor with
+403, which is safe but looks broken.
+
+**Creating the admin account** (only if you skipped Step 2): install the
+Railway command-line tool (`brew install railway`), then `railway login`,
+`railway link` (pick the project) and `railway ssh`, and inside run:
+
+```bash
+php artisan db:seed --class=AdminUserSeeder --force
+```
+
+With `ADMIN_EMAIL` and `ADMIN_PASSWORD` set in Railway's variables it uses
+those. Otherwise it prints a generated password once. Copy it then.
+
+#### Step 8 — Check it
+
+```bash
+curl -sI https://collectai.club | head -3
+```
+
+A `302` to `….cloudflareaccess.com` means the password is on. Now open
+https://collectai.club in a browser: enter your email, then the code from your
+inbox, and the catalog appears. **/login** is your admin login, as before.
+
+The back door, through Railway's generated address (if your service has one):
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' https://YOUR-SERVICE.up.railway.app/
+```
+
+`403` is correct. Anything else means the site can be reached without the
+password: check `ORIGIN_MODE=railway` is set and redeploy.
+
+#### Day to day
+
+- **Publishing a change:** push to `main`. Railway builds it, waits for `/up`,
+  then switches over, with no downtime. To go back, **Deployments → the
+  previous one → Redeploy**.
+- **Running a command** (publish what you approved, an import, a price
+  update): `railway ssh`, then the `php artisan …` command from §8.5. The
+  wiki dumps are large, so run imports on your Mac against the local database
+  and copy across as in Step 2.
+- **Backups** (Supabase Free keeps none you can download). Once a week, on
+  your Mac:
+
+  ```bash
+  docker run --rm postgres:17-alpine pg_dump "$SUPABASE_URL" --no-owner --no-privileges > "collectai-$(date +%F).sql"
+  ```
+
+  Keep the files somewhere private. They contain every account's email and
+  password hash. If the Supabase dashboard shows a newer PostgreSQL major
+  version than 17, change `postgres:17-alpine` to match.
+- **Cheaper still while nobody uses it:** Railway service → Settings →
+  **Serverless**. The site sleeps after about ten minutes without traffic. The
+  first visit after that waits while it starts (it runs migrations and warms its
+  caches, so allow up to a minute).
+
+#### Opening it to everyone later
+
+Delete the Access application (Zero Trust → Access → Applications), or change
+its policy to **Bypass → Everyone**. Keep the transform rule and
+`ORIGIN_MODE=railway`: they're what stop people going around Cloudflare. Do it
+**before submitting the iPhone app** (§8.4): the app loads collectai.club, and
+Apple's reviewers can't receive your codes. Your own TestFlight builds work
+behind Access, because the Access page simply appears inside the app.
+
 ---
 
 ## 9. Tests and checks
@@ -1781,10 +2038,13 @@ When the rules below were first written (2026-11-03), the makers' terms said:
 | paragonmodelstore.com (Para64 — para64.com redirects here) | "You agree not to reproduce, duplicate, copy … any portion of the Service … without express written permission" |
 | inno-models.com (Inno64) | "© INNO MODELS — All rights reserved"; no reuse terms |
 | schuco.de | No reuse terms at all, which by default means all rights reserved |
+| hwrlc.com (HWRLC — a collector's Red Line Club site, checked 2026-11-04) | "Copyright © 2026 HWRLC.com", a DMCA takedown page, no licence or reuse terms; robots.txt asks for a 3-second crawl delay, which is about politeness, not permission |
 
 Permission has since come from TSM/Mini GT, Inno64 and Para64 (above).
-Schuco hasn't been asked; [docs/source-permissions.md](docs/source-permissions.md)
-is a short request you can send. Their cars go in through **Add a car** with
+Schuco and HWRLC haven't been asked; [docs/source-permissions.md](docs/source-permissions.md)
+is a short request you can send. HWRLC's photos are its owner's own work, so
+they can't go on the public site, or into training, until the owner (Jamey,
+hwrlc.com/contact/) says yes in writing. Their cars go in through **Add a car** with
 your own photos.
 
 ### The rules

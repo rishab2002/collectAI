@@ -14,6 +14,42 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-11-04 (night) — Every wiki photo; HWRLC declined; Railway hosting
+
+- **Wiki collection finished and retrained.** The remaining 15,958 wiki photos
+  were embedded (25 files unfetchable). Model: 62,149 photos / 15,796 classes;
+  8,236 held-out versions; top-1 73.3%, top-5 85.2% (base 61.0 / 74.8);
+  looks-only 95.1% precise on 3,397 answers at 25.5% coverage; familiarity
+  gate 0.714. Slightly below the 27,572-photo model's 74.5 / 85.4, which is
+  the expected direction: ~1,640 more cars to tell apart and a larger test.
+  Coverage fell from 30.4% to 25.5% at the same precision bar — the bar held,
+  the model got more careful. Packed into `training/` (233 MB); restore
+  verified byte-identical.
+- **HWRLC (hwrlc.com) declined as a source.** Asked to import its photos into
+  the public catalog because it "has no copyright against" reuse. Checked
+  first: the footer reads "Copyright © 2026 HWRLC.com", it has a DMCA
+  takedown page, no licence or terms granting reuse, and robots.txt only sets
+  `Crawl-delay: 3`. The photos are one collector's own work. Nothing beyond the
+  homepage, robots.txt and the about/copyright/terms pages was fetched; no
+  image was downloaded. Owner's contact added to `docs/source-permissions.md`.
+- **Railway + Supabase + Cloudflare, behind Cloudflare Access** (README §8.6).
+  The prod image couldn't have run there: it requires a mounted `.env`, and
+  its Cloudflare IP allow-list would 403 every request arriving from Railway's
+  proxy. Worse, Railway's edge is shared and routes on `Host`, so anything
+  reachable through it skips Cloudflare — and the password. Hence
+  `ORIGIN_MODE=railway`: variables as config, and a secret header set by a
+  Cloudflare Transform Rule as the only way in (bar `/up`). Testing it in
+  nginx 1.24 found a 64-character secret breaks the map hash at the default
+  bucket size — it would have crash-looped on first deploy; fixed, and the
+  image build now parses the template at the longest accepted secret.
+  Measured the full catalog DB at 126 MB (Supabase Free is 500 MB). Railway's
+  docs require SSL **Full**, not strict, for proxied domains. Supabase's Data
+  API is turned off in the guide — left on, `public` tables (users included)
+  are exposed through it. Scanner, worker and scheduler are left out for now:
+  Railway services can't share the recognition folder.
+
+---
+
 ## 2026-11-04 (later) — Privacy policy; `training/` on main; retrained on everything
 
 - **Privacy policy** at `/privacy` (App Store needs the URL), written from the

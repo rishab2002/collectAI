@@ -8,11 +8,12 @@
     ]
   },
   "model/embeddings-cache.npz": {
-    "bytes": 43790218,
+    "bytes": 58892806,
     "group": "data",
-    "sha256": "7d37bc266c3dd42c88d787f488efd2aa6896df60bd807d1fe7067d68dbd85bd0",
+    "sha256": "50664a01a3e0250227ba0fe89e86793198487d1faea850b501ead1d918418eed",
     "stored": [
-      "embeddings-cache.npz.part-00"
+      "embeddings-cache.npz.part-00",
+      "embeddings-cache.npz.part-01"
     ]
   },
   "model/encoder-id.txt": {
@@ -33,17 +34,17 @@
     ]
   },
   "model/manifest.json": {
-    "bytes": 1486,
+    "bytes": 1487,
     "group": "model",
-    "sha256": "ef6396e93d970d04efb3b30558ce3f5358a94900653ca2fe2401ab539d0ed0ec",
+    "sha256": "f2a8187b6a765985ca3053ff1a99a83f83e198815606af43ed51a7d2ec3203a6",
     "stored": [
       "manifest.json.gz"
     ]
   },
   "model/model.npz": {
-    "bytes": 67150249,
+    "bytes": 89867355,
     "group": "model",
-    "sha256": "3fc4fdc1b2e88019332adf411d9d8748e7f890a847a81152500ab5055c617dfb",
+    "sha256": "7333e797fd46d6e09b4499954d0f5f2078853099ee16d7ce48bf69cb44a6afb0",
     "stored": [
       "model.npz.part-00",
       "model.npz.part-01"
@@ -90,17 +91,17 @@
     ]
   },
   "wiki-training/manifest.jsonl": {
-    "bytes": 12554615,
+    "bytes": 20326706,
     "group": "data",
-    "sha256": "148c6841c9c49a8b43916881eba76eade068afe6d14ea8ab754b55aae605b2eb",
+    "sha256": "49a37f07143642054f6df5ed9c3047bcce49a926543e1a5d8bf0c8380b33b857",
     "stored": [
       "manifest.jsonl.gz"
     ]
   },
   "wiki-training/missing-wiki-files.txt": {
-    "bytes": 12221,
+    "bytes": 14161,
     "group": "data",
-    "sha256": "f27c4d2831216ed5ba052ec419f7c8f1398e006f2708450f85f1d11fc1791e18",
+    "sha256": "024dc376283df455e76bb5fb2ce3fc4443634a293dd17f98999e41f8e592cca7",
     "stored": [
       "missing-wiki-files.txt.gz"
     ]

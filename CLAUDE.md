@@ -5,7 +5,10 @@ domain model, conventions and current state only have to be explained once.
 **Treat this file as the source of truth, not the conversation history** —
 update it whenever a convention changes.
 
-**Last edited:** 2026-11-03, last (recognition phase 3: the trained visual model,
+**Last edited:** 2026-11-04 night (every wiki photo collected and the model
+retrained — numbers under Current state; HWRLC checked and declined as a
+source; Railway + Supabase + Cloudflare Access hosting, `ORIGIN_MODE=railway`,
+README §8.6. Before that, 2026-11-03 (recognition phase 3: the trained visual model,
 `recognizer/train/`, `catalog:export-training-data` sources; unlicensed wiki
 photos ruled out by Fandom's ToU. Before that, hosting: Cloudflare Tunnel mode and the
 DigitalOcean plan in README §8.2–8.3; fixed an nginx allow-list that would have
@@ -127,7 +130,11 @@ not exist.
 recommended target (README §8.3, 2026-11-03) is a **$12 DigitalOcean Droplet
 reached through a Cloudflare Tunnel** (`docker-compose.tunnel.yml` on top of
 the prod file — no open ports, no origin certificate), photos and backups on
-R2. The original direct target is a single AWS Lightsail box: `docker-compose.prod.yml` plus the
+R2. **The owner's chosen shape (2026-11-04) is Railway + Supabase + Cloudflare**
+(README §8.6): one Railway service built from the `Dockerfile` with
+`ORIGIN_MODE=railway`, Postgres on Supabase's session pooler, the site behind
+Cloudflare Access while it's developed; no recognizer, worker or scheduler on
+Railway yet (services can't share the recognition folder). The original direct target is a single AWS Lightsail box: `docker-compose.prod.yml` plus the
 Dockerfile's `prod` stage (nginx + php-fpm under supervisord, a separate
 `queue:work` container, Postgres, Redis), with `docs/deploy.md` as the runbook.
 Nothing has been provisioned, so the table above is still exactly what is on the
@@ -353,12 +360,14 @@ queue worker, `APP_URL=http://localhost` — reachable only from this Mac on
   DINOv2-small (Apache 2.0, pinned revision) exported to ONNX; training embeds
   labelled photos, fits a WCCN head only if it beats plain on held-out top-1,
   calibrates thresholds, and writes `storage/app/recognition/model/`
-  (gitignored). **Measured 2026-11-04** (the model in `training/`): 46,217
-  photos / 14,156 classes (27,572 wiki, 157 licensed, 5,770 HWPriceGuide,
-  9,907 Horizon, 1,250 Mini GT, 1,154 Inno64, 407 Para64): held-out versions
-  top-1 **74.5%**, top-5 **85.4%** (base alone 63.0 / 76.8); looks-only
-  **95.1%** precise on 2,604 answers, 30.4% coverage; familiarity gate 0.709.
-  The wiki-only model was 76.2 / 87.7 — more look-alikes, more brands. Wiki photos only — **phone-photo accuracy is
+  (gitignored). **Measured 2026-11-04, final** (the model in `training/`): 62,149
+  photos / 15,796 classes (43,504 wiki — the whole wiki set, 25 files
+  unfetchable — 157 licensed, 5,770 HWPriceGuide, 9,907 Horizon, 1,250 Mini
+  GT, 1,154 Inno64, 407 Para64): 8,236 held-out versions, top-1 **73.3%**,
+  top-5 **85.2%** (base alone 61.0 / 74.8); looks-only **95.1%** precise on
+  3,397 answers, 25.5% coverage; familiarity gate 0.714. The 27,572-wiki-photo
+  model was 74.5 / 85.4 on an easier split; wiki-only 76.2 / 87.7 — more
+  look-alikes, more brands. Wiki photos only — **phone-photo accuracy is
   unmeasured.** The model + vectors + keyed labels live in **`training/` on
   main** (packed: text gzipped, files split < 45 MB, `PACKED.json` checksums;
   `recognizer/train/package.py`). The app never reads it; `model-publisher`
@@ -1301,6 +1310,14 @@ and photos. Measured, not assumed — details in the [session log](docs/session-
   the full-size real car. Commons was rate-limited from the cloud network.
   An automated photo finder would find almost nothing and risk wrong-car
   photos, so none was built.
+- **HWRLC (hwrlc.com) is not a source — checked 2026-11-04.** Asked to import
+  its photos into the public catalog because it "has no copyright against"
+  reuse. It does: the footer reads "Copyright © 2026 HWRLC.com", it has a
+  DMCA takedown page, and nothing on it licenses reuse — silence is all rights
+  reserved, and its robots.txt `Crawl-delay: 3` governs crawling, not reuse.
+  The photos are one collector's own work. Nothing was downloaded. A written
+  yes from the owner (hwrlc.com/contact/, `docs/source-permissions.md`) is what
+  would change this, for the catalog or for training.
 - **Tomica, Mini GT and Inno64 wiki images carry no reuse licence** (150 of 150
   sampled on each; 4 on Mini GT are `{{Self}}` only), so those brands get no
   imported photos.
@@ -1707,12 +1724,34 @@ why it says what it says. None of it has run against real infrastructure yet.*
   `$origin_https` on) **and** removes `web`'s published ports. Those two belong
   together: trusting Docker ranges is safe only while `cloudflared` is the sole
   way in. The tunnel routes to `http://web:80`, not 443.
+- **Railway mode (`ORIGIN_MODE=railway`, README §8.6, 2026-11-04) gates on
+  a secret header, not on addresses.** Railway's edge is shared and routes on
+  `Host`, so anyone can reach the container through it and skip Cloudflare
+  (and Access, the password); and every request arrives from Railway's proxy,
+  so the Cloudflare IP allow-list can't apply. A Cloudflare Transform Rule
+  *sets* `X-Origin-Auth: $ORIGIN_SECRET` on every request; the entrypoint
+  writes `origin-mode-railway.conf` over `origin-mode.conf`, and nginx refuses
+  anything without it except `/up` (Railway's healthcheck). Only then is it
+  safe to trust any peer for `CF-Connecting-IP`. **Every origin mode defines
+  `$origin_https` and `$origin_allowed`**; nginx.conf 403s on the latter.
+  Measured with nginx 1.24: no/wrong header 403, forged `CF-Connecting-IP`
+  without the header 403, `/up/../admin` 403, secret 200 with the visitor's
+  IP. `map_hash_bucket_size 128` is load-bearing — a 64-character secret
+  failed "could not build map_hash" at the default, so the build check uses
+  the longest secret the entrypoint accepts (100).
+- **Railway SSL is Cloudflare *Full*, not Full (strict)** — Railway's own
+  docs: strict doesn't work with a proxied domain. Not Flexible either.
+- **The password while developing is Cloudflare Access** (email allow-list +
+  one-time PIN), not app code: free, keeps bots off the paid server, and
+  changes no Laravel behaviour. It must be off before App Store review.
 - **No HTTP→HTTPS redirect at the origin.** TLS is the edge's job. An
   origin-side redirect is precisely what turns a Cloudflare **Flexible** SSL
   setting into an infinite loop, and Flexible is the tempting wrong fix for the
   525 — it clears the error while sending origin traffic in the clear.
 - **`.env` is mounted read-only; configuration never arrives as process
-  environment.** Same rule as `docker-compose.yml`'s missing `env_file`, and it
+  environment** — except in Railway mode, where there is no file to mount and
+  the variables are the single source (the entrypoint refuses a `.env` *and*
+  Railway mode together). Same rule as `docker-compose.yml`'s missing `env_file`, and it
   still holds here even though there are no tests to corrupt: Laravel's Dotenv
   reads `$_SERVER` first, so an injected value cannot be overridden from the
   file. Read-only additionally means a stray `key:generate` on the box cannot
