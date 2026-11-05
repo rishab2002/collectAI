@@ -110,7 +110,11 @@ def read_patch(bgr: np.ndarray, box: tuple[int, int, int, int], scale: float = 1
     gray = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8)).apply(cv2.cvtColor(big, cv2.COLOR_BGR2GRAY))
     _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
-    words = vocabulary or brands.known()
+    # No vocabulary means no brands, never "all of them". A logo read is
+    # garbage that resolves by elimination, so handing it the whole seed list
+    # by default is how a card comes back branded Gamda — the caller passes
+    # brands.on_artwork(index) and gets the short, evidenced list.
+    words = vocabulary if vocabulary is not None else brands.Vocabulary(())
     best: tuple[str, float] | None = None
     for image in (binary, gray):
         text = ocr.tesseract(image, psm=8).text

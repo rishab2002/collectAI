@@ -465,7 +465,7 @@ def read_printed(
     # a whole card — `/read-card`. In a scan the logos are found across the
     # photo instead and the answer arrives as `logo_brand`.
     vocabulary = vocabulary or brands.known(index)
-    logo = logos.read(bgr, vocabulary) if artwork else None
+    logo = logos.read(bgr, brands.on_artwork(index)) if artwork else None
     evidence = Evidence.from_words(reading.words, context=context, also=printed,
                                    logo_brand=logo[0] if logo else logo_brand, vocabulary=vocabulary)
     match = Matcher(index, min_confidence, min_margin).match(evidence, printed=True) if index else None

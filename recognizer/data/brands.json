@@ -1,56 +1,3162 @@
 {
     "version": 1,
-    "description": "The one brand vocabulary, shared by the card reader (collectai_recognizer/evidence.py) and the logo reader (logos.py). It is a seed, not a limit: every brand name in the catalog index is added to it at scan time, so a brand entered on the Add-a-car form is recognised from the next index export onwards with nothing edited here. This file is for the brands the catalog has not got yet — a box on the table whose maker nobody has entered. Add one when you meet one.",
+    "description": "The one brand vocabulary, shared by the card reader (collectai_recognizer/evidence.py) and the logo reader (logos.py). It is a seed, not a limit: every brand name in the catalog index is added to it at scan time, so a brand entered on the Add-a-car form is recognised from the next index export with nothing edited here. This file is for the makers the catalog has not got yet. Add one when you meet one — and run recognizer/tests/test_brands.py, which refuses a name that reads off ordinary card text.",
     "notes": [
-        "`name` is what gets reported, and should be spelled the way the catalog spells it, because that is what the Add-a-car form prefills and what the matcher compares against a casting's brands.",
+        "`name` is what gets reported, spelled the way the catalog spells it, because that is what the Add-a-car form prefills and what the matcher compares against a casting's brands.",
         "`spellings` are what the text might read as, lower case; punctuation and spaces are ignored on both sides, so 'Mini GT' and 'minigt' are the same spelling. Add a misreading only if it is one a real logo produces — a loose spelling costs precision across every photo.",
-        "A spelling of fewer than 5 characters (BBR, TLV, M2) is only ever matched as a whole word, never inside a longer one, for the same reason short casting names are: 'bbr' falls inside plenty of words that are not a brand.",
-        "Lines are not brands. Tomica Limited Vintage and TLV Neo are Tomica's lines and the catalog files their cars under the brand Tomica, so they report Tomica; the line belongs in the series field. Same for Kaido House under Mini GT."
+        "A spelling of fewer than 8 characters (BBR, TLV, Siku) is only ever matched as whole words, never inside a longer string. Without that rule a five-letter name finds a five-letter window inside seventy characters of OCR noise, which is how Herpa and Norev came to be reported off photographs of Hot Wheels cards.",
+        "This whole list is used for text set in plain type, at 0.86. Logos are matched against the catalog's own brands instead — a garbled wordmark resolves by elimination, and against a list this long it lands anywhere. See brands.on_artwork().",
+        "Lines are not brands. Tomica Limited Vintage and TLV Neo are Tomica's lines and the catalog files their cars under Tomica, so they report Tomica; the line belongs in the series field. Same for Kaido House under Mini GT, and Hobby64 and Global64 under Tarmac Works.",
+        "Names that read off ordinary card text are deliberately absent, and the test says which: OneModel collided with 'New Models', Neo Models with the same, Trax with 'Turbo Trax', Premium X with 'Premium Bundle', Star Race with 'Easter Raceway'. Tiny is here only as 'toyeast', because 'tiny' is an ordinary word."
     ],
     "brands": [
-        { "name": "Hot Wheels", "spellings": ["hot wheels", "hotwheels"] },
-        { "name": "Matchbox", "spellings": ["matchbox", "lesney"] },
-        { "name": "Tomica", "spellings": ["tomica", "tomytec", "tomica limited vintage", "tlv neo", "tlv"] },
-        { "name": "Mini GT", "spellings": ["mini gt", "minigt", "kaido house", "kaidohouse"] },
-        { "name": "TSM", "spellings": ["tsm", "truescale", "true scale miniatures"] },
-        { "name": "Inno64", "spellings": ["inno64", "inno models", "innomodels"] },
-        { "name": "Para64", "spellings": ["para64", "paragon models", "paragon"] },
-        { "name": "Schuco", "spellings": ["schuco"] },
-        { "name": "Herpa", "spellings": ["herpa"] },
-        { "name": "BBR", "spellings": ["bbr", "bbr models"] },
-        { "name": "Shadow Model", "spellings": ["shadow model", "shadowmodel"] },
-        { "name": "Maisto", "spellings": ["maisto"] },
-        { "name": "Bburago", "spellings": ["bburago", "burago"] },
-        { "name": "Majorette", "spellings": ["majorette"] },
-        { "name": "GreenLight", "spellings": ["greenlight", "green light"] },
-        { "name": "Auto World", "spellings": ["auto world", "autoworld"] },
-        { "name": "Johnny Lightning", "spellings": ["johnny lightning"] },
-        { "name": "M2 Machines", "spellings": ["m2 machines", "m2machines"] },
-        { "name": "Jada Toys", "spellings": ["jada toys", "jadatoys", "jada"] },
-        { "name": "Corgi", "spellings": ["corgi"] },
-        { "name": "Dinky", "spellings": ["dinky", "dinky toys"] },
-        { "name": "Siku", "spellings": ["siku"] },
-        { "name": "Norev", "spellings": ["norev"] },
-        { "name": "Minichamps", "spellings": ["minichamps"] },
-        { "name": "Spark", "spellings": ["spark model", "sparkmodel"] },
-        { "name": "AUTOart", "spellings": ["autoart", "auto art"] },
-        { "name": "Kyosho", "spellings": ["kyosho"] },
-        { "name": "IXO", "spellings": ["ixo", "ixo models"] },
-        { "name": "Solido", "spellings": ["solido"] },
-        { "name": "Welly", "spellings": ["welly"] },
-        { "name": "Tarmac Works", "spellings": ["tarmac works", "tarmacworks"] },
-        { "name": "Pop Race", "spellings": ["pop race", "poprace"] },
-        { "name": "Time Micro", "spellings": ["time micro", "timemicro"] },
-        { "name": "Micro Turbo", "spellings": ["micro turbo", "microturbo"] },
-        { "name": "Stance Hunters", "spellings": ["stance hunters", "stancehunters"] },
-        { "name": "Focal Horizon", "spellings": ["focal horizon", "focalhorizon"] },
-        { "name": "CM Model", "spellings": ["cm model", "cmmodel"] },
-        { "name": "Liberty64", "spellings": ["liberty64", "liberty 64"] },
-        { "name": "Era Car", "spellings": ["era car", "eracar"] },
-        { "name": "Oxford Diecast", "spellings": ["oxford diecast", "oxforddiecast"] },
-        { "name": "Hobby Japan", "spellings": ["hobby japan", "hobbyjapan"] },
-        { "name": "Peako", "spellings": ["peako"] },
-        { "name": "GCD", "spellings": ["gcd"] },
-        { "name": "XCarToys", "spellings": ["xcartoys", "xcar toys"] }
+        {
+            "name": "ABC Brianza",
+            "spellings": [
+                "abc brianza",
+                "brianza"
+            ]
+        },
+        {
+            "name": "Abrex",
+            "spellings": [
+                "abrex"
+            ]
+        },
+        {
+            "name": "Acme",
+            "spellings": [
+                "acme diecast",
+                "acme trading company"
+            ]
+        },
+        {
+            "name": "Action Performance",
+            "spellings": [
+                "action performance",
+                "action collectibles",
+                "action racing collectables"
+            ]
+        },
+        {
+            "name": "Agat",
+            "spellings": [
+                "agat",
+                "tantal",
+                "mossar",
+                "radon",
+                "saratov"
+            ]
+        },
+        {
+            "name": "Albedo",
+            "spellings": [
+                "albedo"
+            ]
+        },
+        {
+            "name": "Alezan",
+            "spellings": [
+                "alezan"
+            ]
+        },
+        {
+            "name": "Almost Real",
+            "spellings": [
+                "almost real",
+                "almostreal"
+            ]
+        },
+        {
+            "name": "Altaya",
+            "spellings": [
+                "altaya"
+            ]
+        },
+        {
+            "name": "Amalgam Collection",
+            "spellings": [
+                "amalgam",
+                "amalgam collection"
+            ]
+        },
+        {
+            "name": "AMR",
+            "spellings": [
+                "amr models",
+                "andre marie ruf"
+            ]
+        },
+        {
+            "name": "Anguplas",
+            "spellings": [
+                "anguplas",
+                "mini cars anguplas"
+            ]
+        },
+        {
+            "name": "Anker",
+            "spellings": [
+                "anker"
+            ]
+        },
+        {
+            "name": "Aoshima",
+            "spellings": [
+                "aoshima",
+                "skynet"
+            ]
+        },
+        {
+            "name": "Apex Replicas",
+            "spellings": [
+                "apex replicas",
+                "apex models"
+            ]
+        },
+        {
+            "name": "Arcade",
+            "spellings": [
+                "arcade toys"
+            ]
+        },
+        {
+            "name": "Arsenal-M",
+            "spellings": [
+                "arsenal-m",
+                "arsenal m"
+            ]
+        },
+        {
+            "name": "Art Model",
+            "spellings": [
+                "art model"
+            ]
+        },
+        {
+            "name": "Artin",
+            "spellings": [
+                "artin"
+            ]
+        },
+        {
+            "name": "Artitec",
+            "spellings": [
+                "artitec"
+            ]
+        },
+        {
+            "name": "ATMA Paulista",
+            "spellings": [
+                "atma paulista",
+                "atma",
+                "mirim"
+            ]
+        },
+        {
+            "name": "Aurora Model",
+            "spellings": [
+                "aurora model",
+                "auroramodel"
+            ]
+        },
+        {
+            "name": "Authentic Collectables",
+            "spellings": [
+                "authentic collectables"
+            ]
+        },
+        {
+            "name": "Auto Pilen",
+            "spellings": [
+                "auto pilen",
+                "pilen"
+            ]
+        },
+        {
+            "name": "Auto World",
+            "spellings": [
+                "auto world",
+                "autoworld"
+            ]
+        },
+        {
+            "name": "AUTOart",
+            "spellings": [
+                "autoart",
+                "auto art"
+            ]
+        },
+        {
+            "name": "AutoBots Models",
+            "spellings": [
+                "autobots models",
+                "autobots model"
+            ]
+        },
+        {
+            "name": "Autocult",
+            "spellings": [
+                "autocult",
+                "auto cult"
+            ]
+        },
+        {
+            "name": "Automint",
+            "spellings": [
+                "automint"
+            ]
+        },
+        {
+            "name": "Automodello",
+            "spellings": [
+                "automodello"
+            ]
+        },
+        {
+            "name": "Avenue43",
+            "spellings": [
+                "avenue43",
+                "avenue 43"
+            ]
+        },
+        {
+            "name": "Awesomeism",
+            "spellings": [
+                "awesomeism"
+            ]
+        },
+        {
+            "name": "AWM",
+            "spellings": [
+                "awm",
+                "amw",
+                "automodelle und werbemodelle"
+            ]
+        },
+        {
+            "name": "Ban Seng",
+            "spellings": [
+                "ban seng",
+                "banseng"
+            ]
+        },
+        {
+            "name": "Bang",
+            "spellings": [
+                "bang models"
+            ]
+        },
+        {
+            "name": "Banthrico",
+            "spellings": [
+                "banthrico"
+            ]
+        },
+        {
+            "name": "Barclay",
+            "spellings": [
+                "barclay",
+                "barclay manufacturing"
+            ]
+        },
+        {
+            "name": "Base Toys",
+            "spellings": [
+                "base toys"
+            ]
+        },
+        {
+            "name": "BBR",
+            "spellings": [
+                "bbr",
+                "bbr models"
+            ]
+        },
+        {
+            "name": "Bburago",
+            "spellings": [
+                "bburago",
+                "burago"
+            ]
+        },
+        {
+            "name": "Benbros",
+            "spellings": [
+                "benbros",
+                "benbros qualitoys"
+            ]
+        },
+        {
+            "name": "Best Box",
+            "spellings": [
+                "best box",
+                "bestbox"
+            ]
+        },
+        {
+            "name": "Best Model",
+            "spellings": [
+                "best model"
+            ]
+        },
+        {
+            "name": "Biante",
+            "spellings": [
+                "biante",
+                "biante model cars"
+            ]
+        },
+        {
+            "name": "Bizarre",
+            "spellings": [
+                "bizarre",
+                "bizarre models"
+            ]
+        },
+        {
+            "name": "BM Creations",
+            "spellings": [
+                "bm creations",
+                "bm creation",
+                "bmcreations"
+            ]
+        },
+        {
+            "name": "Bonini",
+            "spellings": [
+                "bonini"
+            ]
+        },
+        {
+            "name": "BoS-Models",
+            "spellings": [
+                "bos models",
+                "bos-models",
+                "best of show"
+            ]
+        },
+        {
+            "name": "Box Model",
+            "spellings": [
+                "box model",
+                "model box"
+            ]
+        },
+        {
+            "name": "Brekina",
+            "spellings": [
+                "brekina"
+            ]
+        },
+        {
+            "name": "Brio",
+            "spellings": [
+                "brio"
+            ]
+        },
+        {
+            "name": "Briscale Model",
+            "spellings": [
+                "briscale",
+                "briscale model"
+            ]
+        },
+        {
+            "name": "Britains",
+            "spellings": [
+                "britains",
+                "w britain",
+                "britains ltd"
+            ]
+        },
+        {
+            "name": "Brookfield Collectors Guild",
+            "spellings": [
+                "brookfield collectors guild",
+                "brookfield"
+            ]
+        },
+        {
+            "name": "Brooklin Models",
+            "spellings": [
+                "brooklin",
+                "brooklin models"
+            ]
+        },
+        {
+            "name": "BRP Models",
+            "spellings": [
+                "brp models",
+                "brp model"
+            ]
+        },
+        {
+            "name": "Brumm",
+            "spellings": [
+                "brumm"
+            ]
+        },
+        {
+            "name": "BSC",
+            "spellings": [
+                "bsc model",
+                "bsc models"
+            ]
+        },
+        {
+            "name": "Buby",
+            "spellings": [
+                "buby",
+                "miniaturas buby"
+            ]
+        },
+        {
+            "name": "Buddy L",
+            "spellings": [
+                "buddy l"
+            ]
+        },
+        {
+            "name": "Budgie",
+            "spellings": [
+                "budgie",
+                "budgie toys",
+                "modern products"
+            ]
+        },
+        {
+            "name": "Busch",
+            "spellings": [
+                "busch"
+            ]
+        },
+        {
+            "name": "Calsito",
+            "spellings": [
+                "calsito",
+                "calsito models"
+            ]
+        },
+        {
+            "name": "Car-Nel",
+            "spellings": [
+                "car-nel",
+                "carnel"
+            ]
+        },
+        {
+            "name": "Carousel 1",
+            "spellings": [
+                "carousel 1",
+                "carousel one"
+            ]
+        },
+        {
+            "name": "Castle Toy",
+            "spellings": [
+                "castle toy"
+            ]
+        },
+        {
+            "name": "Chad Valley",
+            "spellings": [
+                "chad valley"
+            ]
+        },
+        {
+            "name": "Charbens",
+            "spellings": [
+                "charbens"
+            ]
+        },
+        {
+            "name": "Chibi",
+            "spellings": [
+                "chibi"
+            ]
+        },
+        {
+            "name": "CIJ",
+            "spellings": [
+                "cij",
+                "compagnie industrielle du jouet"
+            ]
+        },
+        {
+            "name": "Classic Carlectables",
+            "spellings": [
+                "classic carlectables",
+                "carlectables"
+            ]
+        },
+        {
+            "name": "Classic Model Replicars",
+            "spellings": [
+                "classic model replicars",
+                "cmr models"
+            ]
+        },
+        {
+            "name": "Classiques CCC",
+            "spellings": [
+                "classiques ccc",
+                "ccc models"
+            ]
+        },
+        {
+            "name": "Classix",
+            "spellings": [
+                "classix"
+            ]
+        },
+        {
+            "name": "Cle",
+            "spellings": [
+                "cle"
+            ]
+        },
+        {
+            "name": "CM Model",
+            "spellings": [
+                "cm model",
+                "cmmodel"
+            ]
+        },
+        {
+            "name": "CMC",
+            "spellings": [
+                "cmc",
+                "classic model cars"
+            ]
+        },
+        {
+            "name": "Collectors Classics",
+            "spellings": [
+                "collectors classics",
+                "collector's classics",
+                "buby's classics"
+            ]
+        },
+        {
+            "name": "Companion",
+            "spellings": [
+                "companion models"
+            ]
+        },
+        {
+            "name": "Conquest Models",
+            "spellings": [
+                "conquest models",
+                "madison models"
+            ]
+        },
+        {
+            "name": "Conrad",
+            "spellings": [
+                "conrad",
+                "conrad models"
+            ]
+        },
+        {
+            "name": "Cooee Classics",
+            "spellings": [
+                "road ragers",
+                "aussie road ragers"
+            ]
+        },
+        {
+            "name": "Cool Art",
+            "spellings": [
+                "cool art",
+                "coolart"
+            ]
+        },
+        {
+            "name": "Corgi",
+            "spellings": [
+                "corgi"
+            ]
+        },
+        {
+            "name": "Crescent Toys",
+            "spellings": [
+                "crescent toys",
+                "crescent"
+            ]
+        },
+        {
+            "name": "Crown Premiums",
+            "spellings": [
+                "crown premiums"
+            ]
+        },
+        {
+            "name": "Cult Scale Models",
+            "spellings": [
+                "cult scale models",
+                "cult models"
+            ]
+        },
+        {
+            "name": "Cursor",
+            "spellings": [
+                "cursor",
+                "cursor modell"
+            ]
+        },
+        {
+            "name": "D MODEL",
+            "spellings": [
+                "dmodel"
+            ]
+        },
+        {
+            "name": "Danbury Mint",
+            "spellings": [
+                "danbury mint"
+            ]
+        },
+        {
+            "name": "Danhausen",
+            "spellings": [
+                "danhausen"
+            ]
+        },
+        {
+            "name": "DCM",
+            "spellings": [
+                "dcm model",
+                "dcm models"
+            ]
+        },
+        {
+            "name": "DCT",
+            "spellings": [
+                "diecast team",
+                "diecast team models"
+            ]
+        },
+        {
+            "name": "DDA Collectibles",
+            "spellings": [
+                "dda collectibles",
+                "dda"
+            ]
+        },
+        {
+            "name": "DeAgostini",
+            "spellings": [
+                "deagostini",
+                "de agostini"
+            ]
+        },
+        {
+            "name": "Del Prado",
+            "spellings": [
+                "del prado"
+            ]
+        },
+        {
+            "name": "Demon King Auto",
+            "spellings": [
+                "demon king auto",
+                "demon king"
+            ]
+        },
+        {
+            "name": "Desormeaux",
+            "spellings": [
+                "desormeaux"
+            ]
+        },
+        {
+            "name": "Detail Cars",
+            "spellings": [
+                "detail cars"
+            ]
+        },
+        {
+            "name": "Diapet",
+            "spellings": [
+                "diapet",
+                "agatsuma",
+                "yonezawa"
+            ]
+        },
+        {
+            "name": "Dickie Toys",
+            "spellings": [
+                "dickie toys",
+                "simba dickie"
+            ]
+        },
+        {
+            "name": "Die-Cast Promotions",
+            "spellings": [
+                "die-cast promotions",
+                "diecast promotions",
+                "dcp"
+            ]
+        },
+        {
+            "name": "Diecast Masters",
+            "spellings": [
+                "diecast masters",
+                "die-cast masters"
+            ]
+        },
+        {
+            "name": "Difference Models",
+            "spellings": [
+                "difference models"
+            ]
+        },
+        {
+            "name": "Dinky",
+            "spellings": [
+                "dinky",
+                "dinky toys"
+            ]
+        },
+        {
+            "name": "Dinky Toys",
+            "spellings": [
+                "meccano"
+            ]
+        },
+        {
+            "name": "DiP Models",
+            "spellings": [
+                "dip models"
+            ]
+        },
+        {
+            "name": "DMY",
+            "spellings": [
+                "dmy model",
+                "dmy models"
+            ]
+        },
+        {
+            "name": "DNA Collectibles",
+            "spellings": [
+                "dna collectibles"
+            ]
+        },
+        {
+            "name": "Dragon Models",
+            "spellings": [
+                "dragon models"
+            ]
+        },
+        {
+            "name": "Drake Collectibles",
+            "spellings": [
+                "drake collectibles",
+                "drake trailers"
+            ]
+        },
+        {
+            "name": "Dubray",
+            "spellings": [
+                "dubray",
+                "henry-dubray"
+            ]
+        },
+        {
+            "name": "Dulcop",
+            "spellings": [
+                "dulcop"
+            ]
+        },
+        {
+            "name": "Durham Classics",
+            "spellings": [
+                "durham classics"
+            ]
+        },
+        {
+            "name": "Ebbro",
+            "spellings": [
+                "ebbro"
+            ]
+        },
+        {
+            "name": "Edil Toys",
+            "spellings": [
+                "edil toys",
+                "ediltoys"
+            ]
+        },
+        {
+            "name": "Edison Giocattoli",
+            "spellings": [
+                "edison giocattoli",
+                "edison"
+            ]
+        },
+        {
+            "name": "EFE",
+            "spellings": [
+                "efe",
+                "exclusive first editions",
+                "gilbow"
+            ]
+        },
+        {
+            "name": "Efsi",
+            "spellings": [
+                "efsi",
+                "efsi toys",
+                "efsi holland"
+            ]
+        },
+        {
+            "name": "EKO",
+            "spellings": [
+                "eko models",
+                "eko spain"
+            ]
+        },
+        {
+            "name": "Elekon",
+            "spellings": [
+                "elekon"
+            ]
+        },
+        {
+            "name": "Eligor",
+            "spellings": [
+                "eligor"
+            ]
+        },
+        {
+            "name": "EMC",
+            "spellings": [
+                "emc kiev"
+            ]
+        },
+        {
+            "name": "Emek",
+            "spellings": [
+                "emek"
+            ]
+        },
+        {
+            "name": "Era Car",
+            "spellings": [
+                "era car",
+                "eracar"
+            ]
+        },
+        {
+            "name": "Error 404",
+            "spellings": [
+                "error 404",
+                "error404",
+                "404error",
+                "404 error"
+            ]
+        },
+        {
+            "name": "Ertl",
+            "spellings": [
+                "ertl",
+                "the ertl company"
+            ]
+        },
+        {
+            "name": "Espewe",
+            "spellings": [
+                "espewe",
+                "veb plasticart"
+            ]
+        },
+        {
+            "name": "Estetyka",
+            "spellings": [
+                "estetyka"
+            ]
+        },
+        {
+            "name": "Estrela",
+            "spellings": [
+                "estrela"
+            ]
+        },
+        {
+            "name": "Esval Models",
+            "spellings": [
+                "esval",
+                "esval models"
+            ]
+        },
+        {
+            "name": "Exact Detail Replicas",
+            "spellings": [
+                "exact detail",
+                "exact detail replicas",
+                "lane exact detail"
+            ]
+        },
+        {
+            "name": "Exoto",
+            "spellings": [
+                "exoto"
+            ]
+        },
+        {
+            "name": "F-toys",
+            "spellings": [
+                "f-toys",
+                "ftoys"
+            ]
+        },
+        {
+            "name": "Fairfield Mint",
+            "spellings": [
+                "fairfield mint"
+            ]
+        },
+        {
+            "name": "Faller",
+            "spellings": [
+                "faller"
+            ]
+        },
+        {
+            "name": "Fast Speed",
+            "spellings": [
+                "fast speed",
+                "fastspeed"
+            ]
+        },
+        {
+            "name": "Fiberrun",
+            "spellings": [
+                "fiberrun",
+                "fiberrun model"
+            ]
+        },
+        {
+            "name": "FindClassically",
+            "spellings": [
+                "findclassically",
+                "find classically",
+                "findclassicaly"
+            ]
+        },
+        {
+            "name": "Fine Model",
+            "spellings": [
+                "fine model",
+                "finemodel"
+            ]
+        },
+        {
+            "name": "Fine Works64",
+            "spellings": [
+                "fine works64",
+                "fineworks64",
+                "fine works"
+            ]
+        },
+        {
+            "name": "First Gear",
+            "spellings": [
+                "first gear",
+                "first gear models"
+            ]
+        },
+        {
+            "name": "First Response Replicas",
+            "spellings": [
+                "first response replicas"
+            ]
+        },
+        {
+            "name": "Focal Horizon",
+            "spellings": [
+                "focal horizon",
+                "focalhorizon"
+            ]
+        },
+        {
+            "name": "France Jouets",
+            "spellings": [
+                "france jouets"
+            ]
+        },
+        {
+            "name": "Francorchamps",
+            "spellings": [
+                "francorchamps"
+            ]
+        },
+        {
+            "name": "Franklin Mint",
+            "spellings": [
+                "franklin mint"
+            ]
+        },
+        {
+            "name": "Frontiart",
+            "spellings": [
+                "frontiart"
+            ]
+        },
+        {
+            "name": "FuelMe",
+            "spellings": [
+                "fuelme",
+                "fuel me models",
+                "fuelme models"
+            ]
+        },
+        {
+            "name": "G.Fans",
+            "spellings": [
+                "gfans",
+                "g fans"
+            ]
+        },
+        {
+            "name": "Galanite",
+            "spellings": [
+                "galanite"
+            ]
+        },
+        {
+            "name": "Galgo",
+            "spellings": [
+                "galgo",
+                "industrias galgo"
+            ]
+        },
+        {
+            "name": "Gama",
+            "spellings": [
+                "gama",
+                "gama toys",
+                "gama mini"
+            ]
+        },
+        {
+            "name": "Gamda",
+            "spellings": [
+                "gamda",
+                "gamda koor",
+                "sabra",
+                "cragstan"
+            ]
+        },
+        {
+            "name": "Gasquy-Septoy",
+            "spellings": [
+                "gasquy",
+                "septoy",
+                "gasquy-septoy"
+            ]
+        },
+        {
+            "name": "GCD",
+            "spellings": [
+                "gcd"
+            ]
+        },
+        {
+            "name": "GDO",
+            "spellings": [
+                "gdo model",
+                "gdo resin"
+            ]
+        },
+        {
+            "name": "GearUp",
+            "spellings": [
+                "gearup"
+            ]
+        },
+        {
+            "name": "Gescha",
+            "spellings": [
+                "gescha"
+            ]
+        },
+        {
+            "name": "Ghost Player",
+            "spellings": [
+                "ghost player",
+                "ghostplayer"
+            ]
+        },
+        {
+            "name": "GIM",
+            "spellings": [
+                "gim models"
+            ]
+        },
+        {
+            "name": "Giodi",
+            "spellings": [
+                "giodi",
+                "techno giodi"
+            ]
+        },
+        {
+            "name": "Gisima",
+            "spellings": [
+                "gisima"
+            ]
+        },
+        {
+            "name": "GL Motion",
+            "spellings": [
+                "gl motion",
+                "glmotion"
+            ]
+        },
+        {
+            "name": "GLM",
+            "spellings": [
+                "glm models",
+                "great lighting models"
+            ]
+        },
+        {
+            "name": "GMP",
+            "spellings": [
+                "gmp",
+                "georgia marketing and promotions"
+            ]
+        },
+        {
+            "name": "Goldvarg Collection",
+            "spellings": [
+                "goldvarg",
+                "goldvarg collection"
+            ]
+        },
+        {
+            "name": "Gonio",
+            "spellings": [
+                "gonio"
+            ]
+        },
+        {
+            "name": "GP Replicas",
+            "spellings": [
+                "gp replicas"
+            ]
+        },
+        {
+            "name": "Great American Dream Machines",
+            "spellings": [
+                "great american dream machines",
+                "gadm"
+            ]
+        },
+        {
+            "name": "GreenLight",
+            "spellings": [
+                "greenlight",
+                "green light"
+            ]
+        },
+        {
+            "name": "Griffin Models",
+            "spellings": [
+                "griffin models"
+            ]
+        },
+        {
+            "name": "GT Spirit",
+            "spellings": [
+                "gt spirit",
+                "gt-spirit"
+            ]
+        },
+        {
+            "name": "Guiloy",
+            "spellings": [
+                "guiloy"
+            ]
+        },
+        {
+            "name": "Guisval",
+            "spellings": [
+                "guisval"
+            ]
+        },
+        {
+            "name": "Hachette",
+            "spellings": [
+                "hachette",
+                "hachette collections"
+            ]
+        },
+        {
+            "name": "Heco Modeles",
+            "spellings": [
+                "heco modeles",
+                "heco miniatures",
+                "heco"
+            ]
+        },
+        {
+            "name": "Heimamba",
+            "spellings": [
+                "heimamba"
+            ]
+        },
+        {
+            "name": "Herpa",
+            "spellings": [
+                "herpa"
+            ]
+        },
+        {
+            "name": "Hi-Story",
+            "spellings": [
+                "hi-story",
+                "hi story"
+            ]
+        },
+        {
+            "name": "Highway 61",
+            "spellings": [
+                "highway 61",
+                "highway61"
+            ]
+        },
+        {
+            "name": "HKM Model",
+            "spellings": [
+                "hkm model",
+                "hkm models"
+            ]
+        },
+        {
+            "name": "Hobby Fans",
+            "spellings": [
+                "hobby fans",
+                "hobbyfans"
+            ]
+        },
+        {
+            "name": "Hobby Japan",
+            "spellings": [
+                "hobby japan",
+                "hobbyjapan"
+            ]
+        },
+        {
+            "name": "Holland Oto",
+            "spellings": [
+                "holland oto",
+                "hollandoto"
+            ]
+        },
+        {
+            "name": "Hone Model",
+            "spellings": [
+                "hone model",
+                "honemodel"
+            ]
+        },
+        {
+            "name": "Hornby",
+            "spellings": [
+                "hornby",
+                "hornby hobbies"
+            ]
+        },
+        {
+            "name": "Hot Wheels",
+            "spellings": [
+                "hot wheels",
+                "hotwheels"
+            ]
+        },
+        {
+            "name": "Howie Model",
+            "spellings": [
+                "howie model",
+                "howiemodel"
+            ]
+        },
+        {
+            "name": "HST",
+            "spellings": [
+                "hst model",
+                "hst models"
+            ]
+        },
+        {
+            "name": "Hubley",
+            "spellings": [
+                "hubley"
+            ]
+        },
+        {
+            "name": "Husky",
+            "spellings": [
+                "husky",
+                "husky toys"
+            ]
+        },
+        {
+            "name": "HY Model",
+            "spellings": [
+                "hy model",
+                "hymodel"
+            ]
+        },
+        {
+            "name": "Idea 3",
+            "spellings": [
+                "idea 3",
+                "idea3"
+            ]
+        },
+        {
+            "name": "Ignition Model",
+            "spellings": [
+                "ignition model",
+                "ignition models"
+            ]
+        },
+        {
+            "name": "Igra",
+            "spellings": [
+                "igra",
+                "igra models"
+            ]
+        },
+        {
+            "name": "Ilario",
+            "spellings": [
+                "ilario"
+            ]
+        },
+        {
+            "name": "Illustra",
+            "spellings": [
+                "illustra",
+                "illustra models"
+            ]
+        },
+        {
+            "name": "IMC Models",
+            "spellings": [
+                "imc models"
+            ]
+        },
+        {
+            "name": "Ingap",
+            "spellings": [
+                "ingap"
+            ]
+        },
+        {
+            "name": "Inno64",
+            "spellings": [
+                "inno64",
+                "inno models",
+                "innomodels"
+            ]
+        },
+        {
+            "name": "iScale",
+            "spellings": [
+                "iscale",
+                "i-scale"
+            ]
+        },
+        {
+            "name": "IST Models",
+            "spellings": [
+                "ist models"
+            ]
+        },
+        {
+            "name": "Ites",
+            "spellings": [
+                "ites"
+            ]
+        },
+        {
+            "name": "Ivy Model",
+            "spellings": [
+                "ivy model",
+                "ivy merit"
+            ]
+        },
+        {
+            "name": "IXO",
+            "spellings": [
+                "ixo",
+                "ixo models"
+            ]
+        },
+        {
+            "name": "Jada Toys",
+            "spellings": [
+                "jada toys",
+                "jadatoys",
+                "jada"
+            ]
+        },
+        {
+            "name": "JEC",
+            "spellings": [
+                "jec model",
+                "jec models"
+            ]
+        },
+        {
+            "name": "JKM",
+            "spellings": [
+                "jkm model",
+                "jkm models"
+            ]
+        },
+        {
+            "name": "Joal",
+            "spellings": [
+                "joal",
+                "joal compact"
+            ]
+        },
+        {
+            "name": "Johnny Lightning",
+            "spellings": [
+                "johnny lightning"
+            ]
+        },
+        {
+            "name": "Jolly Model",
+            "spellings": [
+                "jolly model"
+            ]
+        },
+        {
+            "name": "Kaden",
+            "spellings": [
+                "kaden",
+                "kaden models",
+                "kovodruzstvo nachod",
+                "kdn"
+            ]
+        },
+        {
+            "name": "Kaidiwei",
+            "spellings": [
+                "kaidiwei"
+            ]
+        },
+        {
+            "name": "Kami Motors",
+            "spellings": [
+                "kami motors",
+                "kamimotors"
+            ]
+        },
+        {
+            "name": "Kellerman",
+            "spellings": [
+                "kellerman",
+                "cko",
+                "cko kellerman"
+            ]
+        },
+        {
+            "name": "Kenna Models",
+            "spellings": [
+                "kenna models",
+                "kenna"
+            ]
+        },
+        {
+            "name": "Kess",
+            "spellings": [
+                "kess",
+                "kess scale models"
+            ]
+        },
+        {
+            "name": "Kibri",
+            "spellings": [
+                "kibri"
+            ]
+        },
+        {
+            "name": "Kilo Works",
+            "spellings": [
+                "kilo works",
+                "kiloworks"
+            ]
+        },
+        {
+            "name": "King Model",
+            "spellings": [
+                "king model",
+                "kingmodel"
+            ]
+        },
+        {
+            "name": "Kings Toy",
+            "spellings": [
+                "kings toy",
+                "kingstoy"
+            ]
+        },
+        {
+            "name": "Kinsmart",
+            "spellings": [
+                "kinsmart",
+                "kinsfun"
+            ]
+        },
+        {
+            "name": "KJ Miniatures",
+            "spellings": [
+                "kj miniatures",
+                "kjminiatures"
+            ]
+        },
+        {
+            "name": "KK-Scale",
+            "spellings": [
+                "kk scale",
+                "kk-scale",
+                "kkscale"
+            ]
+        },
+        {
+            "name": "Kovap",
+            "spellings": [
+                "kovap",
+                "kovap nachod"
+            ]
+        },
+        {
+            "name": "Kyosho",
+            "spellings": [
+                "kyosho"
+            ]
+        },
+        {
+            "name": "La Mini Miniera",
+            "spellings": [
+                "la mini miniera",
+                "mini miniera"
+            ]
+        },
+        {
+            "name": "Lansdowne Models",
+            "spellings": [
+                "lansdowne",
+                "lansdowne models"
+            ]
+        },
+        {
+            "name": "Laudoracing",
+            "spellings": [
+                "laudoracing",
+                "laudoracing models"
+            ]
+        },
+        {
+            "name": "LCD Models",
+            "spellings": [
+                "lcd models",
+                "lcd model"
+            ]
+        },
+        {
+            "name": "Lemeco",
+            "spellings": [
+                "lemeco"
+            ]
+        },
+        {
+            "name": "Lemezarugyar",
+            "spellings": [
+                "lemezarugyar"
+            ]
+        },
+        {
+            "name": "Les Rouliers",
+            "spellings": [
+                "les rouliers"
+            ]
+        },
+        {
+            "name": "LF Model",
+            "spellings": [
+                "lf model",
+                "lfmodel"
+            ]
+        },
+        {
+            "name": "Liberty Classics",
+            "spellings": [
+                "liberty classics",
+                "spec cast liberty"
+            ]
+        },
+        {
+            "name": "Liberty64",
+            "spellings": [
+                "liberty64",
+                "liberty 64"
+            ]
+        },
+        {
+            "name": "Lion Car",
+            "spellings": [
+                "lion car",
+                "lion toys"
+            ]
+        },
+        {
+            "name": "LJM",
+            "spellings": [
+                "ljm model",
+                "ljm models"
+            ]
+        },
+        {
+            "name": "Lledo",
+            "spellings": [
+                "lledo",
+                "days gone",
+                "lledo days gone"
+            ]
+        },
+        {
+            "name": "Lone Star",
+            "spellings": [
+                "lone star",
+                "impy",
+                "dcmt",
+                "roadmaster"
+            ]
+        },
+        {
+            "name": "Looksmart",
+            "spellings": [
+                "looksmart",
+                "looksmart models"
+            ]
+        },
+        {
+            "name": "LS Collectibles",
+            "spellings": [
+                "ls collectibles"
+            ]
+        },
+        {
+            "name": "Luso Toys",
+            "spellings": [
+                "luso toys",
+                "lusotoys"
+            ]
+        },
+        {
+            "name": "Luxor",
+            "spellings": [
+                "luxor toys"
+            ]
+        },
+        {
+            "name": "M2 Machines",
+            "spellings": [
+                "m2 machines",
+                "m2machines"
+            ]
+        },
+        {
+            "name": "M4",
+            "spellings": [
+                "m4 modelcars",
+                "m4 models"
+            ]
+        },
+        {
+            "name": "M64X",
+            "spellings": [
+                "m64x"
+            ]
+        },
+        {
+            "name": "Macadam",
+            "spellings": [
+                "macadam"
+            ]
+        },
+        {
+            "name": "Magic City",
+            "spellings": [
+                "magic city",
+                "magiccity"
+            ]
+        },
+        {
+            "name": "Maisto",
+            "spellings": [
+                "maisto"
+            ]
+        },
+        {
+            "name": "Majorette",
+            "spellings": [
+                "majorette"
+            ]
+        },
+        {
+            "name": "Make Up",
+            "spellings": [
+                "eidolon"
+            ]
+        },
+        {
+            "name": "Mark43",
+            "spellings": [
+                "mark43",
+                "mark 43"
+            ]
+        },
+        {
+            "name": "Marklin",
+            "spellings": [
+                "marklin",
+                "märklin"
+            ]
+        },
+        {
+            "name": "Marushin",
+            "spellings": [
+                "marushin"
+            ]
+        },
+        {
+            "name": "Marx",
+            "spellings": [
+                "louis marx",
+                "marx toys"
+            ]
+        },
+        {
+            "name": "MASDI",
+            "spellings": [
+                "masdi",
+                "massdi"
+            ]
+        },
+        {
+            "name": "Matchbox",
+            "spellings": [
+                "matchbox",
+                "lesney"
+            ]
+        },
+        {
+            "name": "Matrix Scale Models",
+            "spellings": [
+                "matrix scale models",
+                "matrix models"
+            ]
+        },
+        {
+            "name": "Maxi Car",
+            "spellings": [
+                "maxi car",
+                "maxicar"
+            ]
+        },
+        {
+            "name": "Maxichamps",
+            "spellings": [
+                "maxichamps"
+            ]
+        },
+        {
+            "name": "MaxWell",
+            "spellings": [
+                "maxwell"
+            ]
+        },
+        {
+            "name": "McGregor",
+            "spellings": [
+                "mcgregor"
+            ]
+        },
+        {
+            "name": "Mebetoys",
+            "spellings": [
+                "mebetoys"
+            ]
+        },
+        {
+            "name": "Mercury",
+            "spellings": [
+                "mercury",
+                "mercury toys"
+            ]
+        },
+        {
+            "name": "Meri Kits",
+            "spellings": [
+                "meri kits"
+            ]
+        },
+        {
+            "name": "Metaloplastika",
+            "spellings": [
+                "metaloplastika",
+                "mp sabac"
+            ]
+        },
+        {
+            "name": "Metosul",
+            "spellings": [
+                "metosul"
+            ]
+        },
+        {
+            "name": "MG Model Plus",
+            "spellings": [
+                "mg model plus",
+                "mg models"
+            ]
+        },
+        {
+            "name": "Micro Models",
+            "spellings": [
+                "micro models"
+            ]
+        },
+        {
+            "name": "Micro Turbo",
+            "spellings": [
+                "micro turbo",
+                "microturbo"
+            ]
+        },
+        {
+            "name": "Midgetoy",
+            "spellings": [
+                "midgetoy"
+            ]
+        },
+        {
+            "name": "Mijo Exclusives",
+            "spellings": [
+                "mijo exclusives",
+                "mijo"
+            ]
+        },
+        {
+            "name": "Mikansue",
+            "spellings": [
+                "mikansue"
+            ]
+        },
+        {
+            "name": "Milestone Models",
+            "spellings": [
+                "milestone models"
+            ]
+        },
+        {
+            "name": "Milton Mini Auto",
+            "spellings": [
+                "milton mini auto"
+            ]
+        },
+        {
+            "name": "Mini Dream",
+            "spellings": [
+                "mini dream",
+                "minidream"
+            ]
+        },
+        {
+            "name": "Mini GT",
+            "spellings": [
+                "mini gt",
+                "minigt",
+                "kaido house",
+                "kaidohouse"
+            ]
+        },
+        {
+            "name": "Mini Station",
+            "spellings": [
+                "mini station",
+                "ministation"
+            ]
+        },
+        {
+            "name": "Minialuxe",
+            "spellings": [
+                "minialuxe"
+            ]
+        },
+        {
+            "name": "Miniauto",
+            "spellings": [
+                "miniauto",
+                "jianyuan"
+            ]
+        },
+        {
+            "name": "Minic",
+            "spellings": [
+                "minic",
+                "tri-ang minic",
+                "minic ships"
+            ]
+        },
+        {
+            "name": "Minichamps",
+            "spellings": [
+                "minichamps"
+            ]
+        },
+        {
+            "name": "Minikraft",
+            "spellings": [
+                "minikraft"
+            ]
+        },
+        {
+            "name": "MiniMarque 43",
+            "spellings": [
+                "minimarque",
+                "minimarque 43"
+            ]
+        },
+        {
+            "name": "Miniroute",
+            "spellings": [
+                "miniroute"
+            ]
+        },
+        {
+            "name": "Mira",
+            "spellings": [
+                "mira models",
+                "mira spain"
+            ]
+        },
+        {
+            "name": "MK Model",
+            "spellings": [
+                "mk model",
+                "mkmodel"
+            ]
+        },
+        {
+            "name": "Model Auto Emporium",
+            "spellings": [
+                "model auto emporium"
+            ]
+        },
+        {
+            "name": "Model Car Group",
+            "spellings": [
+                "model car group",
+                "mcg"
+            ]
+        },
+        {
+            "name": "Model Collect",
+            "spellings": [
+                "model collect",
+                "modelcollect"
+            ]
+        },
+        {
+            "name": "Model Icons",
+            "spellings": [
+                "model icons"
+            ]
+        },
+        {
+            "name": "ModernArt",
+            "spellings": [
+                "modernart"
+            ]
+        },
+        {
+            "name": "Mondo Motors",
+            "spellings": [
+                "mondo motors"
+            ]
+        },
+        {
+            "name": "MoreArt",
+            "spellings": [
+                "moreart"
+            ]
+        },
+        {
+            "name": "Morestone",
+            "spellings": [
+                "morestone",
+                "morris and stone"
+            ]
+        },
+        {
+            "name": "Mortal",
+            "spellings": [
+                "mortal models"
+            ]
+        },
+        {
+            "name": "Motor City USA",
+            "spellings": [
+                "design studio"
+            ]
+        },
+        {
+            "name": "Motorart",
+            "spellings": [
+                "motorart"
+            ]
+        },
+        {
+            "name": "Motorhelix",
+            "spellings": [
+                "motorhelix",
+                "motor helix"
+            ]
+        },
+        {
+            "name": "Motormax",
+            "spellings": [
+                "motormax",
+                "motor max"
+            ]
+        },
+        {
+            "name": "MR Collection",
+            "spellings": [
+                "mr collection models"
+            ]
+        },
+        {
+            "name": "MSZ",
+            "spellings": [
+                "caipo",
+                "guangdong caipo"
+            ]
+        },
+        {
+            "name": "Muky",
+            "spellings": [
+                "muky",
+                "induguay"
+            ]
+        },
+        {
+            "name": "Muovo",
+            "spellings": [
+                "muovo"
+            ]
+        },
+        {
+            "name": "Muscle Machines",
+            "spellings": [
+                "muscle machines",
+                "funline"
+            ]
+        },
+        {
+            "name": "Nacoral",
+            "spellings": [
+                "nacoral",
+                "nacoral intercars"
+            ]
+        },
+        {
+            "name": "Neo Scale Models",
+            "spellings": [
+                "neo scale models"
+            ]
+        },
+        {
+            "name": "New-Ray",
+            "spellings": [
+                "new-ray",
+                "newray",
+                "new ray"
+            ]
+        },
+        {
+            "name": "Norev",
+            "spellings": [
+                "norev"
+            ]
+        },
+        {
+            "name": "Norscot",
+            "spellings": [
+                "norscot"
+            ]
+        },
+        {
+            "name": "Novacar",
+            "spellings": [
+                "novacar"
+            ]
+        },
+        {
+            "name": "Novoexport",
+            "spellings": [
+                "novoexport"
+            ]
+        },
+        {
+            "name": "NP",
+            "spellings": [
+                "norddeutsche plastikfabrik"
+            ]
+        },
+        {
+            "name": "Nylint",
+            "spellings": [
+                "nylint"
+            ]
+        },
+        {
+            "name": "NZG",
+            "spellings": [
+                "nzg",
+                "nzg models",
+                "nurnberger zinkdruckguss"
+            ]
+        },
+        {
+            "name": "Odeon",
+            "spellings": [
+                "odeon"
+            ]
+        },
+        {
+            "name": "Old Cars",
+            "spellings": [
+                "old cars torino",
+                "old cars italy"
+            ]
+        },
+        {
+            "name": "Onyx",
+            "spellings": [
+                "onyx models"
+            ]
+        },
+        {
+            "name": "Osul",
+            "spellings": [
+                "osul"
+            ]
+        },
+        {
+            "name": "OttOmobile",
+            "spellings": [
+                "ottomobile",
+                "otto mobile",
+                "otto models"
+            ]
+        },
+        {
+            "name": "Oxford Diecast",
+            "spellings": [
+                "oxford diecast",
+                "oxforddiecast"
+            ]
+        },
+        {
+            "name": "Para64",
+            "spellings": [
+                "para64",
+                "paragon models",
+                "paragon"
+            ]
+        },
+        {
+            "name": "Paradcar",
+            "spellings": [
+                "paradcar"
+            ]
+        },
+        {
+            "name": "Pathfinder Models",
+            "spellings": [
+                "pathfinder models",
+                "pathfinder"
+            ]
+        },
+        {
+            "name": "Paya",
+            "spellings": [
+                "paya"
+            ]
+        },
+        {
+            "name": "Peako",
+            "spellings": [
+                "peako"
+            ]
+        },
+        {
+            "name": "Penny",
+            "spellings": [
+                "penny toys",
+                "penny politoys"
+            ]
+        },
+        {
+            "name": "PGM",
+            "spellings": [
+                "private good model"
+            ]
+        },
+        {
+            "name": "Phantom Knight",
+            "spellings": [
+                "phantom knight",
+                "phantomknight"
+            ]
+        },
+        {
+            "name": "Playart",
+            "spellings": [
+                "playart"
+            ]
+        },
+        {
+            "name": "Pocher",
+            "spellings": [
+                "pocher"
+            ]
+        },
+        {
+            "name": "Poliguri",
+            "spellings": [
+                "poliguri",
+                "guri car"
+            ]
+        },
+        {
+            "name": "Polistil",
+            "spellings": [
+                "polistil"
+            ]
+        },
+        {
+            "name": "Politoys",
+            "spellings": [
+                "politoys"
+            ]
+        },
+        {
+            "name": "Pop Race",
+            "spellings": [
+                "pop race",
+                "poprace"
+            ]
+        },
+        {
+            "name": "Praline",
+            "spellings": [
+                "praline"
+            ]
+        },
+        {
+            "name": "Precision Miniatures",
+            "spellings": [
+                "precision miniatures"
+            ]
+        },
+        {
+            "name": "Premium ClassiXXs",
+            "spellings": [
+                "premium classixxs",
+                "premium classixs"
+            ]
+        },
+        {
+            "name": "Product Miniatures",
+            "spellings": [
+                "product miniatures",
+                "pmc"
+            ]
+        },
+        {
+            "name": "Progetto K",
+            "spellings": [
+                "progetto k"
+            ]
+        },
+        {
+            "name": "Projecto Rallye 43",
+            "spellings": [
+                "projecto rallye 43",
+                "pr43"
+            ]
+        },
+        {
+            "name": "Provence Moulage",
+            "spellings": [
+                "provence moulage"
+            ]
+        },
+        {
+            "name": "Quartzo",
+            "spellings": [
+                "quartzo"
+            ]
+        },
+        {
+            "name": "Quiralu",
+            "spellings": [
+                "quiralu"
+            ]
+        },
+        {
+            "name": "Racing 43",
+            "spellings": [
+                "racing 43"
+            ]
+        },
+        {
+            "name": "Racing Champions",
+            "spellings": [
+                "racing champions"
+            ]
+        },
+        {
+            "name": "Radar",
+            "spellings": [
+                "radar models"
+            ]
+        },
+        {
+            "name": "Rai's",
+            "spellings": [
+                "hiko seven"
+            ]
+        },
+        {
+            "name": "Rastar",
+            "spellings": [
+                "rastar"
+            ]
+        },
+        {
+            "name": "RBA Collectibles",
+            "spellings": [
+                "rba collectibles",
+                "rba"
+            ]
+        },
+        {
+            "name": "Real-X",
+            "spellings": [
+                "real-x",
+                "realx"
+            ]
+        },
+        {
+            "name": "Realtoy",
+            "spellings": [
+                "realtoy",
+                "real toy"
+            ]
+        },
+        {
+            "name": "Record",
+            "spellings": [
+                "record models"
+            ]
+        },
+        {
+            "name": "REE Modeles",
+            "spellings": [
+                "ree modeles",
+                "ree models",
+                "rail europ express"
+            ]
+        },
+        {
+            "name": "Remember",
+            "spellings": [
+                "remember models"
+            ]
+        },
+        {
+            "name": "Revell",
+            "spellings": [
+                "revell",
+                "revell ag"
+            ]
+        },
+        {
+            "name": "Revival",
+            "spellings": [
+                "revival international",
+                "revival models"
+            ]
+        },
+        {
+            "name": "Rextoys",
+            "spellings": [
+                "rextoys"
+            ]
+        },
+        {
+            "name": "Rhino Model",
+            "spellings": [
+                "rhino model",
+                "rhinomodel"
+            ]
+        },
+        {
+            "name": "Rico",
+            "spellings": [
+                "rico toys",
+                "rico ibi"
+            ]
+        },
+        {
+            "name": "Rietze",
+            "spellings": [
+                "rietze",
+                "rietze automodelle"
+            ]
+        },
+        {
+            "name": "Rio",
+            "spellings": [
+                "rio models",
+                "rio cernobbio"
+            ]
+        },
+        {
+            "name": "Road Champs",
+            "spellings": [
+                "road champs"
+            ]
+        },
+        {
+            "name": "Robeddie",
+            "spellings": [
+                "robeddie",
+                "rob eddie"
+            ]
+        },
+        {
+            "name": "Roco",
+            "spellings": [
+                "roco"
+            ]
+        },
+        {
+            "name": "Roly Toys",
+            "spellings": [
+                "roly toys"
+            ]
+        },
+        {
+            "name": "Roskopf",
+            "spellings": [
+                "roskopf",
+                "rmm"
+            ]
+        },
+        {
+            "name": "Rosso",
+            "spellings": [
+                "rosso corporation"
+            ]
+        },
+        {
+            "name": "Round 2",
+            "spellings": [
+                "round 2 llc",
+                "round2"
+            ]
+        },
+        {
+            "name": "RV Automodelli",
+            "spellings": [
+                "rv automodelli"
+            ]
+        },
+        {
+            "name": "RyM",
+            "spellings": [
+                "rym toys"
+            ]
+        },
+        {
+            "name": "S & J Models",
+            "spellings": [
+                "s and j models",
+                "s & j models"
+            ]
+        },
+        {
+            "name": "Sablon",
+            "spellings": [
+                "sablon"
+            ]
+        },
+        {
+            "name": "Safir",
+            "spellings": [
+                "safir"
+            ]
+        },
+        {
+            "name": "Salvat",
+            "spellings": [
+                "salvat"
+            ]
+        },
+        {
+            "name": "Sam Toys",
+            "spellings": [
+                "sam toys"
+            ]
+        },
+        {
+            "name": "SayMakerLace",
+            "spellings": [
+                "saymakerlace"
+            ]
+        },
+        {
+            "name": "Scalemini",
+            "spellings": [
+                "scalemini",
+                "scale mini"
+            ]
+        },
+        {
+            "name": "Schabak",
+            "spellings": [
+                "schabak",
+                "schabak modell"
+            ]
+        },
+        {
+            "name": "Schuco",
+            "spellings": [
+                "schuco"
+            ]
+        },
+        {
+            "name": "Shadow Model",
+            "spellings": [
+                "shadow model",
+                "shadowmodel"
+            ]
+        },
+        {
+            "name": "Shelby Collectibles",
+            "spellings": [
+                "shelby collectibles"
+            ]
+        },
+        {
+            "name": "Shine Dew",
+            "spellings": [
+                "shine dew",
+                "shinedew"
+            ]
+        },
+        {
+            "name": "Siku",
+            "spellings": [
+                "siku"
+            ]
+        },
+        {
+            "name": "Simex",
+            "spellings": [
+                "simex"
+            ]
+        },
+        {
+            "name": "Slik Toys",
+            "spellings": [
+                "slik toys",
+                "slik"
+            ]
+        },
+        {
+            "name": "Smer",
+            "spellings": [
+                "smer"
+            ]
+        },
+        {
+            "name": "SMTS",
+            "spellings": [
+                "smts"
+            ]
+        },
+        {
+            "name": "Solido",
+            "spellings": [
+                "solido"
+            ]
+        },
+        {
+            "name": "Somerville Models",
+            "spellings": [
+                "somerville",
+                "somerville models"
+            ]
+        },
+        {
+            "name": "Spark",
+            "spellings": [
+                "spark model",
+                "sparkmodel"
+            ]
+        },
+        {
+            "name": "Spot-On",
+            "spellings": [
+                "spot-on",
+                "spot on",
+                "tri-ang spot-on"
+            ]
+        },
+        {
+            "name": "Stahlberg",
+            "spellings": [
+                "stahlberg",
+                "stahlberg models"
+            ]
+        },
+        {
+            "name": "Stamp Models",
+            "spellings": [
+                "stamp models"
+            ]
+        },
+        {
+            "name": "Stance Hunters",
+            "spellings": [
+                "stance hunters",
+                "stancehunters"
+            ]
+        },
+        {
+            "name": "Star Model",
+            "spellings": [
+                "star model",
+                "starmodel"
+            ]
+        },
+        {
+            "name": "Starline Models",
+            "spellings": [
+                "starline models"
+            ]
+        },
+        {
+            "name": "Starter",
+            "spellings": [
+                "starter models"
+            ]
+        },
+        {
+            "name": "Stirling Scale",
+            "spellings": [
+                "stirling scale"
+            ]
+        },
+        {
+            "name": "Stjerne",
+            "spellings": [
+                "stjerne"
+            ]
+        },
+        {
+            "name": "Street Weapon",
+            "spellings": [
+                "street weapon",
+                "streetweapon"
+            ]
+        },
+        {
+            "name": "Sun Star",
+            "spellings": [
+                "sun star",
+                "sunstar"
+            ]
+        },
+        {
+            "name": "Sunnyside",
+            "spellings": [
+                "sunnyside",
+                "superior sunnyside"
+            ]
+        },
+        {
+            "name": "Super Hobby",
+            "spellings": [
+                "super hobby",
+                "superhobby"
+            ]
+        },
+        {
+            "name": "Tameo Kits",
+            "spellings": [
+                "tameo",
+                "tameo kits"
+            ]
+        },
+        {
+            "name": "Tarmac Works",
+            "spellings": [
+                "tarmac works",
+                "tarmacworks"
+            ]
+        },
+        {
+            "name": "Tecnomodel",
+            "spellings": [
+                "tecnomodel",
+                "tecnomodels"
+            ]
+        },
+        {
+            "name": "Tekno",
+            "spellings": [
+                "tekno",
+                "tekno holland"
+            ]
+        },
+        {
+            "name": "The Project Studios",
+            "spellings": [
+                "the project studios",
+                "project studios"
+            ]
+        },
+        {
+            "name": "Tiger Wheels",
+            "spellings": [
+                "tiger wheels"
+            ]
+        },
+        {
+            "name": "Time Micro",
+            "spellings": [
+                "time micro",
+                "timemicro"
+            ]
+        },
+        {
+            "name": "TimeTop",
+            "spellings": [
+                "timetop"
+            ]
+        },
+        {
+            "name": "Tin Wizard",
+            "spellings": [
+                "tin wizard"
+            ]
+        },
+        {
+            "name": "Tiny",
+            "spellings": [
+                "toyeast"
+            ]
+        },
+        {
+            "name": "Tokolosche Models",
+            "spellings": [
+                "tokolosche models",
+                "tokolosche"
+            ]
+        },
+        {
+            "name": "Tomica",
+            "spellings": [
+                "tomica",
+                "tomytec",
+                "tomica limited vintage",
+                "tlv neo",
+                "tlv"
+            ]
+        },
+        {
+            "name": "Tomte Laerdal",
+            "spellings": [
+                "tomte laerdal",
+                "tomte"
+            ]
+        },
+        {
+            "name": "Tonka",
+            "spellings": [
+                "tonka"
+            ]
+        },
+        {
+            "name": "Tonkin Replicas",
+            "spellings": [
+                "tonkin replicas",
+                "tonkin"
+            ]
+        },
+        {
+            "name": "Tootsietoy",
+            "spellings": [
+                "tootsietoy",
+                "tootsie toy",
+                "dowst"
+            ]
+        },
+        {
+            "name": "Top Marques",
+            "spellings": [
+                "top marques",
+                "top marques collectibles"
+            ]
+        },
+        {
+            "name": "Top Model",
+            "spellings": [
+                "top model collection"
+            ]
+        },
+        {
+            "name": "TopArt",
+            "spellings": [
+                "topart"
+            ]
+        },
+        {
+            "name": "Trax",
+            "spellings": [
+                "trax models",
+                "top gear trax"
+            ]
+        },
+        {
+            "name": "Trends Hobby",
+            "spellings": [
+                "trends hobby",
+                "trendshobby"
+            ]
+        },
+        {
+            "name": "Tri-ang",
+            "spellings": [
+                "tri-ang",
+                "triang",
+                "lines bros"
+            ]
+        },
+        {
+            "name": "Trident",
+            "spellings": [
+                "trident modellbau"
+            ]
+        },
+        {
+            "name": "Triple 9 Collection",
+            "spellings": [
+                "triple 9 collection",
+                "triple9"
+            ]
+        },
+        {
+            "name": "Trofeu",
+            "spellings": [
+                "trofeu"
+            ]
+        },
+        {
+            "name": "Trol",
+            "spellings": [
+                "trol",
+                "brinquedos trol"
+            ]
+        },
+        {
+            "name": "Tron",
+            "spellings": [
+                "tron models"
+            ]
+        },
+        {
+            "name": "Trux",
+            "spellings": [
+                "trux"
+            ]
+        },
+        {
+            "name": "TSM",
+            "spellings": [
+                "tsm",
+                "truescale",
+                "true scale miniatures"
+            ]
+        },
+        {
+            "name": "U.S. Model Mint",
+            "spellings": [
+                "us model mint",
+                "u.s. model mint"
+            ]
+        },
+        {
+            "name": "Unimax",
+            "spellings": [
+                "unimax"
+            ]
+        },
+        {
+            "name": "Unique Replicas",
+            "spellings": [
+                "unique replicas"
+            ]
+        },
+        {
+            "name": "Universal Hobbies",
+            "spellings": [
+                "universal hobbies"
+            ]
+        },
+        {
+            "name": "VAM",
+            "spellings": [
+                "vam models"
+            ]
+        },
+        {
+            "name": "Vanguards",
+            "spellings": [
+                "vanguards",
+                "lledo vanguards",
+                "corgi vanguards"
+            ]
+        },
+        {
+            "name": "Verem",
+            "spellings": [
+                "verem"
+            ]
+        },
+        {
+            "name": "VF Models",
+            "spellings": [
+                "vf models"
+            ]
+        },
+        {
+            "name": "Victory Industries",
+            "spellings": [
+                "victory industries",
+                "victory models"
+            ]
+        },
+        {
+            "name": "Vilmer",
+            "spellings": [
+                "vilmer"
+            ]
+        },
+        {
+            "name": "Vitesse",
+            "spellings": [
+                "vitesse",
+                "vitesse models"
+            ]
+        },
+        {
+            "name": "Wells-Brimtoy",
+            "spellings": [
+                "wells-brimtoy",
+                "wells brimtoy",
+                "brimtoy"
+            ]
+        },
+        {
+            "name": "Welly",
+            "spellings": [
+                "welly"
+            ]
+        },
+        {
+            "name": "Welsotoys",
+            "spellings": [
+                "welsotoys",
+                "welso"
+            ]
+        },
+        {
+            "name": "Werk83",
+            "spellings": [
+                "werk83",
+                "werk 83"
+            ]
+        },
+        {
+            "name": "Western Models",
+            "spellings": [
+                "western models",
+                "small wheels"
+            ]
+        },
+        {
+            "name": "White Rose Collectibles",
+            "spellings": [
+                "white rose collectibles"
+            ]
+        },
+        {
+            "name": "WhiteBox",
+            "spellings": [
+                "whitebox",
+                "white box"
+            ]
+        },
+        {
+            "name": "Wiking",
+            "spellings": [
+                "wiking",
+                "wiking modellbau"
+            ]
+        },
+        {
+            "name": "Wingrex",
+            "spellings": [
+                "wingrex"
+            ]
+        },
+        {
+            "name": "Winross",
+            "spellings": [
+                "winross",
+                "winross models"
+            ]
+        },
+        {
+            "name": "Wittrock",
+            "spellings": [
+                "wittrock",
+                "h. wittrock"
+            ]
+        },
+        {
+            "name": "WSI Models",
+            "spellings": [
+                "wsi models",
+                "wsi collectibles"
+            ]
+        },
+        {
+            "name": "Wyandotte",
+            "spellings": [
+                "wyandotte",
+                "wyandotte toys"
+            ]
+        },
+        {
+            "name": "XCarToys",
+            "spellings": [
+                "xcartoys",
+                "xcar toys"
+            ]
+        },
+        {
+            "name": "Xonex",
+            "spellings": [
+                "xonex"
+            ]
+        },
+        {
+            "name": "Y.E.S Model",
+            "spellings": [
+                "yes model",
+                "y.e.s model"
+            ]
+        },
+        {
+            "name": "Yatming",
+            "spellings": [
+                "yatming",
+                "yat ming"
+            ]
+        },
+        {
+            "name": "YM Model",
+            "spellings": [
+                "ym model",
+                "ymmodel"
+            ]
+        },
+        {
+            "name": "YOW Modellini",
+            "spellings": [
+                "yow modellini"
+            ]
+        },
+        {
+            "name": "YTM",
+            "spellings": [
+                "ytm model",
+                "ytm models"
+            ]
+        },
+        {
+            "name": "Z Models",
+            "spellings": [
+                "z models"
+            ]
+        },
+        {
+            "name": "Zaugg",
+            "spellings": [
+                "zaugg"
+            ]
+        },
+        {
+            "name": "Zhorya",
+            "spellings": [
+                "zhorya"
+            ]
+        },
+        {
+            "name": "Ziss",
+            "spellings": [
+                "ziss",
+                "ziss modell"
+            ]
+        },
+        {
+            "name": "Zylmex",
+            "spellings": [
+                "zylmex",
+                "zee toys"
+            ]
+        }
     ]
 }

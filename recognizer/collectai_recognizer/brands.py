@@ -117,26 +117,45 @@ def seed(path: str | None = None) -> Vocabulary:
 
 
 def known(index=None) -> Vocabulary:
-    """Every brand: the seed list, plus whatever the catalog holds.
+    """Every brand, for text set in plain type: the seed plus the catalog's.
 
-    One vocabulary for printed type and for logos, which is worth saying
-    because it was briefly two. A long list looked unusable: at 44 brands the
-    same photographs that had produced no wrong brand at four produced ten,
-    Welly and Peako and Norev among them, and the obvious conclusion was that
-    a garbled logo read can only be resolved against a handful of names.
-
-    The conclusion was wrong and the cause was short names. A five-letter
-    brand was being found as a five-letter *window* inside seventy characters
-    of OCR noise; once short spellings had to be spelled out as whole words
-    (`WHOLE_WORD_UNDER`), the long list measured exactly the same as the
-    short one — no wrong brand on any photograph, by either route. So the
-    list stays long, which is the point: a Schuco box is read whether or not
-    the catalog has ever heard of Schuco.
+    Long on purpose, and safe here because printed type reads cleanly and the
+    bar is 0.86. Measured against `tests/data/card-text.txt` — 1,355 lines of
+    casting names, series names, packaging boilerplate and OCR noise — not
+    one line reads as a brand at that bar with 150 brands in the list.
     """
     vocabulary = seed()
     if index is None:
         return vocabulary
     return vocabulary.with_names(_catalog_names(index))
+
+
+def on_artwork(index=None) -> Vocabulary:
+    """Only the brands this catalog holds, for text read off a logo.
+
+    A logo read is garbage by design — "Hor wres", "JTIATLHBOX" — and it
+    resolves by elimination rather than by being any good, so the bar is 0.55
+    and the list it eliminates against has to be short.
+
+    How short is a measured number and it moved. At 4 brands it was clean. At
+    44 it produced ten wrong brands on the owner's photographs; that turned
+    out to be short names being matched as *windows* inside OCR noise, and
+    once `WHOLE_WORD_UNDER` made them spell themselves out, 44 measured
+    exactly as 4 — so this function was deleted as unnecessary. At 150 it is
+    unnecessary no longer: "eas See" reads as Fast Speed and a line of carpet
+    noise as GL Motion, both at 0.667, and the photograph guard fails. The
+    whole-word rule bought headroom, it did not make the bar safe at any
+    length.
+
+    So artwork is matched against the catalog's own brands. That is the list
+    with evidence behind it — somebody entered those — and it grows the
+    moment a new one is added. A brand the catalog has never met is still
+    read off a **box that prints its name in type**, where the reading is
+    good enough not to need a short list, which is what the seed list is for.
+    """
+    names = _catalog_names(index)
+
+    return Vocabulary(()).with_names(names) if names else Vocabulary(())
 
 
 def _catalog_names(index) -> list[str]:

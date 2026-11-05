@@ -159,7 +159,7 @@ def recognise_packages(
     # The logos in the photo, found and read once. A package's own crop is
     # often just the strip its name is printed on, with the brand at the top
     # of the card and nowhere near it, so this cannot be done per crop.
-    artwork = logos.find(bgr, work, scale, vocabulary) if read_text else []
+    artwork = logos.find(bgr, work, scale, brands.on_artwork(index)) if read_text else []
 
     for n, obj in enumerate(found):
         crop = packaging.deskewed_crop(bgr, obj.contour, scale)
