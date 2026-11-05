@@ -59,6 +59,39 @@ class SubmissionProposal extends Model
     }
 
     /**
+     * Every catalog table a proposal can point at.
+     *
+     * @return array<class-string<Model>>
+     */
+    public static function proposableTypes(): array
+    {
+        return [Make::class, Brand::class, VehicleModel::class, Casting::class,
+            CastingVersion::class, Series::class, Release::class, Variation::class];
+    }
+
+    /**
+     * Only proposals whose record is still there.
+     *
+     * Nothing in the database enforces this — a polymorphic reference has no
+     * foreign key — so a record deleted before `HasApprovalStatus` started
+     * tidying up after itself leaves a proposal pointing at nothing, and
+     * every screen that renders one dies on a null. Cheap to exclude and
+     * cheaper than a 500 in a queue the admin cannot then get past.
+     */
+    #[Scope]
+    protected function recordStillExists(Builder $query): void
+    {
+        $query->where(function (Builder $any): void {
+            foreach (self::proposableTypes() as $class) {
+                $any->orWhere(function (Builder $ofType) use ($class): void {
+                    $ofType->where('proposable_type', (new $class)->getMorphClass())
+                        ->whereIn('proposable_id', $class::query()->select('id'));
+                });
+            }
+        });
+    }
+
+    /**
      * Publishes the proposed record along with anything it hangs off.
      *
      * The dependency walk is the important part: a photo of an unknown car can

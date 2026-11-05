@@ -21,6 +21,24 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
  */
 trait HasApprovalStatus
 {
+    /**
+     * A record that goes takes its proposal with it.
+     *
+     * `submission_proposals` is polymorphic, so there is no foreign key to
+     * cascade and nothing in the database keeps the two in step — that is the
+     * price of the polymorphic table, and it has to be paid in the
+     * application. Left unpaid it is paid by the review screen: a proposal
+     * pointing at a deleted record renders as null and takes the whole queue
+     * down with a 500, which is how this was found (one proposal for a
+     * VehicleModel that no longer existed).
+     */
+    protected static function bootHasApprovalStatus(): void
+    {
+        static::deleted(function (Model $record): void {
+            $record->proposal()->delete();
+        });
+    }
+
     public const STATUS_PENDING = 'pending';
 
     public const STATUS_LIVE = 'live';

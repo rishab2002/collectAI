@@ -10,6 +10,7 @@ use App\Models\Release;
 use App\Models\Scan;
 use App\Models\ScanDetection;
 use App\Models\Series;
+use App\Models\SubmissionProposal;
 use App\Models\User;
 use App\Models\Variation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -340,6 +341,45 @@ class ScanTest extends TestCase
 
         // The make and the model are reused too, not duplicated per car.
         $this->assertSame(1, Make::where('name', 'Porsche')->count());
+    }
+
+    /**
+     * A car read off a card at a glance can be held back and checked before
+     * the public catalog has it, instead of going live the moment it is typed.
+     */
+    public function test_a_car_can_be_queued_for_review_instead_of_published(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $this->user = $admin;
+        $scan = $this->scan();
+        $detection = $scan->detections->last();
+
+        $this->actingAs($admin)->post(route('scan.catalog', [$scan, $detection]), [
+            'casting_name' => 'Porsche 911 Carrera T', 'brand' => 'Hot Wheels', 'series' => 'Mainline',
+            'sub_series' => 'Factory Fresh', 'year' => 2026, 'make' => 'Porsche', 'model' => '911',
+            'queue_for_review' => '1',
+        ])->assertRedirect(route('scan.show', $scan));
+
+        $casting = Casting::where('name', 'Porsche 911 Carrera T')->sole();
+        $this->assertSame(Casting::STATUS_PENDING, $casting->status, 'queued, so not live');
+        $variation = $casting->versions->first()->releases->first()->variations->first();
+        $this->assertSame(Variation::STATUS_PENDING, $variation->status);
+
+        // Nothing collected and nothing answered until it has been approved.
+        $this->assertSame(0, $admin->collectionItems()->count());
+        $this->assertTrue($detection->fresh()->isPending());
+
+        // It is in the queue, and approving it publishes the whole chain.
+        // On the variation, not the casting: approval walks upward, so this
+        // is the one click that publishes the whole car.
+        $proposal = SubmissionProposal::query()->where('proposable_type', $variation->getMorphClass())
+            ->where('proposable_id', $variation->id)->sole();
+        $this->assertNull($proposal->submission_id, 'no capture behind it, so it joins the inferred queue');
+        $this->actingAs($admin)->get(route('admin.proposals.index'))->assertOk()->assertSee('Porsche 911 Carrera T');
+
+        $this->actingAs($admin)->post(route('admin.proposals.approve', $proposal))->assertRedirect();
+        $this->assertSame(Casting::STATUS_LIVE, $casting->fresh()->status);
+        $this->assertSame(Variation::STATUS_LIVE, $variation->fresh()->status);
     }
 
     public function test_a_car_with_no_sub_series_hangs_on_the_line_itself(): void

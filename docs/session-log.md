@@ -14,6 +14,73 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-11-05 — A 500 in the review queue, and queueing a scanned car
+
+### The 500
+
+The owner reported that the '92 Honda Prelude in the review queue 500s when
+clicked. It rendered fine from a clean database and 500ed against the real
+one, which narrows it to data: `ProposalPresenter::for()` was handed a null,
+because one proposal pointed at a `VehicleModel` that no longer existed.
+
+`submission_proposals` is polymorphic, which was a deliberate choice and a
+good one — audit metadata out of the domain tables, "everything awaiting
+review" as one indexed read. The price is that a polymorphic reference has no
+foreign key, so **nothing in the database can keep a proposal and its record
+in step**, and that price has to be paid in the application. It had not been.
+One deleted model in 224 proposals was enough to make the whole submission
+queue unreachable.
+
+Paid now in two places, because they fix different things. `HasApprovalStatus`
+deletes a record's proposal when the record goes, which stops new orphans.
+That cannot help rows orphaned before it existed, so both review queries also
+carry `->recordStillExists()`. Cheap to exclude, and far cheaper than a queue
+the admin cannot get past.
+
+### Queueing a car instead of publishing it
+
+The add-from-scan form published immediately, which is what typing a car in
+has always meant: the admin is the reviewer, so there is nobody else to wait
+for. A car read off a card at a glance is a weaker claim than one typed from
+the car in your hand, and the owner asked for those to be checked before the
+public catalog has them. `createCar(..., publish: false)` saves the records
+pending and files one proposal.
+
+**The proposal goes on the variation, not the casting**, and the test that
+found this is worth keeping. Approval walks upward only — a settled
+asymmetry — so a proposal on the casting publishes the make, model and
+casting and leaves the release and variation pending: the car is "approved"
+and still not in the catalog. On the variation, one click carries the whole
+chain up with it.
+
+A pending variation cannot be collected, which is true everywhere in the app,
+so a queued car does not go into the collection until it is approved. That is
+the right order for what was asked — check it, then both things happen — and
+the screen says so rather than leaving the collector wondering where the car
+went.
+
+### What was not built, and why
+
+The same request asked for brands to be recognised from boxes and cards using
+the training data, and for Google to verify new cars. Neither was built this
+session; the reasoning is in the reply and the short version is:
+
+- **Google is ruled out by rules already in this file.** Automated querying of
+  Search or Images is against Google's terms; the compliant route is a paid
+  API, which collides with the owner's own standing requirement that the site
+  must not depend on an outside API. The permitted sources that do the same
+  job are the Fandom wikis (CC-BY-SA, already imported) and `reference_items`,
+  which the owner holds written permission for. That is a decision for the
+  owner, not something to quietly do either way.
+- **Brand from the trained model** is real work rather than a refusal: the
+  gallery is labelled by casting and trained on loose castings photographed
+  from above, so a card embeds nowhere near it. It needs a brand gallery built
+  from packaged product shots — `reference_items` has them, with brands, under
+  the permission the owner holds — which is a training job with its own
+  calibration, not an afternoon's change.
+
+---
+
 ## 2026-11-05 — Pick-or-create labels, and logos read as text
 
 Two things the owner asked for after the first pass at labelling from a scan,

@@ -130,8 +130,18 @@
             <span>Fantasy casting — there is no real car behind it, so leave the make and model empty.</span>
         </label>
 
+        <label class="flex items-start gap-2 text-sm">
+            <input type="checkbox" name="queue_for_review" value="1" class="mt-1" @checked($was('queue_for_review'))>
+            <span>
+                <strong>Check it before it goes live.</strong> Saves the car pending and puts it in
+                <a href="{{ route('admin.proposals.index') }}" class="underline">Inferred records</a> to approve.
+                It joins the catalog, and your collection, once you approve it — so nothing read off a card at a
+                glance reaches the public catalog unchecked.
+            </span>
+        </label>
+
         <button type="submit" class="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white dark:bg-white dark:text-neutral-900">
-            Add it and put it in my collection
+            Add this car
         </button>
     </form>
 </details>

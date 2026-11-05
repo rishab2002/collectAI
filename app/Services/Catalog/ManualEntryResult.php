@@ -15,10 +15,12 @@ final class ManualEntryResult
     public function __construct(
         public readonly Variation $variation,
         public readonly array $blockers = [],
+        /** True when the car was deliberately held for review rather than published. */
+        public readonly bool $queued = false,
     ) {}
 
     public function isLive(): bool
     {
-        return $this->blockers === [];
+        return ! $this->queued && $this->blockers === [];
     }
 }

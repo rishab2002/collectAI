@@ -22,6 +22,43 @@ class SubmissionReviewTest extends TestCase
 {
     use RefreshDatabase;
 
+    /**
+     * A proposal can outlive the record it proposes: the table is polymorphic,
+     * so there is no foreign key and nothing in the database keeps the two in
+     * step. One such row — a proposal for a VehicleModel that had been deleted
+     * — took the whole review screen down with a 500 and left the queue
+     * impossible to get past.
+     */
+    public function test_a_proposal_whose_record_is_gone_does_not_take_the_screen_down(): void
+    {
+        $submission = Submission::factory()->create();
+        $casting = Casting::factory()->create(['name' => "'92 Honda Prelude"]);
+        $model = VehicleModel::factory()->create();
+        SubmissionProposal::factory()->create(['submission_id' => $submission, 'proposable_id' => $casting->id, 'proposable_type' => $casting->getMorphClass()]);
+        $orphan = SubmissionProposal::factory()->create(['submission_id' => $submission, 'proposable_id' => $model->id, 'proposable_type' => $model->getMorphClass()]);
+
+        // Deleted the way a record was before anything tidied up after it.
+        VehicleModel::withoutEvents(fn () => $model->delete());
+        $this->assertDatabaseHas('submission_proposals', ['id' => $orphan->id]);
+
+        $this->actingAs(User::factory()->create(['is_admin' => true]))
+            ->get(route('admin.submissions.show', $submission))
+            ->assertOk()
+            ->assertSee("'92 Honda Prelude");
+    }
+
+    public function test_deleting_a_record_takes_its_proposal_with_it(): void
+    {
+        $casting = Casting::factory()->create();
+        $proposal = SubmissionProposal::factory()->create([
+            'proposable_id' => $casting->id, 'proposable_type' => $casting->getMorphClass(),
+        ]);
+
+        $casting->delete();
+
+        $this->assertDatabaseMissing('submission_proposals', ['id' => $proposal->id]);
+    }
+
     public function test_guests_cannot_open_a_submission(): void
     {
         $submission = Submission::factory()->create();

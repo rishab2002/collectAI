@@ -37,7 +37,9 @@ class SubmissionReviewController extends Controller
             // Oldest first, which is the order the pipeline creates them — make
             // before model before casting. Reading top-down through the
             // hierarchy is how you check whether it identified the right car.
-            'proposals' => fn ($query) => $query->oldest('id'),
+            // Oldest first, and only the ones whose record is still there: a
+            // proposal for a deleted record renders as null and 500s the page.
+            'proposals' => fn ($query) => $query->recordStillExists()->oldest('id'),
             'proposals.decidedBy',
             'proposals.proposable' => fn (MorphTo $morphTo) => $morphTo->morphWith([
                 // Both the presenter and pendingDependencies() walk upward from
