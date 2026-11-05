@@ -57,6 +57,9 @@ Route::middleware(['auth', 'throttle:account'])->group(function () {
     Route::get('scan/{scan}', [ScanController::class, 'show'])->whereNumber('scan')->name('scan.show');
     Route::delete('scan/{scan}', [ScanController::class, 'destroy'])->whereNumber('scan')->name('scan.destroy');
     Route::post('scan/{scan}/detections/{detection}/add', [ScanController::class, 'add'])->whereNumber(['scan', 'detection'])->name('scan.add');
+    // Admin only, checked in the action so a collector gets a 404 rather than
+    // learning the route exists — the same rule the admin area follows.
+    Route::post('scan/{scan}/detections/{detection}/catalog', [ScanController::class, 'catalog'])->whereNumber(['scan', 'detection'])->name('scan.catalog');
     Route::post('scan/{scan}/detections/{detection}/reject', [ScanController::class, 'reject'])->whereNumber(['scan', 'detection'])->name('scan.reject');
     Route::get('scan/{scan}/detections/{detection}/crop', [ScanController::class, 'crop'])->whereNumber(['scan', 'detection'])->name('scan.crop');
 

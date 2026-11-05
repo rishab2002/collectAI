@@ -4,10 +4,13 @@ namespace App\Http\Controllers\Account;
 
 use App\Exceptions\RecognizerUnavailableException;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreCarRequest;
 use App\Models\Casting;
 use App\Models\Scan;
 use App\Models\ScanDetection;
 use App\Models\Variation;
+use App\Services\Catalog\ManualCatalogEntry;
+use App\Services\Recognition\CardSuggestion;
 use App\Services\Recognition\ScanProcessor;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -98,6 +101,11 @@ class ScanController extends Controller
             'labelling' => $labelling,
             'lookalikes' => $lookalikes,
             'search' => $labelling ? $this->search((string) $request->query('q', '')) : collect(),
+            // Only an admin may add to the catalog from here, so only an admin
+            // is offered anything to add.
+            'suggestion' => $labelling && $request->user()->is_admin
+                ? CardSuggestion::from($scan->detections->firstWhere('id', $labelling) ?? new ScanDetection)
+                : null,
             'owned' => $request->user()->collectionItems()->whereIn('variation_id', $variations->keys())->pluck('quantity', 'variation_id'),
         ]);
     }
@@ -136,6 +144,68 @@ class ScanController extends Controller
         $processor->tidy($scan);
 
         return redirect()->route('scan.show', $scan)->with('status', 'Added '.$variation->release->castingVersion->casting->name.' to your collection.');
+    }
+
+    /**
+     * A car the catalog hasn't got yet, added from the scan that found it.
+     *
+     * The label panel can otherwise only offer what is already published, so a
+     * car nobody has entered cannot be named at all — and naming it is the
+     * whole point: a named crop is what teaches the recognizer, and the cars
+     * it gets wrong are exactly the ones missing from the catalog. This closes
+     * that loop without making the admin leave the scan, retype the card into
+     * Add a car and come back.
+     *
+     * It is the same `ManualCatalogEntry::createCar` the admin form uses, so
+     * the rules are not a second set: make and model or fantasy, exact
+     * case-insensitive lookups, published through `promoteWithDependencies()`.
+     * Admin only, for the reason manual entry is admin only — what is typed
+     * here goes live, and the admin is the reviewer.
+     */
+    public function catalog(StoreCarRequest $request, int $scan, int $detection, ManualCatalogEntry $entry, ScanProcessor $processor): RedirectResponse
+    {
+        abort_unless($request->user()->is_admin, 404);
+
+        $scan = $request->user()->scans()->findOrFail($scan);
+        $record = $scan->detections()->findOrFail($detection);
+
+        if (! $record->isPending()) {
+            return back()->with('status', 'Already answered.');
+        }
+
+        $result = $entry->createCar($request->validated());
+        $variation = $result->variation;
+        $casting = $variation->release->castingVersion->casting;
+
+        if (! $result->isLive()) {
+            // Only a live car can be collected, anywhere in the app. A new
+            // casting that says what it is has no blockers, so this is the
+            // unexpected branch — say what happened rather than lose it.
+            return redirect()->route('scan.show', $scan)->with(
+                'status',
+                "Added {$casting->name} to the catalog, but it is being held: ".implode(' ', $result->blockers),
+            );
+        }
+
+        DB::transaction(function () use ($request, $record, $variation): void {
+            $item = $request->user()->collectionItems()->firstOrNew(['variation_id' => $variation->getKey()]);
+            $item->quantity = $item->exists ? $item->quantity + 1 : 1;
+            $item->save();
+
+            $record->forceFill([
+                'decision' => ScanDetection::ADDED,
+                'variation_id' => $variation->getKey(),
+                // Named by a person, not confirmed from a suggestion: that is
+                // what the training export records this crop as.
+                'labelled_by_hand' => true,
+                'decided_at' => now(),
+            ])->save();
+        });
+
+        $processor->tidy($scan);
+
+        return redirect()->route('scan.show', $scan)
+            ->with('status', "Added {$casting->name} to the catalog and to your collection.");
     }
 
     public function reject(Request $request, int $scan, int $detection, ScanProcessor $processor): RedirectResponse

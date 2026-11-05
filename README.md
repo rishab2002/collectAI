@@ -743,6 +743,21 @@ A premium two-pack comes back as **two** cars, one per name printed on it.
      my collection* adds one (or one more, if you already have it).
    - **Found, but not sure what they are.** No guesses. *Name it* lets you
      search the catalog and pick the car yourself.
+   - **Not in the catalog? Add it** (admin only, inside *Name it*). The search
+     can only offer cars that are already published, and the ones the scanner
+     gets wrong are mostly the ones nobody has entered — so this adds the car
+     from the scan instead of sending you to *Add a car* to retype the card.
+     Fill in what the card says — Hot Wheels · Mainline › Factory Fresh ·
+     2026 · Porsche 911 Carrera T · grey — and it publishes the casting, its
+     release and its version, puts the car in your collection, and (with
+     sharing ticked) keeps the picture as a labelled example, which is how the
+     scanner learns the car for next time. It is prefilled from the card: the
+     name in the catalog's spelling rather than the card's capitals, the
+     brand, the year, the collector and toy numbers, and the make when the
+     catalog already knows it. The **model** is left for you, because it wants
+     the nameplate alone — `911`, not `911 Carrera T` — and guessing that
+     split is what fills `models` with near-duplicates. The **colour** is left
+     for you too: a sealed card shows its artwork, not its car.
 5. **Help teach the scanner** (the tick box) keeps the picture of each car you
    confirm or name, with what it is. That is the training data for a future
    recognizer that can name loose cars from the top (§5.9). Unticked, the

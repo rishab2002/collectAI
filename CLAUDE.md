@@ -8,7 +8,9 @@ update it whenever a convention changes.
 **Last edited:** 2026-11-05 (**`/scan` now reads cars still in their
 packaging** — `layout=packaged`, found by the printing on them rather than by
 their shape, measured on the owner's own photos; see
-[Recognition → Packaged cars](#packaged-cars-2026-11-05) and README §5.8.)
+[Recognition → Packaged cars](#packaged-cars-2026-11-05) and README §5.8. An
+admin can also add a car the catalog hasn't got from the scan that found it,
+so a crop can be labelled even when nothing in the catalog matches it.)
 Before that, 2026-11-04 (**the site is DEPLOYED and LIVE at
 https://collectai.club**, Railway + Supabase, **behind Cloudflare Access** —
 all measured below; the 525 is gone).
@@ -84,7 +86,7 @@ exists.*
 
 **Running:** `docker compose up -d` brings up `app` (:8000), `db` (Postgres 16,
 :5432), `redis` (:6379), `meilisearch` (:7700), `recognizer` (:8090).
-`php artisan test` → **387 passed, 1,587 assertions**; the recognizer's own
+`php artisan test` → **391 passed, 1,619 assertions**; the recognizer's own
 `python -m unittest discover -s tests -t .` (in `recognizer/`) → **66 passed**
 (both re-measured 2026-11-05). The `recognizer` image **does** build and run
 now (`docker compose up -d recognizer`, healthy, `/health` ok); its Tesseract
@@ -229,7 +231,7 @@ There is still no CI: no `.github/workflows`, and a deploy is `git pull` plus
 queue worker, `APP_URL=http://localhost` — reachable only from this Mac on
 `localhost:8000`.
 
-**The HTTP surface is forty-six routes** by `route:list` (2026-11-03 night; that count includes `up` and two `storage/{path}`). The table lists the catalog and admin ones; the collector routes are `/register`, `/collection` (GET/POST/PATCH/DELETE), `/wishlist`, `/account` (GET/PUT password/DELETE) and `/scan` (index, store, show, destroy, and per detection add/reject/crop):
+**The HTTP surface is forty-nine routes** by `route:list` (2026-11-05; that count includes `up` and two `storage/{path}`). The table lists the catalog and admin ones; the collector routes are `/register`, `/collection` (GET/POST/PATCH/DELETE), `/wishlist`, `/account` (GET/PUT password/DELETE) and `/scan` (index, store, show, destroy, and per detection add/reject/crop/**catalog** — the last admin-only, 404 for anyone else):
 
 | Route | State |
 |---|---|
@@ -1590,6 +1592,17 @@ the [session log](docs/session-log.md).*
   A miss costs a near-duplicate an admin can see; a fuzzy hit files a car as a
   different car. Generation is one claim — a chassis code or end year without a
   start year is refused, not half-stored.
+- **A scan is a third entry point** (2026-11-05, `ScanController::catalog`,
+  `scan.partials.add-to-catalog`). Naming a car at `/scan` could only ever
+  offer what was already published, so the cars the recognizer gets wrong —
+  which are mostly the ones nobody has entered — were the ones that could not
+  be named at all, and a label is what teaches the recognizer. It calls the
+  same `ManualCatalogEntry::createCar`, so there is no second set of rules,
+  and it is admin-only for the reason the whole of manual entry is: what is
+  typed goes live. `CardSuggestion` prefills it from the reading — never the
+  model, because `models.name` wants the nameplate alone and guessing the
+  split off "Porsche 911 Carrera T" is how the trim-named near-duplicates got
+  there; and never the colour, because a sealed package shows its artwork.
 - **New castings and new variations are separate entry points.** "Add a car"
   always mints a casting; a new colour or year is added from the existing
   casting's page. Matching a typed casting name to an existing one would merge
@@ -1735,6 +1748,13 @@ scaled down first measurably loses reads.
   Without consent they are deleted when the scan is answered or after 24 h.
 - **Training data is consented scan crops and nothing else** — the
   *Data sources* rules apply to training exactly as to catalog photos.
+- **A car the catalog hasn't got can be added from the scan that found it**
+  (admin only; see [Manual entry](#manual-entry)). This is what closes the
+  loop the scanner needs: a crop can only become a training label once it has
+  a variation to point at, and `catalog:export-training-data` takes consented
+  crops with `decision = added` and a `variation_id`. Limiting labels to live
+  castings meant the cars most worth learning were the ones that could never
+  be labelled.
 - **`LocalMetadataAgent` scores**: make + nameplate in the name 0.93 (publishes
   at the 0.9 import bar), nameplate only 0.85 (review), fantasy list 0.95. It
   never claims a generation. Ordinary-word nameplates (`needs_make`) count only
