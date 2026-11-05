@@ -178,9 +178,23 @@ class ScanController extends Controller
             return back()->with('status', 'Already answered.');
         }
 
-        $result = $entry->createCar($request->validated());
+        // Queued, the car is saved pending and goes to /admin/proposals to be
+        // checked before the public catalog has it. Published, it is live at
+        // once, which is what typing a car in has always meant.
+        $queue = $request->boolean('queue_for_review');
+        $result = $entry->createCar($request->validated(), publish: ! $queue);
         $variation = $result->variation;
         $casting = $variation->release->castingVersion->casting;
+
+        if ($result->queued) {
+            // A pending car cannot be collected — only live variations can be,
+            // everywhere — so the detection stays pending too, and the
+            // collector adds it once it has been approved.
+            return redirect()->route('scan.show', $scan)->with(
+                'status',
+                "Saved {$casting->name} for review. Check it in Inferred records; it goes into the catalog, and into your collection, once you approve it.",
+            );
+        }
 
         if (! $result->isLive()) {
             // Only a live car can be collected, anywhere in the app. A new

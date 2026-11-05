@@ -54,6 +54,7 @@ class ProposalReviewController extends Controller
         $proposals = SubmissionProposal::query()
             ->whereNull('submission_id')
             ->undecided()
+            ->recordStillExists()
             // Oldest first: the queue is worked through, not browsed, and a
             // stable order means paging through it doesn't reshuffle under you
             // as rows are decided and drop out.

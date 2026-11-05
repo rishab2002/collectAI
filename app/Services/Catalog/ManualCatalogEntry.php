@@ -10,6 +10,7 @@ use App\Models\ReferenceItem;
 use App\Models\ReferenceLink;
 use App\Models\Release;
 use App\Models\Series;
+use App\Models\SubmissionProposal;
 use App\Models\Variation;
 use App\Models\VehicleModel;
 use Illuminate\Support\Facades\DB;
@@ -37,11 +38,18 @@ final class ManualCatalogEntry
     /**
      * A new casting, with its first release and variation.
      *
+     * `$publish` false saves the car and queues it instead: the records stay
+     * pending and a proposal joins the inferred-records queue, where it is
+     * approved the same way anything else there is. Typing a car in is
+     * normally its own review — the admin is the reviewer — but a car read
+     * off a card at a glance is worth a second look before the public catalog
+     * has it, and the queue is where second looks happen.
+     *
      * @param  array<string, mixed>  $data  Validated by StoreCarRequest.
      */
-    public function createCar(array $data): ManualEntryResult
+    public function createCar(array $data, bool $publish = true): ManualEntryResult
     {
-        return DB::transaction(function () use ($data): ManualEntryResult {
+        return DB::transaction(function () use ($data, $publish): ManualEntryResult {
             $fantasy = (bool) ($data['is_fantasy'] ?? false);
 
             $casting = Casting::create([
@@ -58,8 +66,21 @@ final class ManualCatalogEntry
                 'version_number' => 1,
             ]);
 
-            $result = $this->addRelease($version, $data);
+            $result = $this->addRelease($version, $data, $publish);
             $this->linkReference($data, $casting, $result);
+
+            if (! $publish) {
+                // One proposal, and it goes on the **variation** — the bottom
+                // of the chain, not the casting at the top. Approval walks
+                // upward only, which is settled, so approving the variation
+                // publishes the make, model, casting, version, series and
+                // release above it in one click, while approving the casting
+                // would publish the casting and leave the actual car pending.
+                SubmissionProposal::create([
+                    'proposable_type' => $result->variation->getMorphClass(),
+                    'proposable_id' => $result->variation->getKey(),
+                ]);
+            }
 
             return $result;
         });
@@ -134,7 +155,7 @@ final class ManualCatalogEntry
     /**
      * @param  array<string, mixed>  $data
      */
-    private function addRelease(CastingVersion $version, array $data): ManualEntryResult
+    private function addRelease(CastingVersion $version, array $data, bool $publish = true): ManualEntryResult
     {
         $series = $this->series($this->brand($data['brand']), $data['series'], $data['line'] ?? null);
 
@@ -178,11 +199,11 @@ final class ManualCatalogEntry
 
         $blockers = $variation->approvalBlockers();
 
-        if ($blockers === []) {
+        if ($publish && $blockers === []) {
             $variation->promoteWithDependencies();
         }
 
-        return new ManualEntryResult($variation->refresh(), $blockers);
+        return new ManualEntryResult($variation->refresh(), $blockers, queued: ! $publish);
     }
 
     /**

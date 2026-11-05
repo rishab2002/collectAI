@@ -88,7 +88,7 @@ exists.*
 
 **Running:** `docker compose up -d` brings up `app` (:8000), `db` (Postgres 16,
 :5432), `redis` (:6379), `meilisearch` (:7700), `recognizer` (:8090).
-`php artisan test` → **394 passed, 1,636 assertions**; the recognizer's own
+`php artisan test` → **397 passed, 1,653 assertions**; the recognizer's own
 `python -m unittest discover -s tests -t .` (in `recognizer/`) → **70 passed**
 (both re-measured 2026-11-05). The `recognizer` image **does** build and run
 now (`docker compose up -d recognizer`, healthy, `/health` ok); its Tesseract
@@ -994,6 +994,16 @@ The rationale for each is in the [session log](docs/session-log.md).*
   carries the word, so `whereNull('decision')` matches zero rows and reports an
   empty queue whichever way the backlog is actually going — the one wrong answer
   that looks like success. Query `where('decision', 'pending')`.
+- **A record that is deleted takes its proposal with it**
+  (`HasApprovalStatus::bootHasApprovalStatus`, 2026-11-05). The table is
+  polymorphic, so there is no foreign key and nothing in the database keeps
+  the two in step — that is the price of the polymorphic table and it has to
+  be paid in the application. Unpaid, it is paid by the review screen: one
+  proposal for a `VehicleModel` that had been deleted rendered as null,
+  `ProposalPresenter::for()` refused a null, and the whole submission queue
+  returned a 500 the admin could not get past. Both review queries also carry
+  `->recordStillExists()`, because the hook cannot retrieve rows orphaned
+  before it existed.
 - **Rejected is a terminal state, not a delete**, so a resubmitted photo can be
   recognised as something an admin already turned down.
 - **`config/catalog.php`** holds the admin identity and
@@ -1611,6 +1621,17 @@ the [session log](docs/session-log.md).*
   and `ManualCatalogEntry` takes "the row the release hangs on" plus "its
   parent" — the request maps the card's words onto those. An empty sub-series
   hangs the release on the line itself.
+- **A car entered from a scan can be queued instead of published**
+  (`createCar(..., publish: false)`, 2026-11-05). Typing a car in is normally
+  its own review — the admin is the reviewer — but a car read off a card at a
+  glance is worth a second look before the public catalog has it. Queued, the
+  records stay pending and one proposal joins `/admin/proposals`. **The
+  proposal goes on the variation, not the casting**: approval walks upward
+  only, so the variation carries the make, model, casting, version, series and
+  release up with it in one click, where a proposal on the casting would
+  publish the casting and leave the actual car pending. A pending variation
+  cannot be collected, so the car joins the collector's collection only once
+  it is approved.
 - **A scan is a third entry point** (2026-11-05, `ScanController::catalog`,
   `scan.partials.add-to-catalog`). Naming a car at `/scan` could only ever
   offer what was already published, so the cars the recognizer gets wrong —

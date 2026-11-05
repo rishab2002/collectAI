@@ -769,6 +769,13 @@ A premium two-pack comes back as **two** cars, one per name printed on it.
      empty and the car hangs on the line itself. The lists are the brand's
      own and capped at 400, so a series missing from the drop-down is not a
      problem: type it.
+
+     **Check it before it goes live** (the tick box) holds the car back
+     instead of publishing it: the records are saved pending and the car
+     appears in *Inferred records* (`/admin/proposals`) to approve. Approving
+     publishes the whole car in one click and it is collectable from then on —
+     until then it is in neither the public catalog nor your collection. Worth
+     ticking for anything read off a card at a glance rather than checked.
 5. **Help teach the scanner** (the tick box) keeps the picture of each car you
    confirm or name, with what it is. That is the training data for a future
    recognizer that can name loose cars from the top (§5.9). Unticked, the
