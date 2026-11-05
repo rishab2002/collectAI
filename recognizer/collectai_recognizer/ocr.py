@@ -23,7 +23,26 @@ TESSERACT = os.environ.get("TESSERACT_CMD", "tesseract")
 class Reading:
     words: list[tuple[str, float]] = field(default_factory=list)   # (word, confidence 0-1)
     lines: list[str] = field(default_factory=list)
+    heights: list[float] = field(default_factory=list)             # letter height of each line, in pixels
+    boxes: list[tuple[int, int, int, int]] = field(default_factory=list)   # x, y, w, h of each line
+    scores: list[float] = field(default_factory=list)              # mean word confidence of each line
     rotation: int = 0
+
+    @property
+    def headline(self) -> str | None:
+        """The line printed largest — on a package, the car's name.
+
+        A person reads a blister card the same way: the biggest words on it
+        are the car, and everything else — the series, the collector number,
+        the small print — is smaller. Worth having because a package that
+        matches nothing in the catalog can still be shown to its owner as the
+        car it says it is, rather than as a crop with no name.
+        """
+        candidates = [
+            (height, line) for line, height in zip(self.lines, self.heights)
+            if sum(c.isalpha() for c in line) >= 3
+        ]
+        return max(candidates)[1] if candidates else None
 
     @property
     def text(self) -> str:
@@ -40,7 +59,7 @@ class Reading:
         return round(sum(good) / len(good), 3) if good else 0.0
 
     def as_dict(self) -> dict:
-        return {"lines": self.lines, "confidence": self.confidence, "rotation": self.rotation}
+        return {"lines": self.lines, "headline": self.headline, "confidence": self.confidence, "rotation": self.rotation}
 
 
 def available() -> str | None:
@@ -68,6 +87,9 @@ def tesseract(gray: np.ndarray, psm: int = 11) -> Reading:
 def parse_tsv(tsv: str) -> Reading:
     words: list[tuple[str, float]] = []
     lines: dict[tuple[str, str, str], list[str]] = {}
+    heights: dict[tuple[str, str, str], list[float]] = {}
+    spans: dict[tuple[str, str, str], list[tuple[int, int, int, int]]] = {}
+    scored: dict[tuple[str, str, str], list[float]] = {}
     for row in tsv.splitlines()[1:]:
         cols = row.split("\t")
         if len(cols) < 12 or not cols[11].strip():
@@ -80,8 +102,30 @@ def parse_tsv(tsv: str) -> Reading:
             continue
         text = cols[11].strip()
         words.append((text, round(conf / 100, 3)))
-        lines.setdefault((cols[2], cols[3], cols[4]), []).append(text)
-    return Reading(words=words, lines=[" ".join(ws) for ws in lines.values()])
+        key = (cols[2], cols[3], cols[4])
+        lines.setdefault(key, []).append(text)
+        scored.setdefault(key, []).append(round(conf / 100, 3))
+        try:
+            heights.setdefault(key, []).append(float(cols[9]))
+            x, y, w, h = (int(cols[i]) for i in (6, 7, 8, 9))
+            spans.setdefault(key, []).append((x, y, x + w, y + h))
+        except ValueError:
+            pass
+    return Reading(
+        words=words,
+        lines=[" ".join(ws) for ws in lines.values()],
+        heights=[max(heights.get(k, [0.0])) for k in lines],
+        boxes=[_bounds(spans.get(k, [])) for k in lines],
+        scores=[round(sum(cs) / len(cs), 3) for k in lines if (cs := scored.get(k, [0.0]))],
+    )
+
+
+def _bounds(spans: list[tuple[int, int, int, int]]) -> tuple[int, int, int, int]:
+    if not spans:
+        return (0, 0, 0, 0)
+    x0 = min(s[0] for s in spans)
+    y0 = min(s[1] for s in spans)
+    return (x0, y0, max(s[2] for s in spans) - x0, max(s[3] for s in spans) - y0)
 
 
 def prepare(bgr: np.ndarray) -> np.ndarray:

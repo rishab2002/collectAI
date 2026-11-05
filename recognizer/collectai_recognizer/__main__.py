@@ -35,7 +35,8 @@ def main(argv: list[str] | None = None) -> int:
     scan.add_argument("--save-crops", metavar="DIR", help="write each detected car as a JPEG here")
     scan.add_argument("--all", action="store_true", help="also list cars that were found but not identified")
     scan.add_argument("--layout", choices=LAYOUTS, default="auto",
-                      help="single = one car or base close up; pile = several cars spread out; auto = guess")
+                      help="single = one car or base close up; pile = several loose cars spread out; "
+                           "packaged = cars still on their cards or in their boxes; auto = guess")
 
     card = sub.add_parser("card", help="read a carded car into the OCR schema")
     card.add_argument("photo")

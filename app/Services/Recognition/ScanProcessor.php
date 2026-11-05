@@ -77,9 +77,17 @@ final class ScanProcessor
                         'colour_family' => $found['colour']['family'] ?? null,
                         'reading' => [
                             'lines' => $found['text']['lines'] ?? [],
+                            // The largest line of print — on a package, the
+                            // car's name, whether or not the catalog has it.
+                            'headline' => $found['text']['headline'] ?? null,
                             'brand' => $found['read']['brand'] ?? null,
                             'copyright_year' => $found['read']['copyright_year'] ?? null,
                             'codes' => $found['read']['codes'] ?? [],
+                            // Packaged cars only: what the card says, in the
+                            // OCR Agent's shape (app/AI/schemas/ocr_output.json),
+                            // so a package that matched nothing still shows the
+                            // collector the brand and name it was printed with.
+                            'card' => $found['card'] ?? null,
                         ],
                         'match' => $match,
                         'confident' => $confident,

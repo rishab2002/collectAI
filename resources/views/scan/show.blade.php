@@ -15,7 +15,13 @@
 
     @if ($confident->isNotEmpty())
         <h2 class="mt-8 text-lg font-semibold">Identified — confirm each one</h2>
-        <p class="mt-1 text-sm text-neutral-500">The casting is what the scanner is sure of. Pick the version in your hand; the ones whose colour matches the photo come first.</p>
+        <p class="mt-1 text-sm text-neutral-500">The casting is what the scanner is sure of. Pick the version in your hand;
+            @if ($scan->layout === 'packaged')
+                the ones from the year printed on the card come first. Nothing in a photo of a sealed package says what colour the car is, so check before you add it.
+            @else
+                the ones whose colour matches the photo come first.
+            @endif
+        </p>
 
         <ul class="mt-4 space-y-4">
             @foreach ($confident as $detection)
@@ -25,9 +31,10 @@
                         <div class="min-w-0 flex-1">
                             <a href="{{ route('catalog.casting', $detection->casting_id) }}" class="block font-medium hover:underline">{{ $detection->casting?->name ?? $detection->match['casting_name'] }}</a>
                             <span class="block text-sm text-neutral-500">
-                                {{ number_format($detection->confidence * 100) }}% sure · photo {{ $detection->photo }}, car {{ $detection->number }}
+                                {{ number_format($detection->confidence * 100) }}% sure · photo {{ $detection->photo }}, {{ $scan->layout === 'packaged' ? 'package' : 'car' }} {{ $detection->number }}
                                 @if ($detection->colour_family) · looks {{ $detection->colour_family }}{{ $scan->layout !== 'single' && ($detection->reading['lines'] ?? []) ? ' (base or body)' : '' }} @endif
                             </span>
+                            @include('scan.partials.printed', ['detection' => $detection])
                             <span class="block text-xs text-neutral-500">{{ implode(' · ', $detection->match['reasons'] ?? []) }}</span>
                         </div>
                     </div>
@@ -85,7 +92,10 @@
     @if ($unnamed->isNotEmpty())
         <h2 class="mt-10 text-lg font-semibold">Found, but not sure what they are</h2>
         <p class="mt-1 text-sm text-neutral-500">
-            The scanner won't guess. Turn these over and scan the bases, or name them here{{ $scan->consent ? ' — each one you name teaches the scanner.' : '.' }}
+            The scanner won't guess.
+            {{ $scan->layout === 'packaged'
+                ? 'Either the card named a car the catalog hasn’t got yet, or the printing didn’t read. Name them here'
+                : 'Turn these over and scan the bases, or name them here' }}{{ $scan->consent ? ' — each one you name teaches the scanner.' : '.' }}
         </p>
 
         <ul class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -94,8 +104,9 @@
                     <div class="flex gap-3">
                         @include('scan.partials.crop', ['detection' => $detection])
                         <div class="min-w-0 flex-1 text-sm">
-                            <span class="block">Photo {{ $detection->photo }}, car {{ $detection->number }}@if ($detection->colour_family) · {{ $detection->colour_family }}@endif</span>
-                            @if ($lines = $detection->reading['lines'] ?? [])
+                            <span class="block">Photo {{ $detection->photo }}, {{ $scan->layout === 'packaged' ? 'package' : 'car' }} {{ $detection->number }}@if ($detection->colour_family) · {{ $detection->colour_family }}@endif</span>
+                            @include('scan.partials.printed', ['detection' => $detection])
+                            @if (! ($detection->reading['card'] ?? null) && ($lines = $detection->reading['lines'] ?? []))
                                 <span class="block truncate text-xs text-neutral-500">Read: “{{ Str::limit(implode(' / ', $lines), 80) }}”</span>
                             @endif
                             @if ($best = $detection->match['candidates'][0] ?? null)
@@ -129,7 +140,11 @@
 
     @if ($scan->detections->isEmpty())
         <p class="mt-6 rounded-xl border border-neutral-200 bg-white p-4 text-sm text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900">
-            No cars stood out from the background. Try a plain, contrasting surface with the cars spread apart, or choose “One car close up”.
+            @if ($scan->layout === 'packaged')
+                No packages were found. Lay the cards and boxes out face up on a plain surface, with a little space between them, and keep the whole of each one in the photo.
+            @else
+                No cars stood out from the background. Try a plain, contrasting surface with the cars spread apart, or choose “One car close up”.
+            @endif
         </p>
     @endif
 </x-layouts.app>

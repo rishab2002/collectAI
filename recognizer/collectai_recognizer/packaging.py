@@ -184,16 +184,209 @@ def _choose(proposals: list[Proposal], frame: float) -> list[Proposal]:
     return kept
 
 
-def find_packages(bgr: np.ndarray, limit: int = 60) -> list[Found]:
-    """Every retail package in the photo, in reading order."""
-    h, w = bgr.shape[:2]
-    kept = _choose(_from_surface(bgr) + _from_edges(bgr), float(h * w))
+# What a line of print has to look like to be a package's name rather than
+# something Tesseract made out of the carpet. Measured on the owner's photos:
+# over a hundred lines come back from a blanket or a rug, and almost every one
+# of them is short, lower case and badly scored, while every real name is six
+# or more characters printed in capitals. Hot Wheels and Matchbox both print
+# their car names that way, which is nearly the whole catalog — so a line in
+# mixed case has to have been read *well* instead, which is what a real
+# mixed-case name on a Mini GT or Tomica box reads like and what invented
+# words never do.
+MIN_PRINTED = 6
+MIN_CAPITALS = 0.6
+MIN_SCORE = 0.25
+CLEARLY_READ = 0.7
 
+
+def _is_printing(text: str, score: float) -> bool:
+    letters = [c for c in text if c.isalpha()]
+    if sum(c.isalnum() for c in text) < MIN_PRINTED or not letters:
+        return False
+    capitals = sum(c.isupper() for c in letters) / len(letters)
+    return score >= MIN_SCORE and (capitals >= MIN_CAPITALS or score >= CLEARLY_READ)
+
+# Packages are found at a bigger size than loose cars are. The name on a card
+# in a photo of a dozen is about 20 pixels tall here and about 14 at the
+# loose-car size, which is the difference between Tesseract reading it in the
+# whole-photo pass and not. Each package is then read again, from the photo as
+# taken, where it is taller still.
+SEGMENT_MAX_SIDE = 2400
+
+# How far from its own printing a package's crop reaches when no rectangle
+# was found round it, as a multiple of the printing's letter height. Enough
+# to take in the lines either side of a name; not so much that it reaches
+# into the package stacked behind it.
+TEXT_PAD = 1.5
+
+
+# How far beyond its own printing a package's evidence reaches, as a multiple
+# of the printing's letter height. A blister card carries its brand at the top
+# and its name at the bottom, so without this the brand is never read off a
+# card found by its name — and the brand is what tells two castings of one
+# name apart.
+CONTEXT_REACH = 4.0
+
+
+@dataclass
+class Region:
+    box: tuple[int, int, int, int]      # x, y, w, h of the printing, padded
+    printed: str                        # the print that marked it out, read whole-photo
+    context: str                        # print read near it, but not on it
+
+
+def _text_regions(bgr: np.ndarray) -> list[Region]:
+    """The blocks of printing in the photo, one per package that can be read.
+
+    This, and not the rectangle proposals, is what finds packages in the
+    photographs people actually take. Measured on the owner's own: packages
+    are laid overlapping, in a fan or a pile, on a carpet or a blanket — so
+    there is no gap between them to separate them by, no four clean edges
+    round any but the top one, and nothing like the plain contrasting surface
+    the loose-car instructions ask for. What there is, on every package that
+    can be identified at all, is its name printed across it. A package whose
+    printing is hidden under the next package cannot be named by anything, so
+    finding it would only produce a crop with no answer in it.
+    """
+    gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+    reading = ocr.tesseract(cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray))
+
+    lines = [
+        (box, height, text)
+        for box, height, text, score in zip(reading.boxes, reading.heights, reading.lines, reading.scores)
+        if box[2] > 0 and box[3] > 0 and _is_printing(text, score)
+    ]
+    if not lines:
+        return []
+
+    # Lines of one package's printing join up; the next package's are a line
+    # or more away. Both tests are in units of the printing's own size, so a
+    # close-up and a shelf shot are judged the same way.
+    parent = list(range(len(lines)))
+
+    def root(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for i, (a, ah, _) in enumerate(lines):
+        for j in range(i + 1, len(lines)):
+            b, bh, _ = lines[j]
+            reach = max(4.0, 1.2 * max(ah, bh))
+            across = max(0, max(a[0], b[0]) - min(a[0] + a[2], b[0] + b[2]))
+            down = max(0, max(a[1], b[1]) - min(a[1] + a[3], b[1] + b[3]))
+            if across <= reach and down <= reach:
+                parent[root(i)] = root(j)
+
+    groups: dict[int, list[tuple[tuple[int, int, int, int], float, str]]] = {}
+    for i in range(len(lines)):
+        groups.setdefault(root(i), []).append(lines[i])
+
+    H, W = bgr.shape[:2]
+    regions = []
+    for group in groups.values():
+        tall = max(h for _, h, _ in group)
+        pad = TEXT_PAD * tall
+        x0 = max(0, int(min(b[0] for b, _, _ in group) - pad))
+        y0 = max(0, int(min(b[1] for b, _, _ in group) - pad))
+        x1 = min(W, int(max(b[0] + b[2] for b, _, _ in group) + pad))
+        y1 = min(H, int(max(b[1] + b[3] for b, _, _ in group) + pad))
+        box = (x0, y0, x1 - x0, y1 - y0)
+        regions.append(Region(box, " ".join(t for _, _, t in group), _near(reading, box, CONTEXT_REACH * tall)))
+    return regions
+
+
+def _near(reading: ocr.Reading, box: tuple[int, int, int, int], reach: float) -> str:
+    """Every line read within `reach` of the box, but not inside it."""
+    x, y, w, h = box
+    out = []
+    for (bx, by, bw, bh), line in zip(reading.boxes, reading.lines):
+        if bw <= 0 or bh <= 0 or (x <= bx and by >= y and bx + bw <= x + w and by + bh <= y + h):
+            continue
+        if (max(0, max(x, bx) - min(x + w, bx + bw)) <= reach
+                and max(0, max(y, by) - min(y + h, by + bh)) <= reach):
+            out.append(line)
+    return " ".join(out)
+
+
+def _inside(region: tuple[int, int, int, int], p: Proposal, share: float = 0.8) -> bool:
+    """Is this block of printing on that package?
+
+    Mostly within, not wholly: the block is padded out from the printing
+    itself, so on a card whose name runs to the edge it spills a few pixels
+    over, and demanding all four corners then says the name is not on the
+    card it is printed on. Two blocks landing on one rectangle is how a card
+    with its name and its series on separate lines stays one package.
+    """
+    x, y, w, h = region
+    kind, points = cv2.rotatedRectangleIntersection(((x + w / 2, y + h / 2), (w, h), 0.0), p.rect)
+    if kind == cv2.INTERSECT_NONE or points is None or len(points) < 3:
+        return False
+    return cv2.contourArea(cv2.convexHull(points)) >= share * w * h
+
+
+def _as_found(points: np.ndarray, shape: tuple[int, int], region: "Region | None" = None) -> Found:
+    filled = np.zeros(shape, dtype=np.uint8)
+    cv2.drawContours(filled, [points], -1, 255, thickness=cv2.FILLED)
+    found = Found(box=cv2.boundingRect(points), contour=points, mask=filled, foreground=filled)
+    if region is not None:
+        found.printed, found.context = region.printed, region.context
+    return found
+
+
+def _one_each(found: list[Found], share: float = 0.5) -> list[Found]:
+    """One detection per package: drop a box mostly covered by a bigger one."""
+    kept: list[Found] = []
+    for f in sorted(found, key=lambda f: -f.box[2] * f.box[3]):
+        x, y, w, h = f.box
+        covered = False
+        for k in kept:
+            kx, ky, kw, kh = k.box
+            over = max(0, min(x + w, kx + kw) - max(x, kx)) * max(0, min(y + h, ky + kh) - max(y, ky))
+            covered = covered or over >= share * w * h
+        if not covered:
+            kept.append(f)
+    return kept
+
+
+def find_packages(bgr: np.ndarray, limit: int = 60, read_text: bool = True) -> list[Found]:
+    """Every retail package the photo can name, in reading order.
+
+    Two ways of seeing a package, used together: the printing on it says
+    there is one and roughly where, and a rectangle round it says exactly
+    where. The printing decides what is a package — rectangles alone find
+    nothing in a pile — and a rectangle, when there is one round that
+    printing, gives the straight, deskewed crop to read and to show.
+    """
+    h, w = bgr.shape[:2]
+    rectangles = _choose(_from_surface(bgr) + _from_edges(bgr), float(h * w))
+    regions = _text_regions(bgr) if (read_text and ocr.available()) else []
+
+    taken: list[Proposal] = []
     found: list[Found] = []
-    for p in kept:
-        filled = np.zeros((h, w), dtype=np.uint8)
-        cv2.drawContours(filled, [p.points], -1, 255, thickness=cv2.FILLED)
-        found.append(Found(box=cv2.boundingRect(p.points), contour=p.points, mask=filled, foreground=filled))
+    for region in regions:
+        around = [p for p in rectangles if _inside(region.box, p)]
+        if around:
+            rectangle = min(around, key=lambda p: p.area)
+            if any(r is rectangle for r in taken):
+                continue        # one card, two blocks of printing on it
+            taken.append(rectangle)
+            found.append(_as_found(rectangle.points, (h, w), region))
+        else:
+            x, y, rw, rh = region.box
+            found.append(_as_found(np.array([[[x, y]], [[x + rw, y]], [[x + rw, y + rh]], [[x, y + rh]]], np.int32),
+                                   (h, w), region))
+
+    # A rectangle with no printing found on it is a package too — most often
+    # one lying on its side, whose name the whole-photo pass reads sideways
+    # and so does not read at all. It is worth keeping because the per-package
+    # reader turns each crop every way up, so what the photo missed the crop
+    # can still get; and if it does not, an unnamed package is the honest
+    # answer. It is also all there is when nothing was printed anywhere — a
+    # layout photographed too far away to read, or no Tesseract.
+    found += [_as_found(p.points, (h, w)) for p in rectangles if not any(r is p for r in taken)]
+    found = _one_each(found)
 
     # Reading order: rows top to bottom, then left to right, banded by a
     # package's own height so a layout of five rows reads as five rows. By
@@ -249,11 +442,23 @@ def read_printed(
     min_margin: float = 0.08,
     rotations: tuple[int, ...] = ROTATIONS,
     stop_score: float | None = STOP_SCORE,
+    context: str = "",
+    printed: str = "",
 ) -> tuple[ocr.Reading, Evidence, Match | None]:
     """One package, read and matched. The shared half of `/read-card` and the
-    packaged scan: a capture and a scan read a card the same way."""
+    packaged scan: a capture and a scan read a card the same way.
+
+    `printed` is the same package's print as the whole-photo pass read it, and
+    both readings count. They disagree more than you would expect: on a
+    Matchbox card photographed from across a table the whole-photo pass read
+    "2024 TOYOTA TACOMA" at 92% and the crop, cut from the photo at full size
+    and enlarged, scored TOYOTA at 0 — correct, and thrown away by the rule
+    that a word under 0.4 is not evidence. That rule is right and stays; what
+    was wrong was using only one of the two readings. Only print that has
+    already passed `_is_printing` arrives here.
+    """
     reading = ocr.read(bgr, rotations=rotations, stop_score=stop_score)
-    evidence = Evidence.from_words(reading.words)
+    evidence = Evidence.from_words(reading.words, context=context, also=printed)
     match = Matcher(index, min_confidence, min_margin).match(evidence, printed=True) if index else None
     return reading, evidence, match
 

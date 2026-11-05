@@ -24,7 +24,12 @@
             <legend class="font-medium">What's in the photos?</legend>
             <div class="mt-2 space-y-2 text-sm">
                 <label class="flex items-start gap-2">
-                    <input type="radio" name="layout" value="pile" class="mt-1" @checked(old('layout', 'pile') === 'pile')>
+                    <input type="radio" name="layout" value="packaged" class="mt-1" @checked(old('layout', 'packaged') === 'packaged')>
+                    <span><strong>Cars still in their packaging</strong> — blister cards or boxes, laid out face up.
+                        <span class="block text-neutral-500">As many as fit. Each one is read off the printing on its card.</span></span>
+                </label>
+                <label class="flex items-start gap-2">
+                    <input type="radio" name="layout" value="pile" class="mt-1" @checked(old('layout') === 'pile')>
                     <span><strong>Several cars, spread out</strong> on a plain table or sheet, not touching.
                         <span class="block text-neutral-500">Best: lay them <em>upside down</em> so the base text shows.</span></span>
                 </label>
@@ -34,7 +39,7 @@
                 </label>
                 <label class="flex items-start gap-2">
                     <input type="radio" name="layout" value="auto" class="mt-1" @checked(old('layout') === 'auto')>
-                    <span>Not sure — let the scanner guess.</span>
+                    <span>Not sure — let the scanner guess between the two above it.</span>
                 </label>
             </div>
         </fieldset>
@@ -56,7 +61,7 @@
         <h2 class="font-medium text-neutral-900 dark:text-neutral-100">What it can and can't do yet</h2>
         <ul class="mt-2 list-disc space-y-1 pl-5">
             <li><strong>Bases:</strong> the casting name, © year and code printed underneath are read, so upside-down cars are identified best.</li>
-            <li><strong>Cards:</strong> the name and toy number on the card are read.</li>
+            <li><strong>Packaging:</strong> each card or box in the photo is found separately and named from the printing on it — the brand, the car's name, the collector number and the toy number. What a package shows of the car itself is ignored: the colour you see is the artwork's, and the car is sealed behind plastic.</li>
             <li><strong>Loose cars right way up:</strong> each one is found and its colour noted, and the scanner shows what it looks most like — but it won't name a car by looks alone until it has learned enough to be sure. Flip them over, or name them yourself on the next screen.</li>
             <li>Everything runs on collectAI's own server. No photo is sent to any outside service.</li>
         </ul>

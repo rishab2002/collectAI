@@ -8,7 +8,8 @@ authentication of its own and must not be published to the internet.
     POST /read-card     body = one image; reads a card into the OCR schema
 
 Query parameters on POST: min_confidence, min_margin, crops=0, and on
-/recognize layout=auto|pile|single (single = one car or base, close up).
+/recognize layout=auto|pile|single|packaged (single = one car or base, close
+up; packaged = cars still on their cards or in their boxes).
 The index file is re-read whenever it changes on disk, so a fresh export
 needs no restart. With RECOGNIZER_INDEX_URL set (Railway), the recognizer
 fetches that file from the app itself — see index_sync.
