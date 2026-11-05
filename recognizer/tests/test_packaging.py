@@ -12,7 +12,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from collectai_recognizer import logos, ocr, packaging
+from collectai_recognizer import brands, logos, ocr, packaging
 from collectai_recognizer.catalog import Matcher
 from collectai_recognizer.evidence import Evidence
 from collectai_recognizer.pipeline import recognise
@@ -139,7 +139,7 @@ class LogoTest(unittest.TestCase):
     def test_a_wordmark_on_a_field_of_brand_colour_is_read_as_its_brand(self):
         for printed, brand in (("HOT WHEELS", "Hot Wheels"), ("MATCHBOX", "Matchbox")):
             with self.subTest(brand=brand):
-                found = logos.read(card_with_logo("FORD MUSTANG", brand=printed))
+                found = logos.read(card_with_logo("FORD MUSTANG", brand=printed), brands.on_artwork(index()))
                 self.assertIsNotNone(found, f"{printed} logo not read")
                 self.assertEqual(brand, found[0])
                 self.assertGreaterEqual(found[1], logos.MIN_SIMILARITY)
@@ -147,7 +147,7 @@ class LogoTest(unittest.TestCase):
     def test_a_patch_of_brand_colour_with_no_wordmark_on_it_names_no_brand(self):
         # A brand is never guessed from colour: the patch has to spell
         # something out, and a car's name is not one of the four names.
-        self.assertIsNone(logos.read(card_with_logo("FORD MUSTANG", brand="FORD MUSTANG")))
+        self.assertIsNone(logos.read(card_with_logo("FORD MUSTANG", brand="FORD MUSTANG"), brands.on_artwork(index())))
 
     def test_the_brand_the_card_spells_out_beats_the_one_its_logo_draws(self):
         # "MATCHBOX" printed as type, a Hot Wheels logo beside it: type wins,

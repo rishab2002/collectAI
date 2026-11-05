@@ -809,13 +809,17 @@ others. Real photos will tell; `RECOGNIZER_MIN_CONFIDENCE` is the dial if it
 offers too much or too little.
 
 *Which brands it knows.* Not a fixed list. `recognizer/data/brands.json`
-seeds it with the makers worth knowing before the catalog has met them —
-Hot Wheels, Matchbox, Tomica, Mini GT, Schuco, Herpa, BBR, Para64, Inno64,
-Shadow Model, Majorette, Maisto, GreenLight, M2, Tarmac Works and about thirty
-more — and **every brand in your catalog is added to it automatically**, so a
+seeds it with **471 makers** — the mass-market names, the European and
+Japanese premium labels, the historic British and French ones, and some
+seventy modern Chinese and Hong Kong 1:64 boutiques (Street Weapon, Stance
+Hunters, Motorhelix, FuelMe, BM Creations, MASDI, Time Micro, Error 404 and
+the rest) — and **every brand in your catalog is added to it automatically**, so a
 brand you type into *Add a car* is recognised from the next index export with
 nothing to edit. Add to the file when you meet a maker neither half knows;
-`spellings` are what the text might read as. Lines are not brands there: TLV
+`spellings` are what the text might read as, and then run
+`recognizer/tests/test_brands.py`, which refuses a name that reads off
+ordinary card text — it is what kept OneModel out (it collides with "New
+Models"), along with Trax, Premium X and Star Race. Lines are not brands there: TLV
 and TLV Neo report Tomica, Kaido House reports Mini GT, because that is how
 the catalog files their cars — the line belongs in the series box.
 

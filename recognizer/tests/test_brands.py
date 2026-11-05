@@ -46,7 +46,10 @@ class SeedTest(unittest.TestCase):
         # Norev were reported off photographs that say neither.
         noise = "oostilsudionlanucoroevolution1xwagonhrcjonueeessssefnameermwe4aefape"
         self.assertIsNone(brands.known().match(noise, PRINTED_BRAND))
-        self.assertIsNone(brands.known().match(noise, MIN_SIMILARITY))
+        # Not asserted at the logo bar: 0.55 against 150 brands finds
+        # something in anything, which is why artwork is matched against the
+        # catalog's own brands instead. See on_artwork().
+        self.assertIsNone(brands.on_artwork(index()).match(noise, MIN_SIMILARITY))
 
     def test_but_a_short_name_actually_printed_is_still_read(self):
         self.assertEqual("Welly", brands.known().match("WELLY diecast", PRINTED_BRAND)[0])
@@ -141,20 +144,26 @@ class CatalogGrowsItTest(unittest.TestCase):
         # "Lesney" is what a 1960s Matchbox box says.
         self.assertEqual("Matchbox", brands.known(Catalog()).match("LESNEY ENGLAND", PRINTED_BRAND)[0])
 
-    def test_a_garbled_logo_read_survives_the_long_list(self):
-        # This is what made the long list look unusable: at 44 brands the
-        # photographs produced ten wrong brands where four had produced none.
-        # It was not the length, it was short names being found inside noise.
-        # With those spelled out, a garbled wordmark still lands on its brand.
-        vocabulary = brands.known(index())
+    def test_artwork_is_matched_only_against_the_brands_the_catalog_holds(self):
+        """A garbled wordmark resolves by elimination, so the list is short.
+
+        Not an arbitrary caution: at 150 brands "eas See" reads as Fast Speed
+        and a line of carpet noise as GL Motion, both at 0.667. The catalog's
+        own brands are the list with evidence behind them, and it grows as
+        brands are added — which is the point.
+        """
+        self.assertEqual(("Hot Wheels", "Matchbox"), brands.on_artwork(index()).names)
+        self.assertEqual((), brands.on_artwork(None).names)
+
+        short = brands.on_artwork(index())
         for garbled, brand in (("Hor wres", "Hot Wheels"), ("JTIATLHBOX", "Matchbox"),
                                ("MTATLHBON WWF", "Matchbox")):
             with self.subTest(garbled=garbled):
-                self.assertEqual(brand, vocabulary.match(garbled, MIN_SIMILARITY)[0])
+                self.assertEqual(brand, short.match(garbled, MIN_SIMILARITY)[0])
 
         for junk in ("Sane — Waa", "eas See", "JNATO 7 A$", "Antoatns ;", "wield", "Jy ap ase"):
             with self.subTest(junk=junk):
-                self.assertIsNone(vocabulary.match(junk, MIN_SIMILARITY))
+                self.assertIsNone(short.match(junk, MIN_SIMILARITY))
 
 
 class EvidenceTest(unittest.TestCase):

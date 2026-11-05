@@ -89,7 +89,7 @@ exists.*
 **Running:** `docker compose up -d` brings up `app` (:8000), `db` (Postgres 16,
 :5432), `redis` (:6379), `meilisearch` (:7700), `recognizer` (:8090).
 `php artisan test` → **398 passed, 1,659 assertions**; the recognizer's own
-`python -m unittest discover -s tests -t .` (in `recognizer/`) → **70 passed**
+`python -m unittest discover -s tests -t .` (in `recognizer/`) → **84 passed**
 (both re-measured 2026-11-05). The `recognizer` image **does** build and run
 now (`docker compose up -d recognizer`, healthy, `/health` ok); its Tesseract
 is 5.3.0 where a current Homebrew one is 5.5.4, and they read a hard photo
@@ -1809,9 +1809,11 @@ scaled down first measurably loses reads.
   Without consent they are deleted when the scan is answered or after 24 h.
 - **Training data is consented scan crops and nothing else** — the
   *Data sources* rules apply to training exactly as to catalog photos.
-- **`recognizer/data/brands.json` is the one brand vocabulary**, read by the
-  card reader and the logo reader alike, exactly as `colour_families.json` is
-  the one colour vocabulary. It is a **seed, not a limit**: `brands.known()`
+- **`recognizer/data/brands.json` is the brand vocabulary** — **471 brands,
+  688 spellings** as of 2026-11-05, researched rather than recalled: the
+  mass-market makers, the European and Japanese premium labels, the historic
+  British and French ones, and some 70 modern Chinese and Hong Kong 1:64
+  boutiques. It is a **seed, not a limit**: `brands.known()`
   adds every brand name in the catalog index, so a brand typed into the
   Add-a-car form is recognised from the next index export with nothing edited
   in the recognizer. The file is for the makers the catalog has not met yet —
@@ -1829,10 +1831,20 @@ scaled down first measurably loses reads.
     measure exactly as 4 did: no wrong brand on any photograph, by either
     route. "Whole *words*", plural, because "Mini GT" compacts to six
     characters across two tokens and a single-token test would never find it.
-  - Briefly there were two vocabularies, a long one for type and a short
-    catalog-only one for logos. There is one. The short list was treating the
-    symptom; scoping measured identically once the real cause was fixed, and
-    it would have stopped a Schuco logo ever being read.
+  - **There are two vocabularies and the reason is measured, twice over.**
+    `known()` — the whole list, ~470 brands — is for text set in plain type
+    at 0.86, where the corpus measures clean. `on_artwork()` — the catalog's
+    own brands only — is for logos at 0.55, where a garbled wordmark resolves
+    by elimination rather than by being any good. The split was built at 44
+    brands, then **deleted** because the whole-word rule made 44 measure
+    exactly like 4, then **restored** at 150 when "eas See" came back as Fast
+    Speed and carpet noise as GL Motion. The whole-word rule bought headroom;
+    it did not make 0.55 safe at any length. A brand the catalog has never
+    met is still read off a box that prints its name in type, which is what
+    the seed list is for.
+  - **A logo reader handed no vocabulary matches nothing**, never "all of
+    them" — `logos.read` defaults to an empty one. The default used to be the
+    whole list and a card came back branded Gamda.
 - **Brand logos are read as the text they are** (`logos.py`, 2026-11-05). A
   Hot Wheels flame and a Matchbox box are type drawn as artwork, and
   Tesseract reading a whole card never finds them — so until now a Hot Wheels
