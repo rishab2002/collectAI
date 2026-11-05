@@ -28,8 +28,7 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
-from . import ocr
-from .textmatch import best_window, compact
+from . import brands, ocr
 
 # Red through yellow. Red alone was the obvious choice and it is wrong: the
 # mainline Hot Wheels logo is a red flame, but the Premium one is **yellow on
@@ -61,14 +60,6 @@ TARGET_HEIGHT = 220
 # Only the biggest few patches are worth a Tesseract call each.
 MAX_REGIONS = 3
 
-WORDMARKS = {
-    "Hot Wheels": "hotwheels",
-    "Matchbox": "matchbox",
-    "Tomica": "tomica",
-    "Mini GT": "minigt",
-}
-
-
 def regions(bgr: np.ndarray) -> list[tuple[int, int, int, int]]:
     """The logo-shaped patches of brand colour, biggest first."""
     hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
@@ -97,7 +88,8 @@ def regions(bgr: np.ndarray) -> list[tuple[int, int, int, int]]:
     return sorted(found, key=lambda r: -r[2] * r[3])[:MAX_REGIONS]
 
 
-def read_patch(bgr: np.ndarray, box: tuple[int, int, int, int], scale: float = 1.0) -> tuple[str, float] | None:
+def read_patch(bgr: np.ndarray, box: tuple[int, int, int, int], scale: float = 1.0,
+               vocabulary: "brands.Vocabulary | None" = None) -> tuple[str, float] | None:
     """The brand one patch of artwork spells out, and how sure, or None.
 
     `scale` is how much smaller the image the box was found in is than `bgr`,
@@ -118,34 +110,33 @@ def read_patch(bgr: np.ndarray, box: tuple[int, int, int, int], scale: float = 1
     gray = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8)).apply(cv2.cvtColor(big, cv2.COLOR_BGR2GRAY))
     _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
+    words = vocabulary or brands.known()
     best: tuple[str, float] | None = None
     for image in (binary, gray):
-        flat = compact(ocr.tesseract(image, psm=8).text)
-        if len(flat) < 4:
-            continue
-        for brand, wordmark in WORDMARKS.items():
-            score = best_window(wordmark, flat)
-            if score >= MIN_SIMILARITY and (best is None or score > best[1]):
-                best = (brand, round(score, 3))
+        text = ocr.tesseract(image, psm=8).text
+        found = words.match(text, MIN_SIMILARITY)
+        if found and (best is None or found[1] > best[1]):
+            best = found
     return best
 
 
-def read(bgr: np.ndarray) -> tuple[str, float] | None:
+def read(bgr: np.ndarray, vocabulary: "brands.Vocabulary | None" = None) -> tuple[str, float] | None:
     """The brand the artwork in this one image says it is. For a whole card."""
     for box in regions(bgr):
-        if (found := read_patch(bgr, box)) is not None:
+        if (found := read_patch(bgr, box, vocabulary=vocabulary)) is not None:
             return found
     return None
 
 
-def find(full: np.ndarray, work: np.ndarray, scale: float) -> list[tuple[tuple[int, int, int, int], str]]:
+def find(full: np.ndarray, work: np.ndarray, scale: float,
+         vocabulary: "brands.Vocabulary | None" = None) -> list[tuple[tuple[int, int, int, int], str]]:
     """Every brand logo in the photo: where it is, in `work` coordinates, and
     what it says. One pass, because a logo belongs to a card and a card can
     hold two cars — and because a Tesseract call per package per logo adds up.
     """
     out = []
     for box in regions(work):
-        if (found := read_patch(full, box, scale)) is not None:
+        if (found := read_patch(full, box, scale, vocabulary)) is not None:
             out.append((box, found[0]))
     return out
 

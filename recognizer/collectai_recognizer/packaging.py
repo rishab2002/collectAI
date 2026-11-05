@@ -26,7 +26,7 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 
-from . import logos, ocr
+from . import brands, logos, ocr
 from .catalog import CatalogIndex, Match, Matcher
 from .evidence import Evidence
 from .segment import Found, background_difference
@@ -446,6 +446,7 @@ def read_printed(
     printed: str = "",
     artwork: bool = True,
     logo_brand: str | None = None,
+    vocabulary: "brands.Vocabulary | None" = None,
 ) -> tuple[ocr.Reading, Evidence, Match | None]:
     """One package, read and matched. The shared half of `/read-card` and the
     packaged scan: a capture and a scan read a card the same way.
@@ -463,9 +464,10 @@ def read_printed(
     # `artwork` looks for a logo on this crop, which is right when the crop is
     # a whole card — `/read-card`. In a scan the logos are found across the
     # photo instead and the answer arrives as `logo_brand`.
-    logo = logos.read(bgr) if artwork else None
+    vocabulary = vocabulary or brands.known(index)
+    logo = logos.read(bgr, vocabulary) if artwork else None
     evidence = Evidence.from_words(reading.words, context=context, also=printed,
-                                   logo_brand=logo[0] if logo else logo_brand)
+                                   logo_brand=logo[0] if logo else logo_brand, vocabulary=vocabulary)
     match = Matcher(index, min_confidence, min_margin).match(evidence, printed=True) if index else None
     return reading, evidence, match
 

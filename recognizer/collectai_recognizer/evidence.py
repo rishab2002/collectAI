@@ -5,14 +5,12 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from .textmatch import best_window, compact, meaningful
+from . import brands
+from .textmatch import compact, meaningful
 
-BRANDS = {
-    "Hot Wheels": ["hotwheels"],
-    "Matchbox": ["matchbox", "lesney"],
-    "Tomica": ["tomica", "tomytec"],
-    "Mini GT": ["minigt"],
-}
+# A brand set in plain type reads cleanly, so the bar is high: a wrong brand
+# marks a casting down by 0.2 and this is the only thing that can do that.
+PRINTED_BRAND = 0.86
 
 # A year only counts when it is marked as a copyright year (©, (C), "Mattel").
 # A bare 4-digit number on a base is as likely to be part of a name or a mould
@@ -60,7 +58,8 @@ class Evidence:
 
     @classmethod
     def from_words(cls, words: list[tuple[str, float]], min_word_confidence: float = 0.4,
-                   context: str = "", also: str = "", logo_brand: str | None = None) -> "Evidence":
+                   context: str = "", also: str = "", logo_brand: str | None = None,
+                   vocabulary: "brands.Vocabulary | None" = None) -> "Evidence":
         """Low-confidence words are noise from tampos and scratches; leave them out.
 
         `context` is print read near this one but not on the crop — on a
@@ -73,9 +72,10 @@ class Evidence:
         those things including the name. See `packaging.read_printed`.
         """
         kept = " ".join(w for w, c in words if c >= min_word_confidence)
-        evidence = cls.from_text(kept, everything=" ".join(w for w, _ in words) + " " + also + " " + context)
+        evidence = cls.from_text(kept, everything=" ".join(w for w, _ in words) + " " + also + " " + context,
+                                 vocabulary=vocabulary)
         if also.strip():
-            second = cls.from_text(also).text
+            second = cls.from_text(also, vocabulary=vocabulary).text
             if second and second != evidence.text:
                 evidence.alternates = [second]
         # Type beats artwork: a brand spelled out in the small print is read
@@ -85,14 +85,13 @@ class Evidence:
         return evidence
 
     @classmethod
-    def from_text(cls, text: str, everything: str | None = None) -> "Evidence":
+    def from_text(cls, text: str, everything: str | None = None,
+                  vocabulary: "brands.Vocabulary | None" = None) -> "Evidence":
         everything = everything if everything is not None else text
-        flat = compact(everything)
-        brand = None
-        for name, needles in BRANDS.items():
-            if any(best_window(n, flat) >= 0.86 for n in needles):
-                brand = name
-                break
+        # 0.86 against the brand vocabulary — the seed list plus whatever
+        # brands this catalog holds. See brands.py; it is not a fixed four.
+        found = (vocabulary or brands.known()).match(everything, PRINTED_BRAND)
+        brand = found[0] if found else None
 
         year = None
         for pattern in COPYRIGHT:
