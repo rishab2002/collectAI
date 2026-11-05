@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Brand;
 use App\Models\Casting;
 use App\Models\CastingVersion;
+use App\Models\Make;
 use App\Models\Release;
 use App\Models\Scan;
 use App\Models\ScanDetection;
@@ -262,6 +263,111 @@ class ScanTest extends TestCase
 
         $this->assertTrue($unsure->fresh()->labelled_by_hand);
         $this->assertSame($this->cars['Black']->id, $unsure->fresh()->variation_id);
+    }
+
+    /**
+     * The car on the card is not in the catalog — which is the usual case —
+     * so the admin adds it from the scan instead of being stuck with a search
+     * that can only offer what is already published.
+     */
+    public function test_an_admin_can_add_a_car_the_catalog_has_not_got_from_the_scan(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $this->user = $admin;
+        $scan = $this->scan(consent: true);
+        $unsure = $scan->detections->last();
+
+        $this->actingAs($admin)->post(route('scan.catalog', [$scan, $unsure]), [
+            'casting_name' => 'Porsche 911 Carrera T',
+            'brand' => 'Hot Wheels',
+            'line' => 'Mainline',
+            'series' => 'Factory Fresh',
+            'year' => 2026,
+            'color' => 'Grey',
+            'make' => 'Porsche',
+            'model' => '911',
+            'collector_number' => '15/250',
+        ])->assertRedirect(route('scan.show', $scan));
+
+        $casting = Casting::where('name', 'Porsche 911 Carrera T')->sole();
+        $this->assertSame(Casting::STATUS_LIVE, $casting->status);
+        $this->assertSame('Porsche', $casting->model->make->name);
+        $this->assertSame('911', $casting->model->name);
+
+        $variation = $casting->versions->first()->releases->first()->variations->first();
+        $this->assertSame(2026, $variation->release->year);
+        $this->assertSame('15/250', $variation->release->collector_number);
+        $this->assertSame('Factory Fresh', $variation->release->series->name);
+        $this->assertSame('Mainline', $variation->release->series->parent->name);
+
+        // In the collection, and the crop is now a labelled example.
+        $this->assertSame($variation->id, $admin->collectionItems()->sole()->variation_id);
+        $unsure->refresh();
+        $this->assertSame(ScanDetection::ADDED, $unsure->decision);
+        $this->assertSame($variation->id, $unsure->variation_id);
+        $this->assertTrue($unsure->labelled_by_hand);
+        $this->assertNotNull($unsure->crop_path, 'a consented crop is kept — it is the training label');
+    }
+
+    public function test_the_form_is_filled_in_from_what_the_card_said_and_only_for_an_admin(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        // The make has to be in the catalog for the form to offer it — the
+        // lookup is exact, never a guess at the first word of a name.
+        Make::query()->firstOrCreate(['name' => 'Porsche']);
+        $this->user = $admin;
+        $scan = $this->scan();
+        $detection = $scan->detections->last();
+        $detection->forceFill(['reading' => [
+            'lines' => ['PORSCHE 911 CARRERA T'],
+            'headline' => 'PORSCHE 911 CARRERA T',
+            'brand' => 'Hot Wheels',
+            'copyright_year' => 2026,
+            'codes' => [],
+            'card' => ['brand' => 'Hot Wheels', 'collector_number' => '15/250', 'toy_number' => 'HTB22'],
+        ]])->save();
+
+        $this->actingAs($admin)->get(route('scan.show', ['scan' => $scan, 'label' => $detection->id]))
+            ->assertOk()
+            ->assertSee('Not in the catalog? Add it')
+            // Capitals on the card, the catalog's spelling in the form — and
+            // the trailing T kept, not turned into "t".
+            ->assertSee('value="Porsche 911 Carrera T"', escape: false)
+            ->assertSee('value="Porsche"', escape: false)
+            ->assertSee('value="15/250"', escape: false)
+            ->assertSee('value="2026"', escape: false);
+
+        // A collector is not offered it, and the route denies them outright.
+        $collector = User::factory()->create();
+        $this->actingAs($collector)->get(route('scan.show', ['scan' => $scan, 'label' => $detection->id]))->assertNotFound();
+    }
+
+    public function test_a_collector_cannot_add_to_the_catalog_from_a_scan(): void
+    {
+        $scan = $this->scan();
+        $detection = $scan->detections->last();
+
+        $this->actingAs($this->user)->post(route('scan.catalog', [$scan, $detection]), [
+            'casting_name' => 'Porsche 911 Carrera T', 'brand' => 'Hot Wheels', 'series' => 'Factory Fresh',
+            'year' => 2026, 'make' => 'Porsche', 'model' => '911',
+        ])->assertNotFound();
+
+        $this->assertDatabaseMissing('castings', ['name' => 'Porsche 911 Carrera T']);
+        $this->assertTrue($detection->fresh()->isPending());
+    }
+
+    public function test_a_new_car_added_from_a_scan_must_still_say_what_it_is(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $this->user = $admin;
+        $scan = $this->scan();
+        $detection = $scan->detections->last();
+
+        $this->actingAs($admin)->post(route('scan.catalog', [$scan, $detection]), [
+            'casting_name' => 'Porsche 911 Carrera T', 'brand' => 'Hot Wheels', 'series' => 'Factory Fresh', 'year' => 2026,
+        ])->assertSessionHasErrors(['make', 'model']);
+
+        $this->assertDatabaseMissing('castings', ['name' => 'Porsche 911 Carrera T']);
     }
 
     public function test_only_live_cars_can_be_added(): void

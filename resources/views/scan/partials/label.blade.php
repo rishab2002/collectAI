@@ -12,6 +12,10 @@
         <p class="mt-2 text-sm text-neutral-500">No published casting by that name.</p>
     @endif
 
+    @if ($suggestion)
+        @include('scan.partials.add-to-catalog', ['detection' => $detection, 'suggestion' => $suggestion])
+    @endif
+
     @foreach ($search as $casting)
         <p class="mt-3 text-sm font-medium">{{ $casting->name }}</p>
         <ul class="mt-1 space-y-1">

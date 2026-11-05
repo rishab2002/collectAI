@@ -14,6 +14,53 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-11-05 — Labelling a car the catalog hasn't got
+
+Immediately after the packaged-scan work, the owner put the hole in it plainly:
+the scanner is wrong most of the time, and when it is, the only thing the Scan
+page offers is a search over **published** castings. Their example was a Hot
+Wheels mainline card — "Hot Wheels · Mainline 2026 · Porsche 911 Carrera T ·
+grey" — which is not in the catalog and therefore could not be named at all.
+
+The circularity is the point. A crop becomes a training label only once it
+points at a variation (`catalog:export-training-data` takes consented crops
+with `decision = added` and a `variation_id`). So the cars most worth teaching
+the recognizer — the ones it gets wrong, which are overwhelmingly the ones
+nobody has entered — were exactly the ones that could never be labelled. The
+catalog being the bottleneck was already measured in the packaged-scan work;
+this is the same bottleneck seen from the other end, and it is fixable without
+importing anything.
+
+**It reuses `ManualCatalogEntry::createCar`** rather than growing a second way
+to write catalog rows. That keeps one set of rules — make and model or
+fantasy, exact case-insensitive lookups, published through
+`promoteWithDependencies()`, a duplicate variation refused with the id it
+duplicates — and it keeps the request validation identical by reusing
+`StoreCarRequest` itself. Admin-only, for the reason all of manual entry is
+admin-only: what is typed goes live, and the admin is the reviewer. A
+collector gets a 404, not a 403, like the rest of the admin surface.
+
+**What the prefill will and will not guess** was the only real design
+question. `CardSuggestion` fills in the brand, the year, the collector and toy
+numbers, and the casting name re-cased from the card's capitals into the
+catalog's spelling — leaving a word alone when it contains a digit or is three
+characters or fewer, which is what keeps RX-7, STI, SRT and the trailing T of
+a Carrera T from becoming Rx-7, Sti, Srt and t. It offers the **make** only
+when the name starts with one `makes.name` already holds, matched exactly and
+longest-first, because that table is hard-unique and a fuzzy hit would file a
+Ford GT under Ferrari.
+
+It deliberately does not offer the **model**. The printed name is the casting
+name, "Porsche 911 Carrera T", while `models.name` wants the nameplate alone,
+"911" — and guessing that split is precisely how the catalog ended up with
+`Corvette Grand Sport` and `Hummer H2 SUT` sitting beside the generation rows,
+a backlog CLAUDE.md still carries. Nor does it offer a **colour**: the
+packaged scan reports none on purpose, because a sealed card shows its
+artwork and not its car, and inventing one on the form would undo that in the
+one place it matters.
+
+---
+
 ## 2026-11-05 — /scan for cars still in their packaging
 
 The Scan page was built for loose cars on a table: find car-shaped blobs
