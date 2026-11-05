@@ -7,12 +7,11 @@ import base64
 import cv2
 import numpy as np
 
-from . import ocr
+from . import ocr, packaging
 from .catalog import CatalogIndex, Matcher
 from .colours import classify_pixels, dominant
 from .evidence import Evidence
 from .segment import aligned_crop, find_objects, padded_crop, working_copy
-from .textmatch import best_window, compact
 
 
 def decode(data: bytes) -> np.ndarray:
@@ -44,6 +43,10 @@ def recognise(
     visual=None,
 ) -> dict:
     """`visual` is a loaded visual.VisualModel, or None to use text and colour only."""
+    if layout == "packaged":
+        return recognise_packages(bgr, index, min_confidence=min_confidence, min_margin=min_margin,
+                                  read_text=read_text, max_objects=max_objects, crops=crops)
+
     work, scale = working_copy(bgr)
     everything = find_objects(work, layout=layout)
     found = everything[:max_objects]
@@ -99,48 +102,83 @@ def recognise(
 def read_card(bgr: np.ndarray, index: CatalogIndex | None, *, min_confidence: float = 0.9, min_margin: float = 0.08) -> dict:
     """A carded car, read into the OCR Agent's output shape (ocr_output.json v1).
 
-    What the card says, as printed, with per-field confidence — the local stand-in
-    for the Claude vision call. Year and series are left null: on a card they are
-    artwork, not text Tesseract reads reliably, and a wrong year is worse than
-    none. The casting name is reported only when it matches a catalog casting
-    confidently, and then as the catalog spells it.
+    What the card says, as printed, with per-field confidence — the local
+    stand-in for the Claude vision call. One package filling the frame; the
+    same reader runs over every package found in a scan photo
+    (`packaging.recognise_packages`), so a capture and a scan read a card
+    identically. What it reports, and what it leaves null, is in
+    `packaging.card_output`.
     """
     work, _ = working_copy(bgr)
-    reading = ocr.read(work, rotations=(0, 90, 270))
-    evidence = Evidence.from_words(reading.words)
+    # Three rotations, all of them: one card in the frame is worth the time,
+    # and a close-up of a card is rarely upside down.
+    _, evidence, match = packaging.read_printed(
+        work, index, min_confidence=min_confidence, min_margin=min_margin,
+        rotations=(0, 90, 270), stop_score=None,
+    )
+    return packaging.card_output(evidence, match, index)
 
-    casting_name, casting_conf = None, 0.0
-    toy_number, toy_conf = None, 0.0
-    if index:
-        match = Matcher(index, min_confidence, min_margin).match(evidence)
-        if match.confident and match.best:
-            casting_name, casting_conf = match.best.name, round(match.best.score, 3)
-        for code in evidence.codes:
-            if code in index.toy_numbers:
-                toy_number, toy_conf = code, 0.95
-                break
-    if toy_number is None and evidence.codes:
-        toy_number, toy_conf = evidence.codes[0], 0.5
 
-    flat = compact(evidence.raw)
-    brand_conf = 0.0
-    if evidence.brand:
-        brand_conf = 0.9 if best_window(compact(evidence.brand), flat) >= 0.95 else 0.75
+def recognise_packages(
+    bgr: np.ndarray,
+    index: CatalogIndex | None,
+    *,
+    min_confidence: float = 0.9,
+    min_margin: float = 0.08,
+    read_text: bool = True,
+    max_objects: int = 40,
+    crops: bool = True,
+) -> dict:
+    """Every retail package in the photo, each named by what is printed on it.
+
+    No visual model and no colour: see `packaging`. The crops are cut from the
+    photo as taken rather than from the downscaled working copy, because the
+    name on a card in a photo of a dozen is small and reading it is the whole
+    job.
+    """
+    work, scale = working_copy(bgr)
+    everything = packaging.find_packages(work)
+    found = everything[:max_objects]
+    matcher = Matcher(index, min_confidence, min_margin) if index else None
+    detections = []
+
+    for n, obj in enumerate(found):
+        crop = packaging.deskewed_crop(bgr, obj.contour, scale)
+        reading, evidence, match = (ocr.Reading(), Evidence.from_text(""), None)
+        if read_text:
+            reading, evidence, match = packaging.read_printed(
+                crop, index, min_confidence=min_confidence, min_margin=min_margin,
+            )
+
+        x, y, w, h = obj.box
+        detections.append({
+            "n": n + 1,
+            "box": [round(x / scale), round(y / scale), round(w / scale), round(h / scale)],
+            "whole_frame": False,
+            # The colour of a package is the colour of its artwork: it says
+            # nothing about the car sealed behind the plastic, so it is not
+            # reported and never orders the versions offered.
+            "colour": {"family": None, "share": 0.0, "distribution": {}},
+            "text": reading.as_dict(),
+            "read": {
+                "brand": evidence.brand,
+                "copyright_year": evidence.copyright_year,
+                "codes": evidence.codes,
+            },
+            "card": packaging.card_output(evidence, match, index),
+            "match": match.as_dict() if match else None,
+            "looks": None,
+            "confident": bool(match and match.confident),
+            "crop_jpeg": jpeg_base64(crop) if crops else None,
+        })
 
     return {
-        "schema_version": 1,
-        "brand": evidence.brand,
-        "year": None,
-        "series": None,
-        "casting_name": casting_name,
-        "collector_number": evidence.collector_number,
-        "toy_number": toy_number,
-        "confidence": {
-            "brand": brand_conf,
-            "year": 0.0,
-            "series": 0.0,
-            "casting_name": casting_conf,
-            "collector_number": 0.7 if evidence.collector_number else 0.0,
-            "toy_number": toy_conf,
-        },
+        "width": bgr.shape[1],
+        "height": bgr.shape[0],
+        "found": len(everything),
+        "truncated": len(everything) > max_objects,
+        "confident": sum(1 for d in detections if d["confident"]),
+        "index": index.summary() if index else None,
+        "model": None,
+        "detections": detections,
     }

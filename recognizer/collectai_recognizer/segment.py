@@ -36,13 +36,38 @@ def working_copy(bgr: np.ndarray) -> tuple[np.ndarray, float]:
     return bgr, scale
 
 
-LAYOUTS = ("auto", "pile", "single")
+LAYOUTS = ("auto", "pile", "single", "packaged")
 
 
 def whole(h: int, w: int) -> list[Found]:
     full = np.full((h, w), 255, dtype=np.uint8)
     contour = np.array([[[0, 0]], [[w - 1, 0]], [[w - 1, h - 1]], [[0, h - 1]]], dtype=np.int32)
     return [Found(box=(0, 0, w, h), contour=contour, mask=full, foreground=full, whole_frame=True)]
+
+
+def background_difference(bgr: np.ndarray) -> np.ndarray:
+    """The pixels that differ from the colour of the photo's border.
+
+    The border is whatever the cars or packages are lying on — a table, a
+    sheet, the floor. Lightness counts for less than colour: a shadow on a
+    white table is a change in L only, and shouldn't swallow the gap between
+    two cars. Shared with the packaged-car segmenter in `packaging.py`.
+    """
+    h, w = bgr.shape[:2]
+    lab = cv2.cvtColor(bgr, cv2.COLOR_BGR2LAB).astype(np.float32)
+    lab[:, :, 0] *= 0.6
+
+    b = max(4, int(min(h, w) * 0.03))
+    border = np.concatenate([
+        lab[:b].reshape(-1, 3), lab[-b:].reshape(-1, 3),
+        lab[:, :b].reshape(-1, 3), lab[:, -b:].reshape(-1, 3),
+    ])
+    background = np.median(border, axis=0)
+    distance = np.linalg.norm(lab - background, axis=2)
+    noise = np.percentile(np.linalg.norm(border - background, axis=1), 95)
+    threshold = max(18.0, noise * 1.6)
+
+    return (distance > threshold).astype(np.uint8) * 255
 
 
 def find_objects(bgr: np.ndarray, min_area_share: float = 0.004, layout: str = "auto") -> list[Found]:
@@ -57,22 +82,7 @@ def find_objects(bgr: np.ndarray, min_area_share: float = 0.004, layout: str = "
     h, w = bgr.shape[:2]
     if layout == "single":
         return whole(h, w)
-    lab = cv2.cvtColor(bgr, cv2.COLOR_BGR2LAB).astype(np.float32)
-    # Lightness counts for less than colour: a shadow on a white table is a
-    # change in L only, and shouldn't swallow the gap between two cars.
-    lab[:, :, 0] *= 0.6
-
-    b = max(4, int(min(h, w) * 0.03))
-    border = np.concatenate([
-        lab[:b].reshape(-1, 3), lab[-b:].reshape(-1, 3),
-        lab[:, :b].reshape(-1, 3), lab[:, -b:].reshape(-1, 3),
-    ])
-    background = np.median(border, axis=0)
-    distance = np.linalg.norm(lab - background, axis=2)
-    noise = np.percentile(np.linalg.norm(border - background, axis=1), 95)
-    threshold = max(18.0, noise * 1.6)
-
-    differs = (distance > threshold).astype(np.uint8) * 255
+    differs = background_difference(bgr)
     k = max(3, int(min(h, w) * 0.012)) | 1
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
     mask = cv2.morphologyEx(differs, cv2.MORPH_CLOSE, kernel, iterations=2)

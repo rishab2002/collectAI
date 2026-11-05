@@ -55,6 +55,29 @@ final class RecognizerClient
             'min_margin' => (string) config('catalog.recognition.min_margin'),
         ];
 
+        $base = (string) config('catalog.recognition.url');
+
+        // A misconfigured address is a configuration problem, not a request
+        // that failed, and it arrives here looking like neither: an unset
+        // Railway variable reference leaves `http://:8080`, and Guzzle throws
+        // MalformedUriException from inside the client — an exception this
+        // class does not catch, so it escaped as a 500 on the live site
+        // (measured 2026-11-05) rather than as the message a person can act on
+        // that every other failure here becomes.
+        // Not blank(): parse_url() returns *false* for a URL this malformed,
+        // and blank(false) is false, so the guard would wave it straight
+        // through to the exception it exists to prevent.
+        $host = parse_url($base, PHP_URL_HOST);
+
+        if (! is_string($host) || $host === '') {
+            throw new RecognizerUnavailableException(sprintf(
+                'The recognizer address is not configured: RECOGNIZER_URL is "%s", which has no host. '
+                .'On Railway it should be http://${{<the recognizer service\'s name>.RAILWAY_PRIVATE_DOMAIN}}:8080 '
+                .'— an empty host means that reference names a service that does not exist.',
+                $base,
+            ));
+        }
+
         try {
             $response = Http::timeout(config('catalog.recognition.timeout'))
                 ->withBody($image, 'application/octet-stream')

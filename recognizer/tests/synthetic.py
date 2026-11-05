@@ -44,3 +44,45 @@ def base(lines: list[str], size=(420, 1500), upside_down: bool = False) -> np.nd
         cv2.putText(img, line, (60, y), cv2.FONT_HERSHEY_SIMPLEX, 2.2, (35, 35, 35), 5, cv2.LINE_AA)
         y += 120
     return cv2.rotate(img, cv2.ROTATE_180) if upside_down else img
+
+
+CARD_ART = {"orange": (30, 110, 235), "teal": (150, 140, 20), "purple": (140, 40, 110), "lime": (40, 190, 120)}
+
+
+def card(name: str, series: str | None = None, collector: str | None = None, toy: str | None = None,
+         size=(620, 420), art: str = "orange", landscape: bool = False) -> np.ndarray:
+    """A blister card: printed art, a blister bubble with a dark car in it, and
+    the casting name in big letters across the bottom — the only part of a
+    package that names the car."""
+    h, w = size
+    img = np.full((h, w, 3), CARD_ART[art], dtype=np.uint8)
+    cv2.rectangle(img, (6, 6), (w - 7, h - 7), (240, 240, 240), 4)           # the printed edge
+    cv2.rectangle(img, (int(w * 0.08), int(h * 0.14)), (int(w * 0.92), int(h * 0.60)), (235, 238, 240), -1)
+    car(img, (w // 2, int(h * 0.37)), (int(w * 0.62), int(h * 0.2)), "black")  # behind the plastic
+
+    scale = w / 420 * 0.95
+    cv2.putText(img, name, (int(w * 0.07), int(h * 0.75)), cv2.FONT_HERSHEY_DUPLEX, scale, (255, 255, 255), max(1, int(scale * 2)), cv2.LINE_AA)
+    if series:
+        cv2.putText(img, series, (int(w * 0.07), int(h * 0.84)), cv2.FONT_HERSHEY_SIMPLEX, scale * 0.5, (250, 250, 250), 1, cv2.LINE_AA)
+    if collector:
+        cv2.putText(img, collector, (int(w * 0.07), int(h * 0.93)), cv2.FONT_HERSHEY_SIMPLEX, scale * 0.45, (250, 250, 250), 1, cv2.LINE_AA)
+    if toy:
+        cv2.putText(img, toy, (int(w * 0.62), int(h * 0.93)), cv2.FONT_HERSHEY_SIMPLEX, scale * 0.45, (250, 250, 250), 1, cv2.LINE_AA)
+    return cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE) if landscape else img
+
+
+def layout(cards: list[np.ndarray], columns: int = 4, gap: int = 26, margin: int = 50,
+           surface=(206, 208, 210)) -> np.ndarray:
+    """Packages laid out in rows on a plain surface, the way a collection gets
+    photographed. Cell-sized so a landscape box sits beside a portrait card."""
+    cell_w = max(c.shape[1] for c in cards) + gap
+    cell_h = max(c.shape[0] for c in cards) + gap
+    rows = (len(cards) + columns - 1) // columns
+    img = np.full((rows * cell_h + 2 * margin - gap, columns * cell_w + 2 * margin - gap, 3), surface, dtype=np.uint8)
+    noise = np.random.default_rng(7).normal(0, 2.5, img.shape)
+    img = np.clip(img + noise, 0, 255).astype(np.uint8)
+    for i, c in enumerate(cards):
+        top = margin + (i // columns) * cell_h + (cell_h - gap - c.shape[0]) // 2
+        left = margin + (i % columns) * cell_w + (cell_w - gap - c.shape[1]) // 2
+        img[top:top + c.shape[0], left:left + c.shape[1]] = c
+    return img

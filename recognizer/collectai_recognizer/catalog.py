@@ -125,8 +125,13 @@ class Matcher:
         self.min_confidence = min_confidence
         self.min_margin = min_margin
 
-    def match(self, ev: Evidence, colour: str | None = None, visual=None) -> Match:
-        """`visual` is a visual.VisualResult for the same crop, or None."""
+    def match(self, ev: Evidence, colour: str | None = None, visual=None, printed: bool = False) -> Match:
+        """`visual` is a visual.VisualResult for the same crop, or None.
+
+        `printed` says the text came off packaging rather than off a car's
+        base, which changes what the copyright year means — see below — and
+        lets the versions offered be ordered by the year on the card.
+        """
         scores: dict[int, Candidate] = {}
 
         if len(ev.text) >= 3:
@@ -173,9 +178,21 @@ class Matcher:
                     c.reasons.append(f"base says {ev.brand}, casting is {', '.join(sorted(b for b in brands if b))}")
             first, last = casting.get("first_year"), casting.get("last_year")
             if ev.copyright_year and first:
+                if printed:
+                    # A card is printed for the year it is sold in, so its
+                    # copyright year falls inside the casting's own years.
+                    # Judging it by the base rule below would penalise exactly
+                    # the right answer: a 2024 card for a tool cut in 2010 is
+                    # neither near the first release nor after the last.
+                    if first - 1 <= ev.copyright_year <= (last or first) + 1:
+                        c.score += 0.03
+                        c.reasons.append(f"© {ev.copyright_year} is within {first}–{last or first}")
+                    else:
+                        c.score -= 0.1
+                        c.reasons.append(f"© {ev.copyright_year} is outside {first}–{last or first}")
                 # A base carries the year the tool was cut, a year or so before
                 # the first release.
-                if first - 8 <= ev.copyright_year <= first + 1:
+                elif first - 8 <= ev.copyright_year <= first + 1:
                     c.score += 0.03
                     c.reasons.append(f"© {ev.copyright_year} fits first release {first}")
                 elif ev.copyright_year > (last or first) + 1:
@@ -201,7 +218,8 @@ class Matcher:
             for m in visual.candidates:
                 if m.casting_id == best.casting_id:
                     looks = m.variations
-        variations = self.variations_for(best.casting_id, colour, ev.codes, looks) if confident else []
+        variations = self.variations_for(best.casting_id, colour, ev.codes, looks,
+                                         year=ev.copyright_year if printed else None) if confident else []
         return Match(confident, ranked, variations)
 
     def _apply_visual(self, scores: dict[int, Candidate], visual) -> None:
@@ -234,6 +252,14 @@ class Matcher:
                 c.reasons.append("above the measured bar")
 
     @staticmethod
+    def _year_match(printed: int | None, year: int | None) -> float:
+        """1 for the same year, 0.5 for either side of it — a card is printed
+        a little before the year it is sold in."""
+        if not printed or not year:
+            return 0.0
+        return 1.0 if printed == year else (0.5 if abs(printed - year) == 1 else 0.0)
+
+    @staticmethod
     def _numbers_agree(alias: str, tokens: set[str]) -> bool:
         """RX-3 is not RX-7. Every number in a name must be read, exactly.
 
@@ -257,7 +283,10 @@ class Matcher:
         return kept
 
     def variations_for(self, casting_id: int, colour: str | None, codes: list[str],
-                       looks: dict[int, float] | None = None, limit: int = 12) -> list[dict]:
+                       looks: dict[int, float] | None = None, limit: int = 12,
+                       year: int | None = None) -> list[dict]:
+        """`year` is the year printed on a package, which orders the versions
+        ahead of anything a photograph of a sealed card can say about colour."""
         pal = palette()
         out = []
         for v in self.index.variations.get(casting_id, []):
@@ -281,6 +310,8 @@ class Matcher:
                 # Similarity to a labelled photo of this exact version, if the
                 # trained model has one.
                 "looks_match": round((looks or {}).get(int(v["id"]), 0.0), 3),
+                "year_match": self._year_match(year, v.get("year")),
             })
-        out.sort(key=lambda v: (-int(v["code_match"]), -v["looks_match"], -v["colour_match"], -(v["year"] or 0)))
+        out.sort(key=lambda v: (-int(v["code_match"]), -v["year_match"], -v["looks_match"],
+                                -v["colour_match"], -(v["year"] or 0)))
         return out[:limit]
