@@ -72,8 +72,9 @@ final class RecognizerClient
         if (! is_string($host) || $host === '') {
             throw new RecognizerUnavailableException(sprintf(
                 'The recognizer address is not configured: RECOGNIZER_URL is "%s", which has no host. '
-                .'On Railway it should be http://${{<the recognizer service\'s name>.RAILWAY_PRIVATE_DOMAIN}}:8080 '
-                .'— an empty host means that reference names a service that does not exist.',
+                .'On Railway set it literally — http://<the recognizer service\'s name>.railway.internal:8080 '
+                .'— rather than through a ${{service.RAILWAY_PRIVATE_DOMAIN}} reference, which resolves to '
+                .'nothing when the reference cannot be satisfied and leaves exactly this.',
                 $base,
             ));
         }

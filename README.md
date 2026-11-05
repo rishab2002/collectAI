@@ -2098,8 +2098,23 @@ three in your password manager, not in a file in the project.
    them; `RAILWAY_DOCKERFILE_PATH` is what points this service at the
    scanner's Dockerfile instead of the website's.
 
-**Then redeploy `web` — this step is not optional and the symptom if you skip
-it is baffling.** Railway resolves `${{service.VARIABLE}}` references **when a
+**Write `RECOGNIZER_URL` out literally**, as
+`http://recognizer.railway.internal:8080`, rather than through a
+`${{recognizer.RAILWAY_PRIVATE_DOMAIN}}` reference. Private DNS names are
+always `<service name>.railway.internal`, so the reference buys nothing — and
+when it cannot be satisfied Railway substitutes **nothing** instead of failing,
+leaving `http://:8080`: a scheme, a port and no host. Measured on this
+deployment 2026-11-05, where it survived a redeploy of `web` with both services
+present and correctly named. A literal hostname either resolves or fails with
+an error naming the host, which is the failure you want.
+
+If the literal address then gives a *connection* error rather than a parse
+error, that is a different and more useful problem: private networking is off,
+or the two services are in different environments. **Settings → Networking** on
+each service shows its private domain.
+
+**If you do use a reference anywhere, redeploy the service that holds it
+afterwards — this is not optional and the symptom if you skip it is baffling.** Railway resolves `${{service.VARIABLE}}` references **when a
 service deploys**, not continuously. `web` was deployed in step 4, before any
 service called `recognizer` existed, so its `RECOGNIZER_URL` resolved to
 `http://:8080` — scheme, no host, port — and that empty value is baked into the
