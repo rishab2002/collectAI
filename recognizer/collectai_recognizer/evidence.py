@@ -53,10 +53,14 @@ class Evidence:
     copyright_year: int | None = None
     codes: list[str] = field(default_factory=list)
     collector_number: str | None = None
+    # True when the brand was read off artwork rather than off type — see
+    # logos.py. Weaker evidence, so the matcher lets it corroborate a casting
+    # and break a tie but never marks one down for disagreeing with it.
+    brand_from_logo: bool = False
 
     @classmethod
     def from_words(cls, words: list[tuple[str, float]], min_word_confidence: float = 0.4,
-                   context: str = "", also: str = "") -> "Evidence":
+                   context: str = "", also: str = "", logo_brand: str | None = None) -> "Evidence":
         """Low-confidence words are noise from tampos and scratches; leave them out.
 
         `context` is print read near this one but not on the crop — on a
@@ -74,6 +78,10 @@ class Evidence:
             second = cls.from_text(also).text
             if second and second != evidence.text:
                 evidence.alternates = [second]
+        # Type beats artwork: a brand spelled out in the small print is read
+        # properly, and only when there is none does the logo get to answer.
+        if evidence.brand is None and logo_brand is not None:
+            evidence.brand, evidence.brand_from_logo = logo_brand, True
         return evidence
 
     @classmethod

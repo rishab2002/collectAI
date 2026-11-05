@@ -14,6 +14,7 @@
 {{-- Only one detection's panel is open at a time, so plain field names are
      unambiguous and old() lines up with them after a failed submit. --}}
 @php($was = fn (string $field, ?string $fallback = null) => old($field, $fallback))
+@php($list = "v{$detection->id}")
 
 <details class="mt-3 rounded-lg border border-neutral-200 dark:border-neutral-800" @if ($errors->any()) open @endif>
     <summary class="cursor-pointer px-3 py-2 text-sm font-medium">Not in the catalog? Add it</summary>
@@ -30,7 +31,8 @@
         @endif
 
         <p class="text-xs text-neutral-500">
-            Filled in from what the card says — check it. This publishes a new casting, release and version,
+            Filled in from what the card says — check it. Each name offers what the catalog already has;
+            type anything else and it is created. This publishes a new casting, release and version,
             adds the car to your collection, and (with sharing on) keeps this picture as a labelled example.
         </p>
 
@@ -45,22 +47,31 @@
             <label class="block text-sm">
                 <span class="block font-medium">Brand</span>
                 <span class="block text-xs text-neutral-500">Hot Wheels, Matchbox, …</span>
-                <input type="text" name="brand" required value="{{ $was('brand', $suggestion['brand']) }}"
+                <input type="text" name="brand" required list="{{ $list }}-brands" value="{{ $was('brand', $suggestion['brand']) }}"
                        class="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-1.5 dark:border-neutral-700 dark:bg-neutral-950">
-            </label>
-
-            <label class="block text-sm">
-                <span class="block font-medium">Main line</span>
-                <span class="block text-xs text-neutral-500">Mainline, Car Culture, … Used only if the series below is new.</span>
-                <input type="text" name="line" value="{{ $was('line') }}"
-                       class="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-1.5 dark:border-neutral-700 dark:bg-neutral-950">
+                <datalist id="{{ $list }}-brands">
+                    @foreach ($vocabulary['brands'] as $option)<option value="{{ $option }}"></option>@endforeach
+                </datalist>
             </label>
 
             <label class="block text-sm">
                 <span class="block font-medium">Series</span>
-                <span class="block text-xs text-neutral-500">The wave printed on the card: Factory Fresh</span>
-                <input type="text" name="series" required value="{{ $was('series') }}"
+                <span class="block text-xs text-neutral-500">The line: Mainline, Car Culture, Premium…</span>
+                <input type="text" name="series" required list="{{ $list }}-lines" value="{{ $was('series') }}"
                        class="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-1.5 dark:border-neutral-700 dark:bg-neutral-950">
+                <datalist id="{{ $list }}-lines">
+                    @foreach ($vocabulary['lines'] as $option)<option value="{{ $option }}"></option>@endforeach
+                </datalist>
+            </label>
+
+            <label class="block text-sm">
+                <span class="block font-medium">Sub-series <span class="font-normal text-neutral-500">(if the card names one)</span></span>
+                <span class="block text-xs text-neutral-500">The wave inside the line: Factory Fresh, HW J-Imports…</span>
+                <input type="text" name="sub_series" list="{{ $list }}-series" value="{{ $was('sub_series') }}"
+                       class="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-1.5 dark:border-neutral-700 dark:bg-neutral-950">
+                <datalist id="{{ $list }}-series">
+                    @foreach ($vocabulary['series'] as $option => $under)<option value="{{ $option }}">{{ $under }}</option>@endforeach
+                </datalist>
             </label>
 
             <label class="block text-sm">
@@ -78,15 +89,21 @@
 
             <label class="block text-sm">
                 <span class="block font-medium">Real make</span>
-                <input type="text" name="make" value="{{ $was('make', $suggestion['make']) }}"
+                <input type="text" name="make" list="{{ $list }}-makes" value="{{ $was('make', $suggestion['make']) }}"
                        class="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-1.5 dark:border-neutral-700 dark:bg-neutral-950">
+                <datalist id="{{ $list }}-makes">
+                    @foreach ($vocabulary['makes'] as $option)<option value="{{ $option }}"></option>@endforeach
+                </datalist>
             </label>
 
             <label class="block text-sm">
                 <span class="block font-medium">Real model</span>
                 <span class="block text-xs text-neutral-500">The nameplate alone — 911, not 911 Carrera T.</span>
-                <input type="text" name="model" value="{{ $was('model') }}"
+                <input type="text" name="model" list="{{ $list }}-models" value="{{ $was('model') }}"
                        class="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-1.5 dark:border-neutral-700 dark:bg-neutral-950">
+                <datalist id="{{ $list }}-models">
+                    @foreach ($vocabulary['models'] as $option => $make)<option value="{{ $option }}">{{ $make }}</option>@endforeach
+                </datalist>
             </label>
 
             <label class="block text-sm">

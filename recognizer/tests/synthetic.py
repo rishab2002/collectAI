@@ -86,3 +86,32 @@ def layout(cards: list[np.ndarray], columns: int = 4, gap: int = 26, margin: int
         left = margin + (i % columns) * cell_w + (cell_w - gap - c.shape[1]) // 2
         img[top:top + c.shape[0], left:left + c.shape[1]] = c
     return img
+
+
+def logo(text: str = "HOT WHEELS", size=(120, 420), field=(40, 90, 235), ink=(40, 240, 250)) -> np.ndarray:
+    """A brand wordmark as artwork: drawn type on a field of brand colour.
+
+    Not the real logo — a stand-in with the one property that matters, which
+    is that it is a word on a saturated red-to-yellow patch rather than text
+    on a page. Tesseract reads a real one badly; the point of the test is that
+    badly is enough.
+    """
+    h, w = size
+    img = np.full((h, w, 3), field, dtype=np.uint8)
+    scale = w / 420 * 1.5
+    cv2.putText(img, text, (int(w * 0.04), int(h * 0.68)), cv2.FONT_HERSHEY_DUPLEX, scale, ink,
+                max(2, int(scale * 2)), cv2.LINE_AA)
+    return img
+
+
+def card_with_logo(name: str, brand: str = "HOT WHEELS", size=(620, 420), art: str = "teal", **kwargs) -> np.ndarray:
+    """A card whose brand is only ever stated by its logo, never as plain text.
+
+    Teal art by default: a real card's artwork is not the colour of its logo,
+    and on one that is the logo cannot be told from the card by colour alone.
+    """
+    img = card(name, size=size, art=art, **kwargs)
+    mark = logo(brand, size=(int(size[0] * 0.17), int(size[1] * 0.78)))
+    img[int(size[0] * 0.02):int(size[0] * 0.02) + mark.shape[0],
+        int(size[1] * 0.06):int(size[1] * 0.06) + mark.shape[1]] = mark
+    return img

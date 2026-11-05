@@ -9,8 +9,10 @@ update it whenever a convention changes.
 packaging** — `layout=packaged`, found by the printing on them rather than by
 their shape, measured on the owner's own photos; see
 [Recognition → Packaged cars](#packaged-cars-2026-11-05) and README §5.8. An
-admin can also add a car the catalog hasn't got from the scan that found it,
-so a crop can be labelled even when nothing in the catalog matches it.)
+admin can also add a car the catalog hasn't got from the scan that found it —
+every name picks from the catalog or creates a new one — so a crop can be
+labelled even when nothing in the catalog matches it; and brand logos are now
+read as text, so a Hot Wheels card finally reports its brand.)
 Before that, 2026-11-04 (**the site is DEPLOYED and LIVE at
 https://collectai.club**, Railway + Supabase, **behind Cloudflare Access** —
 all measured below; the 525 is gone).
@@ -86,8 +88,8 @@ exists.*
 
 **Running:** `docker compose up -d` brings up `app` (:8000), `db` (Postgres 16,
 :5432), `redis` (:6379), `meilisearch` (:7700), `recognizer` (:8090).
-`php artisan test` → **391 passed, 1,619 assertions**; the recognizer's own
-`python -m unittest discover -s tests -t .` (in `recognizer/`) → **66 passed**
+`php artisan test` → **394 passed, 1,636 assertions**; the recognizer's own
+`python -m unittest discover -s tests -t .` (in `recognizer/`) → **70 passed**
 (both re-measured 2026-11-05). The `recognizer` image **does** build and run
 now (`docker compose up -d recognizer`, healthy, `/health` ok); its Tesseract
 is 5.3.0 where a current Homebrew one is 5.5.4, and they read a hard photo
@@ -1592,6 +1594,23 @@ the [session log](docs/session-log.md).*
   A miss costs a near-duplicate an admin can see; a fuzzy hit files a car as a
   different car. Generation is one claim — a chassis code or end year without a
   start year is refused, not half-stored.
+- **Every name on the scan form is pick-or-create** (`CatalogVocabulary`).
+  Brand, series, sub-series, make and model are offered as a `<datalist>` of
+  what the catalog already holds — so a typo doesn't mint "factory fresh"
+  beside "Factory Fresh" — while staying plain text inputs, so a name nobody
+  has entered is created. That is the existing exact-name resolution in
+  `ManualCatalogEntry` doing the work; the list only helps land on the
+  existing spelling. Scoped to the card's brand and capped at 400, because a
+  full import is ~6,500 series and the page would be megabytes on a phone; a
+  series missing from the list costs nothing. Lines come from
+  `config/catalog_lines.php` as well as the database, so a hand-entered car
+  lands in the same lines `catalog:classify-series` uses even where the
+  classifier has never been run.
+- **The scan form says series and sub-series, which is what a card says**
+  (`StoreScanCarRequest`). The schema has one `series` table with `parent_id`,
+  and `ManualCatalogEntry` takes "the row the release hangs on" plus "its
+  parent" — the request maps the card's words onto those. An empty sub-series
+  hangs the release on the line itself.
 - **A scan is a third entry point** (2026-11-05, `ScanController::catalog`,
   `scan.partials.add-to-catalog`). Naming a car at `/scan` could only ever
   offer what was already published, so the cars the recognizer gets wrong —
@@ -1748,6 +1767,33 @@ scaled down first measurably loses reads.
   Without consent they are deleted when the scan is answered or after 24 h.
 - **Training data is consented scan crops and nothing else** — the
   *Data sources* rules apply to training exactly as to catalog photos.
+- **Brand logos are read as the text they are** (`logos.py`, 2026-11-05). A
+  Hot Wheels flame and a Matchbox box are type drawn as artwork, and
+  Tesseract reading a whole card never finds them — so until now a Hot Wheels
+  card came back with no brand at all, and the brand is what tells two
+  castings of one name apart. Handed just the logo it does read them, badly
+  and consistently ("Hor wres", "JTIATLHBOX"), and badly is enough because
+  the vocabulary is four names rather than a catalog. The logo is found by
+  colour, read on its own at psm 8, and matched at **0.55**, measured in the
+  empty gap between a real wordmark (0.59–0.80) and everything else, card
+  text included — PORSCHE, CHALLENGER, FACTORY FRESH and GUARANTEED FOR LIFE
+  all reach at most 0.40. Re-measure the gap rather than nudging the number.
+  Two rules follow: **type beats artwork** (a brand in plain small print is
+  read properly and wins), and **a logo-read brand corroborates but never
+  counts against a casting** — same shape as the card's © year, for the same
+  reason, that the evidence is weaker. `card_output` reports it at 0.6 rather
+  than 0.75.
+  - **The hue band is red *through yellow*, not red.** Red alone was the
+    obvious choice and found not one logo in the owner's photographs: the
+    mainline logo is a red flame but the **Premium** one is yellow on black.
+  - **Measured 2026-11-05**: on a close-up of one card it reads Hot Wheels at
+    0.71; on `premium-two-packs.jpg` it brands 5 of 8 packages correctly;
+    on three other pile photos it finds nothing, because the logos there are
+    small and dim. **No wrong brand in any photo measured.** It is also
+    version-sensitive — the same photo brands 5 packages under Tesseract
+    5.5.4 and none under the container's 5.3.0 — so treat the hit rate as a
+    floor that varies, not a constant. The honest summary: reliable on a card
+    that fills the crop (`/read-card`, `layout=single`), patchy in a pile.
 - **A car the catalog hasn't got can be added from the scan that found it**
   (admin only; see [Manual entry](#manual-entry)). This is what closes the
   loop the scanner needs: a crop can only become a training label once it has

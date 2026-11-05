@@ -7,7 +7,7 @@ import base64
 import cv2
 import numpy as np
 
-from . import ocr, packaging
+from . import logos, ocr, packaging
 from .catalog import CatalogIndex, Matcher
 from .colours import classify_pixels, dominant
 from .evidence import Evidence
@@ -151,13 +151,19 @@ def recognise_packages(
     matcher = Matcher(index, min_confidence, min_margin) if index else None
     detections = []
 
+    # The logos in the photo, found and read once. A package's own crop is
+    # often just the strip its name is printed on, with the brand at the top
+    # of the card and nowhere near it, so this cannot be done per crop.
+    artwork = logos.find(bgr, work, scale) if read_text else []
+
     for n, obj in enumerate(found):
         crop = packaging.deskewed_crop(bgr, obj.contour, scale)
         reading, evidence, match = (ocr.Reading(), Evidence.from_text(""), None)
         if read_text:
             reading, evidence, match = packaging.read_printed(
                 crop, index, min_confidence=min_confidence, min_margin=min_margin,
-                context=obj.context, printed=obj.printed,
+                context=obj.context, printed=obj.printed, artwork=False,
+                logo_brand=logos.nearest(artwork, obj.box),
             )
 
         x, y, w, h = obj.box

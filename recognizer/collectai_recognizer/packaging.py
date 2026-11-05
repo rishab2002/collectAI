@@ -26,7 +26,7 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 
-from . import ocr
+from . import logos, ocr
 from .catalog import CatalogIndex, Match, Matcher
 from .evidence import Evidence
 from .segment import Found, background_difference
@@ -444,6 +444,8 @@ def read_printed(
     stop_score: float | None = STOP_SCORE,
     context: str = "",
     printed: str = "",
+    artwork: bool = True,
+    logo_brand: str | None = None,
 ) -> tuple[ocr.Reading, Evidence, Match | None]:
     """One package, read and matched. The shared half of `/read-card` and the
     packaged scan: a capture and a scan read a card the same way.
@@ -458,7 +460,12 @@ def read_printed(
     already passed `_is_printing` arrives here.
     """
     reading = ocr.read(bgr, rotations=rotations, stop_score=stop_score)
-    evidence = Evidence.from_words(reading.words, context=context, also=printed)
+    # `artwork` looks for a logo on this crop, which is right when the crop is
+    # a whole card — `/read-card`. In a scan the logos are found across the
+    # photo instead and the answer arrives as `logo_brand`.
+    logo = logos.read(bgr) if artwork else None
+    evidence = Evidence.from_words(reading.words, context=context, also=printed,
+                                   logo_brand=logo[0] if logo else logo_brand)
     match = Matcher(index, min_confidence, min_margin).match(evidence, printed=True) if index else None
     return reading, evidence, match
 
@@ -487,7 +494,12 @@ def card_output(evidence: Evidence, match: Match | None, index: CatalogIndex | N
 
     flat = compact(evidence.raw)
     brand_conf = 0.0
-    if evidence.brand:
+    if evidence.brand_from_logo:
+        # Read off artwork, not off type: right in every measurement so far,
+        # and read badly enough on purpose that it should not claim as much as
+        # a wordmark set in plain type does.
+        brand_conf = 0.6
+    elif evidence.brand:
         brand_conf = 0.9 if best_window(compact(evidence.brand), flat) >= 0.95 else 0.75
 
     return {

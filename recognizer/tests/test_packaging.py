@@ -12,13 +12,13 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from collectai_recognizer import ocr, packaging
+from collectai_recognizer import logos, ocr, packaging
 from collectai_recognizer.catalog import Matcher
 from collectai_recognizer.evidence import Evidence
 from collectai_recognizer.pipeline import recognise
 from collectai_recognizer.segment import working_copy
 
-from .synthetic import card, layout
+from .synthetic import card, card_with_logo, layout
 from .test_recognizer import index
 
 NAMES = ["BONE SHAKER", "'93 MAZDA RX-7", "MAZDA RX-3", "FORD MUSTANG",
@@ -129,6 +129,48 @@ class MatchTest(unittest.TestCase):
         offered = Matcher(index()).match(ev, colour="orange").variations
         self.assertEqual("orange", offered[0]["color_family"], "colour still orders a loose car")
         self.assertEqual(0.0, offered[0]["year_match"])
+
+
+@unittest.skipIf(ocr.available() is None, "tesseract is not installed")
+class LogoTest(unittest.TestCase):
+    """A brand logo is type drawn as artwork, and reading it badly is enough:
+    the vocabulary is four names, not a catalog."""
+
+    def test_a_wordmark_on_a_field_of_brand_colour_is_read_as_its_brand(self):
+        for printed, brand in (("HOT WHEELS", "Hot Wheels"), ("MATCHBOX", "Matchbox")):
+            with self.subTest(brand=brand):
+                found = logos.read(card_with_logo("FORD MUSTANG", brand=printed))
+                self.assertIsNotNone(found, f"{printed} logo not read")
+                self.assertEqual(brand, found[0])
+                self.assertGreaterEqual(found[1], logos.MIN_SIMILARITY)
+
+    def test_a_patch_of_brand_colour_with_no_wordmark_on_it_names_no_brand(self):
+        # A brand is never guessed from colour: the patch has to spell
+        # something out, and a car's name is not one of the four names.
+        self.assertIsNone(logos.read(card_with_logo("FORD MUSTANG", brand="FORD MUSTANG")))
+
+    def test_the_brand_the_card_spells_out_beats_the_one_its_logo_draws(self):
+        # "MATCHBOX" printed as type, a Hot Wheels logo beside it: type wins,
+        # because it is read properly and the logo is read badly.
+        ev = Evidence.from_words([("MATCHBOX", 0.9)], logo_brand="Hot Wheels")
+        self.assertEqual("Matchbox", ev.brand)
+        self.assertFalse(ev.brand_from_logo)
+
+    def test_a_brand_read_off_artwork_corroborates_but_never_counts_against(self):
+        # Two castings are called Bone Shaker, 13 Hot Wheels and 14 Matchbox.
+        # A logo read as Matchbox is weak evidence: it may lift the Matchbox
+        # one, and it may not mark the Hot Wheels one down.
+        ev = Evidence.from_words([("BONE", 0.9), ("SHAKER", 0.9)], logo_brand="Matchbox")
+        self.assertTrue(ev.brand_from_logo)
+        reasons = {c.casting_id: " ".join(c.reasons) for c in Matcher(index()).match(ev, printed=True).candidates}
+        self.assertIn("brand Matchbox (from the logo)", reasons[14])
+        self.assertNotIn("casting is", reasons[13], "a logo marked a casting down")
+
+        # Read as type off the card, the same disagreement does count.
+        typed = Evidence.from_words([("BONE", 0.9), ("SHAKER", 0.9), ("MATCHBOX", 0.9)])
+        self.assertFalse(typed.brand_from_logo)
+        typed_reasons = {c.casting_id: " ".join(c.reasons) for c in Matcher(index()).match(typed, printed=True).candidates}
+        self.assertIn("casting is", typed_reasons[13])
 
 
 @unittest.skipIf(ocr.available() is None, "tesseract is not installed")

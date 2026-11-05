@@ -280,8 +280,10 @@ class ScanTest extends TestCase
         $this->actingAs($admin)->post(route('scan.catalog', [$scan, $unsure]), [
             'casting_name' => 'Porsche 911 Carrera T',
             'brand' => 'Hot Wheels',
-            'line' => 'Mainline',
-            'series' => 'Factory Fresh',
+            // Read as a collector reads a card: the line, then the wave under
+            // it. StoreScanCarRequest maps them onto series/line.
+            'series' => 'Mainline',
+            'sub_series' => 'Factory Fresh',
             'year' => 2026,
             'color' => 'Grey',
             'make' => 'Porsche',
@@ -307,6 +309,73 @@ class ScanTest extends TestCase
         $this->assertSame($variation->id, $unsure->variation_id);
         $this->assertTrue($unsure->labelled_by_hand);
         $this->assertNotNull($unsure->crop_path, 'a consented crop is kept — it is the training label');
+    }
+
+    /**
+     * A sub-series the catalog has never heard of is created under its line,
+     * and a line that already exists is reused rather than duplicated.
+     */
+    public function test_a_new_sub_series_is_created_under_its_line_and_an_existing_one_is_reused(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $this->user = $admin;
+        $scan = $this->scan();
+        [$first, $second] = $scan->detections->all();
+
+        $car = fn (array $over): array => $over + [
+            'brand' => 'Hot Wheels', 'series' => 'Mainline', 'year' => 2026,
+            'make' => 'Porsche', 'model' => '911',
+        ];
+
+        $this->actingAs($admin)->post(route('scan.catalog', [$scan, $first]),
+            $car(['casting_name' => 'Porsche 911 Carrera T', 'sub_series' => 'Factory Fresh']))->assertRedirect();
+        $this->actingAs($admin)->post(route('scan.catalog', [$scan, $second]),
+            $car(['casting_name' => 'Porsche 911 GT3 RS', 'sub_series' => 'Factory Fresh']))->assertRedirect();
+
+        // One "Factory Fresh", one "Mainline" above it, both cars under them.
+        $sub = Series::where('name', 'Factory Fresh')->sole();
+        $this->assertSame('Mainline', $sub->parent->name);
+        $this->assertSame(2, $sub->releases()->count());
+        $this->assertSame(1, Series::where('name', 'Mainline')->count());
+
+        // The make and the model are reused too, not duplicated per car.
+        $this->assertSame(1, Make::where('name', 'Porsche')->count());
+    }
+
+    public function test_a_car_with_no_sub_series_hangs_on_the_line_itself(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $this->user = $admin;
+        $scan = $this->scan();
+
+        $this->actingAs($admin)->post(route('scan.catalog', [$scan, $scan->detections->first()]), [
+            'casting_name' => 'Twin Mill', 'brand' => 'Hot Wheels', 'series' => 'Mainline',
+            'year' => 2026, 'is_fantasy' => '1',
+        ])->assertRedirect();
+
+        $series = Casting::where('name', 'Twin Mill')->sole()
+            ->versions->first()->releases->first()->series;
+        $this->assertSame('Mainline', $series->name);
+        $this->assertNull($series->parent_id, 'the line is the series, not a child of itself');
+    }
+
+    public function test_the_form_offers_what_the_catalog_has_without_limiting_you_to_it(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $this->user = $admin;
+        $scan = $this->scan();
+        $detection = $scan->detections->last();
+
+        $this->actingAs($admin)->get(route('scan.show', ['scan' => $scan, 'label' => $detection->id]))
+            ->assertOk()
+            // Brands and series already in the catalog are offered …
+            ->assertSee('<option value="Hot Wheels">', escape: false)
+            ->assertSee('<option value="HW Flames">', escape: false)
+            // … from the editorial line list, even before the classifier runs …
+            ->assertSee('<option value="Car Culture">', escape: false)
+            // … and every one of them is a plain text input, so a name the
+            // catalog has never seen can still be typed.
+            ->assertSee('name="sub_series" list=', escape: false);
     }
 
     public function test_the_form_is_filled_in_from_what_the_card_said_and_only_for_an_admin(): void
@@ -348,7 +417,7 @@ class ScanTest extends TestCase
         $detection = $scan->detections->last();
 
         $this->actingAs($this->user)->post(route('scan.catalog', [$scan, $detection]), [
-            'casting_name' => 'Porsche 911 Carrera T', 'brand' => 'Hot Wheels', 'series' => 'Factory Fresh',
+            'casting_name' => 'Porsche 911 Carrera T', 'brand' => 'Hot Wheels', 'series' => 'Mainline',
             'year' => 2026, 'make' => 'Porsche', 'model' => '911',
         ])->assertNotFound();
 
@@ -364,7 +433,7 @@ class ScanTest extends TestCase
         $detection = $scan->detections->last();
 
         $this->actingAs($admin)->post(route('scan.catalog', [$scan, $detection]), [
-            'casting_name' => 'Porsche 911 Carrera T', 'brand' => 'Hot Wheels', 'series' => 'Factory Fresh', 'year' => 2026,
+            'casting_name' => 'Porsche 911 Carrera T', 'brand' => 'Hot Wheels', 'series' => 'Mainline', 'year' => 2026,
         ])->assertSessionHasErrors(['make', 'model']);
 
         $this->assertDatabaseMissing('castings', ['name' => 'Porsche 911 Carrera T']);

@@ -13,7 +13,7 @@
     @endif
 
     @if ($suggestion)
-        @include('scan.partials.add-to-catalog', ['detection' => $detection, 'suggestion' => $suggestion])
+        @include('scan.partials.add-to-catalog', ['detection' => $detection, 'suggestion' => $suggestion, 'vocabulary' => $vocabulary])
     @endif
 
     @foreach ($search as $casting)
