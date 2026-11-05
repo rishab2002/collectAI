@@ -1,0 +1,1360 @@
+# Text that really appears on a card, in the catalog, or as OCR noise read off
+# one — and names no brand. Nothing in data/brands.json may match any of it.
+# Grown from the catalog index plus strings read off the owner's own photos.
+# Lines that genuinely name a brand ("Hot Wheels Collectors Nationals") are
+# left out: those SHOULD match, and keeping them would make the guard a lie.
+'07 Shelby GT-500
+'10 BMW M3
+'10 Chevy Impala
+'10 Pro Stock Camaro
+'11 Corvette Grand Sport
+'11 Dodge Charger R/T
+'11 Honda Civic
+'12 Ford Fiesta
+'49 Drag Merc
+'56 Ford Truck
+'57 Chevy
+'58 Impala
+'59 Chevy Delivery
+'63 Studebaker Champ
+'63 T-Bird
+'64 Pontiac GTO
+'65 Ford Ranchero
+'65 Mustang
+'65 Mustang 2+2 Fastback
+'65 Pontiac GTO
+'66 Chevy Nova
+'67 Chevelle SS 396
+'67 Pontiac Firebird 400
+'67 Shelby GT500
+'68 COPO Camaro
+'68 Chevy Nova
+'68 Cougar
+'68 El Camino
+'68 Olds 442
+'69 COPO Corvette
+'69 Camaro
+'69 Chevelle
+'69 Corvette
+'69 Dodge Charger
+'69 Ford Mustang
+'69 Ford Torino Talladega
+'69 Pontiac Firebird T/A
+'69 Pontiac GTO
+'69 Shelby GT500
+'70 Camaro
+'70 Chevelle SS
+'70 Dodge Charger R/T
+'70 Monte Carlo
+'70 Mustang Mach 1
+'70 Plymouth AAR Cuda
+'70 Pontiac GTO
+'70 Pontiac GTO Judge
+'71 Dodge Challenger
+'71 Dodge Charger
+'71 Dodge Demon
+'71 Maverick Grabber
+'71 Mustang Funny Car
+'71 Mustang Mach I
+'72 Ford Gran Torino Sport
+'80 El Camino
+'83 Chevy Silverado
+'92 Ford Mustang
+'97 Corvette
+1971 Buick Riviera
+2008 Tesla Roadster
+2010 Ford Mustang GT
+24 Ours
+5 Alarm
+AMC Javelin AMX
+Acura NSX
+Amazoom
+Anglia Panel Truck
+Arachnorod
+Aston Martin One-77
+Astro Funk
+Back Slider
+Back to the Future Time Machine
+Barbaric
+Batman: Arkham Asylum Batmobile
+Blown Camaro
+Blvd. Bruiser
+Bone Shaker
+Bread Box
+Buick Grand National
+Buzzerk
+Bye Focal II
+C6 Corvette
+Camaro Convertible Concept
+Chevy 1500
+Chevy Camaro Concept
+Circle Tracker
+Circle Trucker
+Classic Cobra
+Cool-One
+Croc Rod
+Custom '11 Camaro
+Custom '77 Dodge Van
+Custom GMC Panel Van
+Custom Volkswagen Beetle
+Customized C3500
+DMC DeLorean
+Da'Kar
+Danicar
+Datsun 240Z
+Diesel Duty
+Dixie Challenger
+Dodge Challenger Drift Car
+Dodge Charger Drift Car
+Dodge Neon
+Ducati 1098R
+El Superfasto
+Enzo Ferrari
+Fast Cash
+Fast FeLion
+Fast Fish
+Fast Gassin
+Ferrari 333 SP
+Ferrari 458 Italia
+Ferrari California
+Ferrari F430 Spider
+Ferrari FF
+Fire Eater
+Firestorm
+Fish'd & Chip'd
+Ford GT
+Ford Mustang GT Concept
+Formula Street
+Fright Bike
+Greased Gremlin
+H 2 GO
+HW40
+HW450F
+Honda Civic Si
+Honda S2000
+Hyper Mite
+Hyundai Genesis Coupe
+IROC Firebird
+Infiniti G37
+Jaded
+Jet Threat 3.0
+Jet Threat 4.0
+La Fasta
+Lamborghini Estoque
+Lamborghini Gallardo LP 570-4 Superleggera
+Lamborghini Reventón
+Lotus Sport Elise
+Low Flow
+Mad Propz
+Madfast
+Mini Cooper
+Mitsubishi Eclipse Concept Car
+Monster Vette
+Mustang Funny Car
+Mégane Trophy
+Nerve Hammer
+Night Burner
+Nissan 350Z
+Nissan 370Z
+Nissan Silvia S-15
+Nissan Skyline 2000GT-R
+Nissan Skyline GT-R (R32)
+Nissan Skyline H/T 2000GT-X
+OCC Splitback
+Off Track
+Olds 442
+Olds 442 W-30
+Pass'n Gasser
+Pikes Peak Tacoma
+Plymouth Duster Thruster
+Porsche 911 GT2
+Porsche 911 GT3 RS
+Power Panel
+Power Sander
+RD-04
+RD-05
+Rapid Response
+Rennen Rig
+Retro-Active
+RocketFire
+Rockster
+Roll Cage
+Sandblaster
+Scorcher
+Scorpedo
+Shell Shock
+Skull Crusher
+Sky Knife
+Sling Shot
+Snow Ride
+Speed Trap
+Spider Rider
+Split Decision
+Split Window '63
+Sting Rod II
+Street Cleaver
+Street Shaker
+Studebaker Avanti
+Subaru Impreza
+Super Tsunami
+Surf Crate
+Synkro
+Technetium
+Tow Jam
+Toyota Land Cruiser FJ40
+Toyota RSC
+Tread Air
+Tri & Stop Me
+Triumph TR6
+Tucker Torpedo
+Twinduction
+Ultra Rage
+Urban Agent
+Vampyra
+Volkswagen Brasília
+Volkswagen Type 181
+XS-IVE
+Yur So Fast
+'50's Favorites 5-Pack
+'50s Cruisers 5-Pack
+'60's Muscle Cars 5-Pack
+10-Pack Exclusive
+100 Years of Chevy Trucks
+100% Preferred: Corvette
+100% Preferred: Custom Classic Trucks
+100% Preferred: Custom Rodder
+100% Preferred: Rod & Custom
+100% Preferred: Super Street
+100% Preferred: Sweet Rods
+100%Preferred: Muscle Car Review
+10‑Pack Exclusive
+18th Annual Collectors Nationals
+1996 First Editions
+1997 First Editions
+1998 First Editions
+1999 SEMA
+20-Pack Exclusive
+2000 First Editions
+2001 First Editions
+2002 First Editions
+2003 First Editions
+2004 First Editions
+2005 First Editions: Realistix
+2006 First Editions
+2006 First Editions 5-Pack
+2007 New Models
+2008 New Models
+2009 HW Premiere
+2009 New Models
+2010 HW Premiere
+2010 New Models
+2011 New Models
+2013 RLC sELECTIONs Series
+2019 Legends Winner Trophy Car
+2022 Legends Tour Trophy Car
+2024 Japan Collectors Convention
+20th Anniversary 3-Pack
+20th Anniversary Gift Pack
+24th Annual Collectors Convention
+25th Anniversary Chevy 5-Pack
+25th Anniversary Ford 5-Pack
+30th Anniversary of the Camaro 4-Car Set
+360 Loop
+3rd Annual Collectors Nationals
+40th Anniversary '57 Chevy 4-Car Set
+4th of July
+4x4 Monsters 5-Pack
+50th Anniversary Black and Gold
+50th Anniversary Camaro
+50th Anniversary Favorites
+50th Anniversary Originals
+50th Anniversary Stars & Stripes
+50th Anniversary Throwback
+50th Anniversary Zamac Flames
+55th Anniversary Black and Yellow
+60's Muscle Car Set
+75 Years of Batman
+AcceleRacers
+AcceleRacers: Racing Drones
+AcceleRacers: Team Colors
+AcceleRacers: Teku
+Action 5-Pack
+Action 5‑Pack
+Adidas
+Advent Calendar
+Aerial Attack
+Aerial Attack 5-Pack
+Air Circus 5-Pack
+Airwalk Special Edition
+All Stars
+Alt Terrain
+American Pickup
+American Steel
+Arkham Asylum Escape
+Artistic License
+Asia Pacific Economic Cooperation
+Asphalt Assault 5-Pack
+Asphalt Jungle
+Attack Pack 5-Pack
+Attack Pack 5‑Pack
+Australian Exclusive
+Auto Affinity: Blvd. Bruisers
+Auto Affinity: Great 8's
+Auto Affinity: Haul 'N' Asphalt
+Auto Affinity: Kool & Kustom
+Auto Affinity: Motor City Muscle
+Auto Affinity: Rebel Rods
+Auto City 5-Pack
+Auto Milestones
+Auto Motion Speedway 5-Pack
+AutoZone: Castrol Syntec Promo
+Autogrfx 5-Pack
+Avengers
+Avengers: Age of Ultron
+Avon Park 'n Plates
+B-Day Gift 5-Pack
+BMW
+Back to the Future 35th Anniversary
+Back to the Future Car Culture 2-Pack
+Baja Blazers
+Batman
+Batman 10-Pack
+Batman 2-Pack: Mr. Freeze Escapes
+Batman 5-Pack
+Batman Vehicles Then and Now
+Batman v Superman
+Batman v Superman 5-Pack
+Batman: The Riddler's Rampage 2-Pack
+Big City Trucks 5-pack
+Billionth Car Collection
+Black Convertible Collection
+Bloomingdale's Fabulous '57s
+Blue Streak
+Blue and Gold
+Blue and Pink
+Bonus Car
+Borla Car Culture 2-Pack
+Boulevard Buccaneers
+Bullrun
+Bullrun Exclusive
+CD Customs
+California Custom
+California Customs
+California Dreamin' 10-Pack
+Camaro
+Camaro 5-Pack
+Camaro Fifty
+Camouflage
+Camouflage 5-Pack
+Camouflage Trucks
+Canadian Tire Promo
+Captain America 75th Anniversary
+Captain America: Civil War 5-Pack
+Car Culture: Air-Cooled
+Car Culture: British Horsepower
+Car Culture: Circuit Legends
+Car Culture: Deutschland Design
+Car Culture: Euro Style
+Car Culture: HW Redliners
+Car Culture: Japan Historics
+Car Culture: Race Day
+Car Culture: Shop Trucks
+Car Culture: Speed Machines
+Car Culture: Street Tuners
+Car Culture: Team Transport
+Car Culture: World Tour
+Car Design Custom Kit 1
+Car Design Machine
+Car Meet 5-Pack
+Car Meet 5‑Pack
+Carbonated Cruisers
+Carlos Contreras Pickup Challenge Set
+Carroll Shelby 80th Birthday
+Cars of the Decades
+Caterpillar Charity Donation
+Checker Schuck's Kragen Autoparts 2-Pack
+Checkmate
+Chevrolet 5-Pack
+Chevy Bel Air
+Chicago Auto Show
+Chicago Auto Show Edition
+Chicago Cubs
+Christmas Employee Car
+Chrome Burnerz 5-Pack
+Chuck E. Cheese Promo
+City 5-Pack
+City Center 5-Pack
+Classic Collection 5-Pack
+Classic Stock Cars Car Culture 2-Pack
+Classic Stunt Action Set
+Classics
+Classics (Series 1)
+Classics (Series 2)
+Classics (Series 3)
+Classics (Series 4)
+Classics (Series 5)
+Classics 30-Car Set
+Classics Cars 5-Pack
+Classics Strip Action Set
+Clover Cars
+Code Car
+Collectible Card Game Starter Set
+Collector Edition
+Color FX
+Color FX: Super Stampers
+Color Racers
+Color Reveal
+Color Reveal Design Kit 1
+Color Shifters
+Color Shifters Creatures
+Color Shifters: Color Blaster
+Color Shifters: Glow in the Dark
+Color Shifters: Trickin' Treats 2-Pack
+Color Splash Science Lab 5-Pack
+Compact Kings
+Connect Cars
+Cool Classics
+Cop Rods
+Cop Rods (Series 1)
+Cop Rods (Series 2)
+Cop Squad 5-Pack
+Copter Chase
+Corvette
+Corvette 3-Pack
+Corvette 5-Pack
+Corvette 60th Anniversary
+Corvette 70
+Corvette Car Culture 2-Pack
+Corvette Central
+Crash Canyon
+Crash! CD-ROM
+Crashers Bonus Vehicle 2-Pack
+Crazed Clowns
+Crazed Clowns II
+Creature Cars 5-Pack
+Criss Cross Crash 5-Pack
+Criss Cross Crash 5-pack
+Cruisin' America 6-Car Set
+Cruisin' America: Cruisers
+Culinary Cars 4-Pack
+Custom Car Show 5-Pack
+Customizers Corner Shop 5-Pack
+Dale Jr.'s Picks
+Daredevil Racers 5-Pack
+DeLorean Collector Set
+Dealer's Choice
+Decide Your Ride 5-Pack
+Deluxe Downtown
+Deluxe Train Set
+Demolition Derby 5-Pack
+Demolition Derby 5‑Pack
+Demolition Man
+Demonition
+Desert Force 5‑Pack
+Desert Race 1000 5‑Pack
+Design Awards
+Designers Challenge
+Designers Challenge 7-Pack
+Despicable Me
+Detroit Muscle
+Dino Riders
+Dino Riders 5-Pack
+Dirt Track Race 5‑Pack
+Disney 100 Holiday
+Disney Mickey & Friends
+Double Loop Launch
+Downtown Roadway & Ultimate Service Center?
+Drag Racers
+Draggin' Drive-Thru (Hot Rod Magazine)
+Dragon Destroyer
+Dragon Destroyer 5‑Pack
+Dragon Drive Firefight
+Dragstrip Demons
+Dream Garage
+Dream Garage 5-Pack
+Dream Halloween
+Drift Kings
+Drop Ramp
+Dropstars
+Dual Cool 5-Pack
+Duckwall ALCO Promo
+Dune Racers 3‑Pack
+Dynamite Blaster
+ESX Entetainment Promo
+Earth Day
+Easter 8-Pack
+Easter Egg-Clusives
+Easter Eggs-Treme 5-Pack
+Easter Eggsclusives
+Easter Raceway 5
+Easter Series
+Easter Speedsters 5-Pack
+Easter Speedsters Egg 6-Pack
+Edelbrock, Limited Edition
+Editor's Choice
+Emergency Squad 5-Pack
+Employee Exclusive
+Employee Holiday Releases
+Energizer Promo
+Engine Revealers
+European Car Culture Themed Multipack
+Exotics 5-Pack
+Experimotors
+Extreme City 5-Pack
+FAO Schwarz Cruisin' the '50s Car Set
+FAO Schwarz Gold Multipack
+FAO Schwarz Gold Series Collection
+FAO Schwarz Olympic Medals Set
+Factory Fresh
+Fantastic Sams Promo
+Fast & Furious
+Fast & Furious (Series 3)
+Fast & Furious 10-Pack
+Fast & Furious 5-Pack
+Fast & Furious Collector Set
+Fast & Furious Premium Bundle 2
+Fast & Furious: Dream Lineup
+Fast & Furious: Fast Imports
+Fast & Furious: Fast Rewind
+Fast & Furious: Fast Stars
+Fast & Furious: Full Force
+Fast & Furious: Furious Fleet
+Fast & Furious: Graphic Remix
+Fast & Furious: HW Decades of Fast
+Fast & Furious: Motor City Muscle
+Fast & Furious: Quick Shifters
+Fast & Furious: Race-Off
+Fast & Furious: Racing Course
+Fast & Furious: Silver Anniversary
+Fast & Furious: Villains
+Fast & Furious: Women of Fast
+Fast Four: Scavenger Hunts
+Fast Responders 5-Pack
+Faster Than Ever
+Father & Son Collector Pack
+Father's Day
+Fearless at the 500 Promo
+Ferrari 5-Pack
+Ferrari GT 5-Pack
+Ferrari Heat
+Ferrari Racer
+Ferrari Store Exclusive
+Ferrari Test Track
+Figure 8 Racers 5-Pack
+Fire 'N Rescue Action Pack
+Fire Fighting 5-Pack
+Fire Rods
+Fire Squad
+Fireball Roberts - Part I
+First Editions
+Fla-Vor-Ice Promo
+Flag Flyers 5-Pack
+Flag Flyers 5-pack
+Flame Fighters 5-Pack
+Flame Fighters/HW City 5‑Pack
+Flying Colors
+Flying Customs
+Ford Mustang 5-Pack
+Ford Performance
+Ford Trucks
+Forza Horizon
+Forza Motorsport
+Fourth of July
+Freeway Frenzy Set
+Fright Cars
+Fright Cars 5-Pack
+Full Grid Exclusive Trailer Edition
+Gas Station
+General Mills
+General Mills Employee Thank You
+General Motors 5-Pack
+Getty Promo
+Ghostbusters
+Gift Card
+Gift Cars
+Glendale Harley Davidson Love Ride
+Global Design & Development Leadership Visit 2023
+Gold Medal Speed
+Graffiti Rides 5-Pack
+Graffiti Rides 5‑Pack
+Gran Turismo
+Greater Seattle Toy Show
+Green and Gold
+Guardians of the Galaxy Vol. 2
+HW 50th Race Team
+HW 50th Track Stars 5-Pack
+HW All Drivers Welcome
+HW All Stars
+HW Art Cars
+HW Circle Track 5-Pack
+HW City 5-Pack
+HW City 5‑Pack
+HW City Works
+HW City Works 5-Pack
+HW City Works 5‑Pack
+HW City vs. Toxic Creatures 5-Pack
+HW City: Batman
+HW City: Future Fleet
+HW City: Graffiti Rides
+HW City: HW All Stars
+HW City: HW Art Cars
+HW City: HW City Works
+HW City: HW Goal
+HW City: HW Performance
+HW City: HW Rescue
+HW City: Medieval Rides
+HW City: Mustang 50th
+HW City: Night Burnerz
+HW City: Speed Team
+HW City: Street Beasts
+HW City: Street Power
+HW City: Surf Patrol
+HW Classics Series 2
+HW Code Cars
+HW Daredevils
+HW Daredevils 5-Pack
+HW Design Lab 5-Pack
+HW Designed By
+HW Designs
+HW Digital Circuit
+HW Dirt
+HW Drag Racers
+HW Drag Strip
+HW Drag Strip 5-Pack
+HW Dream Garage
+HW Drift
+HW Drift 5-Pack
+HW Easter
+HW Exotics
+HW Exotics 5-Pack
+HW Exposed Engines 5‑Pack
+HW Extreme Race 5‑Pack
+HW Fan Driven
+HW Flames
+HW Flames 5-Pack
+HW Formula Space 5‑Pack
+HW Fun Park 5-Pack
+HW Game Over
+HW Games
+HW Garage
+HW Gassers
+HW Getaways 5-Pack
+HW Glow Wheels
+HW Glow Wheels 5‑Pack
+HW Green Speed
+HW Heavyweights
+HW Horsepower 5-Pack
+HW Hot Rods
+HW Hot Rods 5-Pack
+HW Hot Trucks
+HW Hot Trucks 5-Pack
+HW Hot Trucks 5‑Pack
+HW Imagination: Batman
+HW Imagination: Future Fleet
+HW Imagination: Street Pests
+HW J-Imports
+HW Legends 5‑Pack
+HW Main Street
+HW Mega Bite
+HW Mega Hauler
+HW Metro
+HW Metro 5-Pack
+HW Mild to Wild
+HW Modified
+HW Off-Road: Battle Kings
+HW Off-Road: HW Daredevils
+HW Off-Road: HW Hot Trucks
+HW Off-Road: HW Moto
+HW Off‑Road: HW Hot Trucks
+HW Off‑Road: Ice Mountain
+HW Off‑Road: Road Rally
+HW Off‑Road: Sky Show
+HW Off‑Road: Stunt Circuit
+HW Performance
+HW Race Day
+HW Race Team
+HW Race: HW Race Team
+HW Race: Night Storm
+HW Race: Super Chromes
+HW Race: Thrill Racers
+HW Race: Track Aces
+HW Race: X-Raycers
+HW Racing
+HW Racing: HW Race Team
+HW Racing: Super Chromes
+HW Racing: Thrill Racers
+HW Racing: Track Aces
+HW Racing: X-Raycers
+HW Rescue
+HW Rescue 5-Pack
+HW Road Trippin'
+HW Roadsters
+HW Rolling Metal
+HW Screen Time
+HW Showroom: American Turbo
+HW Showroom: Asphalt Assault
+HW Showroom: Corvette 60th
+HW Showroom: HW All Stars
+HW Showroom: HW Garage
+HW Showroom: HW Hot Trucks
+HW Showroom: HW Performance
+HW Showroom: Heat Fleet
+HW Showroom: Muscle Mania
+HW Showroom: Then and Now
+HW Slammed
+HW Snow Stormers
+HW Snow Stormers 5-Pack
+HW Space
+HW Space Team
+HW Special Features
+HW Speed Graphics
+HW Speed Graphics 5‑Pack
+HW Speed Team
+HW Sports
+HW Sports 5-Pack
+HW Sports 5‑Pack
+HW Stars & Stripes
+HW Stunt: Desert Force
+HW Stunt: HW Drift Race
+HW Stunt: HW Moto
+HW Stunt: Road Rally
+HW Stunt: Stunt Circuit
+HW Tool‑In‑1
+HW Torque
+HW Torque 5-Pack
+HW Track Champs
+HW Turbo
+HW Video Game Heroes
+HW Winter
+HW Workshop: HW All Stars
+HW Workshop: HW Performance
+HW Workshop: Heat Fleet
+HW Workshop: Muscle Mania
+HW Workshop: Night Burnerz
+HW Workshop: Then and Now
+HW Xtreme Sports
+HW Zombies 5-Pack
+HW: '70s vs. '90s
+HW: The '80s
+HW: The '90s
+HWC 2: Neo-Classics
+HWC Series 11: Neo-Classics
+HWC Series 12: Real Riders
+HWC Series 13: Real Riders
+HWC Series 14: Neo-Classics
+HWC.com 1
+HWC.com Exclusive
+HWC.com Series 12: Real Riders
+HWC.com Series 3: Neo-Classics
+HWC.com Series 4: Neo Classics
+HWC.com Series 5: Neo-Classics
+HWC.com Series 7 Real Riders:
+HWC.com Series 8: Real Riders
+HWC.com Series 9: Real Riders
+HWC.com Special Edition
+Hall of Fame Tin Set
+Hall of Fame: 1:18-1:64 2-Car Set
+Hall of Fame: Greatest Rides
+Hall of Fame: Legends
+Hall of Fame: Milestone Moments
+Halloween
+Halloween Highway
+Halloween Highway 2-Pack
+Happy Birthday 5-Pack
+Happy Birthday!
+Happy Easter!
+Happy Father's Day!
+Happy Halloween
+Happy Halloween!
+Harley-Davidson 5-Pack
+Heat Fleet
+Heat Fleet 5-Pack
+Hi-Rakers
+HiRakers
+High Speed Racing Wheels
+Highway 35 World Race Complete Set
+Highway 35 World Race VHS 2-Pack
+Highway 35 World Race: Dune Ratz
+Highway 35 World Race: Scorchers
+Highway 35 World Race: Ultimate Track Set
+Highway Frenzie
+Highway Horror
+Hills
+Hippie Mobiles
+Holiday Cars
+Holiday Hot Rods
+Holiday Hot Rods 3-Pack
+Holiday Hot Rods 3‑Pack
+Holiday Hotrods
+Holiday Racers
+Holiday Rods
+Honda
+Honda 70th Anniversary
+Hot Auction
+Hot Curves Race Action Set
+Hot Haulers 4-Pack
+Hot Haulers 5-Pack
+Hot Hubs
+Hot Pickups
+Hot Trucks 5-Pack
+Hot Trucks 5‑Pack
+Hot Tunerz 5-Pack
+House Calls 5-Pack
+Hybrid Racers 5-Pack
+ISCA Auto Show Exclusive
+Indy 500 5-Pack
+Insectirides 5-Pack
+International
+International Gold Editions
+Iron Man Armor-Up Launcher
+Italy Toy Fair
+JC Whitney Promo
+JCPenny 24K Performance Collection Series III
+James Bond
+Japan Custom Show: Bone Shaker & '38 Ford C.O.E. Truck 2-Car Set
+Japan Custom Show: Dinner Car
+Japan Tokoro's Collection
+Japanese Car Culture Themed Multipack
+Jet Port
+Jetz CD-Rom
+Jiffy Lube Exclusive
+Jukebox
+Jungle Rally 5-Pack
+Justice League
+Justice League 5-Pack
+K-B Toys 2-Pack
+K-B toys 2-Pack
+KB Deluxe Highway Set
+Kar Keepers
+Kool Toys Racing Pack
+Kool-Aid Promo
+Krackle Car
+L.A. Auto Show Edition
+L.A. Auto Show Giveaway
+Lamborghini
+Lamborghini 5-Pack
+Larry Wood 50th Anniversary
+Larry Wood World Tour 4-Car Set
+Larry Wood's 35th Anniversary Set
+Larry's Garage 21-Car Collection
+Larry's Garage Holiday
+Larry’s Garage
+Legends Tour Special Edition
+Legends of Speed
+Lexmark Promotional
+Light Speeders
+Lightyear
+Limited Edition ZAMAC Series Set
+Little Debbie Series III 3-Pack
+Little Debbie's III
+Long Haulers
+Looney Tunes
+Lowriders
+Luxury Sedans
+MEC (Mattel Engineers of China)
+Magazine Exclusive
+Mainline
+Make-A-Wish
+Malt-O-Meal Limited Edition
+Mardi Gras
+Masters of the Universe
+Mattel 80th Anniversary 5-Pack
+Mattel 80th Anniversary Multipack
+Mattel Brick Shop
+Mattel Creations: Art of Engineering
+Mattel Games
+Mattel Happy Birthday (Employee)
+Mattel Indonesia Employee Birthday Gift
+Mattel MDC Employee Exclusive
+Mattel Malaysia Employee Exclusive
+Mattel Malaysia Sdn. Bhd. Employee Exclusive
+Mattel Toy Store Exclusive
+Max Steel
+Max Steel 5-Pack
+Max Steel Aqua Invasion 5‑Pack
+Max Steel Land Invasion 5-Pack
+Max Steel Speed 5-Pack
+Max Steel Stealth 5-Pack
+Max Steel Strength 5-Pack
+Max Steel: Aerial Invasion 5‑Pack
+McDonald's
+McDonald's Playset
+Metro Sketch 5-Pack
+Mexican Release
+Mickey Mouse 90th Anniversary
+Military Rods
+Mini Car Culture 2-Pack
+Mission Madness - Scavenger Hunt
+Model Shop Employee Holiday Releases
+Modern Classics
+Modified Rides
+Monster Jam: Monster Duo
+Monster Mission 5-Pack
+Monster Truck + Original Car
+Monster Truck + Original Car Pack
+Monster Truck + Original Car Packs
+Mooneyes Collector Set
+Mooneyes Volkswagen Car Culture 2-Pack
+Mopar
+Mopar Mania 5-Pack
+Mothers
+Motor City Classics
+Motor Cycles
+Motor Show 5‑Pack
+Motor Trend: Roadkill
+Motorin' Music Set
+Motown Metal
+Mud Runners
+Mud Studs 5-Pack
+Multi-Pack Exclusive
+Multi-pack Exclusive
+Multipack Exclusive
+Multipacks
+Muscle Mania
+Muscle Mania - Ford
+Muscle Mania - Mopar
+Muscle Mania 5-Pack
+Muscle Mania: GM
+Mustang 45th 5-Pack
+Mustang 5-Pack
+Mustang 50 Years
+Mustang 50th 5-Pack
+Mustang 60 Years
+Mustang 60th
+Mustang Mania
+Mustang Mania 10-Pack
+Mutant Biotronic Kingdom Set
+Mystery Car
+Mystery Cars
+Mystery Models
+Mystery Models (International)
+Mystery Models (Series 1)
+Mystery Models (Series 2)
+Mystery Models (Series 3)
+NACHRI exclusive
+NFT Garage (Series 8)
+Neon Speeders
+Night Breed 5-Pack
+Night Burnerz
+Night Burnerz 5-Pack
+Nightburnerz
+Nightburnerz 5-Pack
+Nissan 5-Pack
+Nissan Collector Set
+Nitrobot Attack 5‑Pack
+Norwalk Raceway Park
+Nostalgia: Atari
+Nostalgia: DC Comics 4‑Pack
+Nostalgia: General Mills
+Nostalgia: Hanna Barbera
+Nostalgia: Hershey's
+Nostalgia: Masters of the Universe
+Nostalgia: Nose Art
+Nostalgic Brands: Atari
+Nostalgic Brands: Carvel Ice Cream
+Nostalgic Brands: DC Comics
+Nostalgic Brands: Live Nation
+Nostalgic Brands: Rock (Live Nation)
+Nostalgic Brands: Saturday Evening Post
+Now and Then 8-Pack
+Nuremberg Toy Fair
+O'Reilly Auto Parts Promo
+Octoblast 5-Pack
+Off Road Warriors 5‑Pack
+Oldies But Goodies
+Olympic Games Tokyo 2020
+Orange and Blue
+Origin of Awesome 5-Pack
+Ovaltine Yen Promo
+Overwatch
+Pantone
+Park 'N Plates
+Pavement Pounders
+Peanuts
+Penske Auto Center
+Pep Boys 2-Pack
+Pepsi NEX
+Phantom X-Raycers 5-Pack
+Pin Hedz
+Pixar
+Police Patrol 5-Pack
+Police Pursuit 5-Pack
+Police Pursuit 5‑Pack
+Police Squad 5-pack
+Pontiac 100th Anniversary
+Pony Rides Collector Set
+Pop Culture: Alex Ross DC Heroes
+Pop Culture: Back to the Future
+Pop Culture: Barbie
+Pop Culture: DC Comics
+Pop Culture: Disney
+Pop Culture: General Mills
+Pop Culture: Hanna-Barbera
+Pop Culture: Jurassic World
+Pop Culture: Just Born
+Pop Culture: Looney Tunes
+Pop Culture: Mars
+Pop Culture: Marvel
+Pop Culture: Masters of the Universe
+Pop Culture: Nestlé
+Pop Culture: Peanuts
+Pop Culture: Speed Shop Garage
+Pop Culture: Star Trek
+Pop Culture: Street Fighter V
+Pop Culture: Super Mario
+Pop Culture: The Beatles
+Pop Culture: The Mandalorian Concept Art
+Pop Culture: The Muppets
+Pop Culture: Universal Monsters
+Pop Culture: Vintage Oil
+Pop Culture: Women of Marvel
+Pop-Offs
+Power Command
+Power Command Racers
+Power Launcher
+Power Launcher 2 Pack
+Power Rangers Megaforce Mega Air Jump Track Set
+Power Semi
+Pride Rides
+Priority Patrol 5-Pack
+Pro Circuit
+Pro Circuit Speedway Set
+Purple and Gold
+Quarter Mile Heroes
+RLC Club Car
+RLC Exclusive
+RLC Membership Car
+RLC Special Commemoration Edition
+RLC sELECTIONs
+Race Aces
+Race Aces 5-Pack
+Race Rods 5-Pack
+Race Team II
+Race Team III
+Race Team IV
+Race World - Beach
+Race World - City
+Race World - Earth
+Race World - Highway
+Race World - Movie Stunts
+Race World -Jungle
+Racing American Style 4-Pack
+Racing Circuit
+Racing Kits: Snow Race
+Racing Kits: Stock Car Race
+Racing Rigs
+Radical Roadway
+Rally Race playset
+Real Riders
+Real Riders 2-Pack
+Rebel Rides
+Red Edition
+Red Line
+Replica Entertainment: Back to the Future
+Replica Entertainment: Forza Horizon 4
+Replica Entertainment: Forza Motorsport
+Replica Entertainment: Forza Motorsport 5-Car Premium Set
+Replica Entertainment: Forza Motorsport Premium 5-Pack
+Replica Entertainment: Rocket League
+Rescue Racers 5-Pack
+Rescue Rods 5‑Pack
+Rescue Team
+Retro Entertainment: American Graffiti
+Retro Entertainment: Back to the Future
+Retro Entertainment: Beverly Hills Cop
+Retro Entertainment: The A-Team
+Retro Entertainment: The Italian Job
+Retro Racers
+Retro Racers 5‑Pack
+Retro Style
+Revealers
+Rims AR Torq
+Road Course Race 5-Pack
+Road Rockets 5-Pack
+Roarin' Rods
+Robo Revenge 5‑Pack
+Robo Zoo 5-Pack
+Rocket League 5-Pack
+Rod Squad
+Roll Patrol
+San Diego Comic-Con
+San Diego Padres Promotion
+Scary Cars 5-Pack
+Scavenger Hunt
+Sci-Fi Hiway 5-Pack
+Sci-Fi Monsters 5-Pack
+Screen Time
+Seein' 3-D
+Serpent Cyclone
+Service Merchandise Classic American Car Collection
+Shelby 5-Pack
+Shell Gas Station Playset
+Shiners 5-Pack
+Show Biz 5-Pack
+Silver
+Silver II
+Since '68: Collector Top 40 Set
+Since '68: Hot Rods 4 Car Tin Set
+Since '68: Muscle Cars
+Since '68: Originals
+Since '68: Top 40
+Since 68: Hot Rods
+Skateboarders 5-Pack
+Sky Show
+Smashville 5-Pack
+Snack Time
+Snap-On Tools
+Snowflake Edition
+Soccer
+Sonic & All-Stars Racing Transformed
+Special Olympics (Shanghai, China)
+Special Olympics World Games (Los Angeles)
+Spectraflame II
+Speed Blaster
+Speed Blur
+Speed Blur 5-Pack
+Speed Blur 5‑Pack
+Speed Circuit Showdown
+Speed Circus 5-Pack
+Speed Demons
+Speed Demons 5-Pack
+Speed Fleet
+Speed Machines
+Speedway Specials
+Spider Loop Speedway
+Spider-Man
+Spider-Man 5-Pack
+Spider-Man: Homecoming
+Spider-Man: Into the Spider-Verse
+Spin Storm 5-Pack
+Splatter Paint
+SpongeBob SquarePants
+Sports Car
+Spring
+Star Spangled 2
+Star Wars
+Star Wars Master/Apprentice
+Star Wars: Classics
+Star Wars: Factions
+Star Wars: Planets
+Star-Spangled
+Stars & Stripes
+Starter Set
+Steel Stamp
+Steel Stamp Series 2-Pack
+Sto & Go Gas Station Playset
+Sto 'n Go Set
+Stock Car Race 5‑Pack
+Street Beast
+Street Beast 5-Pack
+Street Beast II
+Street Beasts
+Street Beasts 5-Pack
+Street Beasts 5‑Pack
+Street Show
+Stunt Circuit 5-Pack
+Stunt Circuit 5‑Pack
+Stunt Street
+Stunt Track Driver 2: Get'n Dirty CD-ROM
+Stunt Tracks 5-Pack
+Summer Racin'
+Sunburnerz
+Super 6 in 1 Track Set
+Super Chromes
+Super Chromes 10-Pack
+Super Loop Chase Race 5-Pack
+Super Mario
+Super Rigs
+Super Roadsters 4-Car Set
+Super Speeders
+Super Track Pack
+Super Ultimate Garage 5‑Pack
+Superman
+Superman 2-Pack: Lexcorp Jet Takeoff
+Surf's Up
+Surf's Up 5-Pack
+Sweet Rides
+T-Hunt
+T-Rex Takedown
+Tag Rides
+Target Decades Set
+Tattoo Machines
+Team HWs High Speed Wheel
+Team Wheels
+Team: Drag Racing
+Team: Engine Revealers
+Team: Exotics
+Team: Jet Rides
+Team: Muscle Mania
+Team: Surf's Up
+Tech Tuners
+Tesla: Greetings From Space
+The Beatles Yellow Submarine
+The Bruce Wayne Collection 3-Car Set
+The Children's Museum of Indianapolis Exclusive
+The Fast and the Furious: Tokyo Drift
+The Hot Ones
+The Muppets
+The Nightmare Before Christmas 25 Years
+The Shelby Heart Fund
+Themed 2-Packs
+Then and Now
+Thor: Ragnarok 5-Pack
+Thrill Racers - Beach
+Thrill Racers - Cave
+Thrill Racers - City Stunt
+Thrill Racers - Desert
+Thrill Racers - Earthquake
+Thrill Racers - Highway
+Thrill Racers - Ice
+Thrill Racers - Jungle
+Thrill Racers - Prehistoric
+Thrill Racers - Race Course
+Thrill Racers - Raceway
+Thrill Racers - Space
+Thrill Racers - Swamp Rally
+Thrill Racers - Volcano
+Thrill Racers 5‑Pack
+Throwback
+Thunder Trucks 4-Pack
+Tiki Blasters 5-Pack
+Tiki Torchers 5-Pack
+Timeless Toys II 4-Pack
+Tokyo 2020 Olympics
+Tooned
+Top Speed GT 5-Pack
+Tour Edition
+Tow & Tune Playset
+Towing 2010 Action Pack
+Toy Fair
+Toy Shop Magazine
+Toy Story
+Toy Story 5
+Toys R Us
+Track Aces
+Track Aces 2-Pack
+Track Aces 5-Pack
+Track Aces 5‑Pack
+Track Builder 5-Pack
+Track Builder Unlimited 5‑Pack
+Track Stars
+Track Stars 5‑Pack
+Track System 5-Pack
+Trackin' Trucks
+Trailbusters
+Transformers
+Trea$ure Hunt$
+Treasure Hunt
+Treasure Hunts
+Trick Tracks 5-Pack
+Triple Launch Jump
+Triple Track Twister 5-Pack
+Trophy Case
+Truck Stoppers 5-Pack
+Truckin' Along
+Tuner Raceway
+Turbo Driver
+Turbo Launcher
+Turbo Taxi
+Turbo Trax Glo Jump Track Set
+Twenty +
+T‑Wrecks 5‑Pack
+U.S. Soccer Team
+Ultimate Police Chase
+Ultimate Service Center
+Ultimate Spider-Man
+Ultimate Spider-Man vs The Sinister 6
+Ultimate Track 3-Pack
+Ultra Hots
+Urban 5-Pack
+Urban Camouflage
+Valentine's
+Valentino Rossi
+Various Playsets
+Various Track Sets
+Various Tracksets
+Vintage American Muscle
+Vintage Club
+Vintage Racing
+Virtual Collection
+Volkswagen
+Volkswagen 5-Pack
+WWE
+Walgreens
+Walgreens Battery Exclusive
+Wall Tracks 5-Pack
+Warner Bros. 100th Anniversary
+Wastelanders
+Wastelanders 5-Pack
+Wave Cravers 5-Pack
+Web Trading Cars
+White's Guide
+Wild Cats 5-Pack
+Wild Race Teams
+Wild Things 5-Pack
+Wild Wave
+Wish List 5-Pack
+Work Crewsers
+Workhorses
+World Class Racers
+World Cup 5-Pack
+World Race
+World Race 5-Pack
+World Racers 5-Pack
+World Rally Championship
+World of Wheels / AutoRama Promo
+X-Men
+X-Ray Cruiser
+X-Raycers
+X-Raycers 5-Pack
+X‑Games 5‑Pack
+X‑Raycers
+X‑Raycers 5‑Pack
+X‑Raycers Track 5‑Pack
+Yu-Gi-Oh!: Makyura The Destructor & Marik Entertainment 2-Pack
+ZAMAC Themed Multipack
+Zero-G 5-Pack
+[[2014 Mystery Models|Mystery Models
+[[2015 Mystery Models|Mystery Models
+[[2017 Mystery Models|Mystery Models
+[[2019 Mystery Models|Mystery Models
+[[2020 Mystery Models|Mystery Models
+[[Racing Rigs|Racing Rigs
+GUARANTEED FOR LIFE
+NEW FOR 2026
+FACTORY FRESH
+TEAM TRANSPORT
+CAR CULTURE
+MUSCLE MANIA
+TREASURE HUNT
+SUPER TREASURE HUNT
+FIRST EDITIONS
+COLLECTOR EDITION
+MADE IN MALAYSIA
+MADE IN THAILAND
+AGES 3+
+COLLECT THEM ALL
+REAL RIDERS
+PREMIUM
+1:64 SCALE
+DIE-CAST METAL AND PLASTIC PARTS
+CAMION DE TRANSPORT
+STATION WAGON
+oostilsudionlanucoroevolution1xwagonhrcjonueeessssefnameermwe4aefape
+aajyapase2004subaruforesterstiuseyoven4ateaieorrtidaeactoeaaeefsagerete
+Sane — Waa
+eas See
+JNATO 7 A$
+Antoatns ;
+wield
+Jy ap ase
+e686?
+fs Za Ls
+[* £2 Ls
+ce?
+R948 250 679
+lla 15g a
+sraTOn WAGON. / CARIONNETTE
+bedptiaetaye
+ow See
+Hower
