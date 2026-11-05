@@ -14,6 +14,44 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-11-05 — "New Models" is not a sub-series
+
+The owner's point: on a mainline card the wave is printed up the right-hand
+edge — "HW J-Imports", "Factory Fresh" — and "2009 New Models" is not that.
+It records that the casting was new that year. The wiki's Series column
+carries it anyway, so the import had created a wave per year, each holding
+twenty-odd cars that were really mainline cars, burying the waves that exist.
+
+Two ways to do it, and the obvious one is wrong. Deleting the rows and moving
+their releases onto the line reads like what was asked, and it does not
+survive a re-import: the importer keys a series by its name, and
+`record_sources` allows exactly one provenance row per record, so folding
+many source keys onto one series row either loses keys or breaks that
+constraint. The rule that source keys are never lossily transformed exists
+for this.
+
+So it is a presentation rule instead. `config/catalog_lines.collapse` is one
+regex; a series matching it is shown, grouped and browsed as the line it sits
+under — which is not a new concept, because a series sharing its line's name
+already behaves that way and `Series::path()` already collapses it. The rows,
+the releases and the provenance all stay put. Qualified names are left alone:
+"2005 First Editions: Realistix" and "2006 First Editions 5-Pack" say more
+than "new this year" and remain waves.
+
+### A Postgres detail worth keeping
+
+The browse has to group by the same rule, so the collapse needed to exist in
+SQL as well as PHP. Written the obvious way — `s.name ~* ?` with the pattern
+bound — the query fails with "column s.name must appear in the GROUP BY
+clause", even though the SELECT and GROUP BY expressions read identically.
+They are not identical to Postgres: each `?` is its own parameter, so the two
+CASE expressions differ by the parameter they reference and neither matches
+the other. The pattern is now written into the SQL. It is a constant in a
+config file, no more user input than the SQL around it, and its quotes are
+escaped regardless.
+
+---
+
 ## 2026-11-05 — A brand vocabulary that grows, and the short-name trap
 
 Four hardcoded brands, in two places, was the wrong shape for a catalog that

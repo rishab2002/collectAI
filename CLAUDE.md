@@ -88,7 +88,7 @@ exists.*
 
 **Running:** `docker compose up -d` brings up `app` (:8000), `db` (Postgres 16,
 :5432), `redis` (:6379), `meilisearch` (:7700), `recognizer` (:8090).
-`php artisan test` → **397 passed, 1,653 assertions**; the recognizer's own
+`php artisan test` → **398 passed, 1,659 assertions**; the recognizer's own
 `python -m unittest discover -s tests -t .` (in `recognizer/`) → **70 passed**
 (both re-measured 2026-11-05). The `recognizer` image **does** build and run
 now (`docker compose up -d recognizer`, healthy, `/health` ok); its Tesseract
@@ -1443,6 +1443,27 @@ and photos. Measured, not assumed — details in the [session log](docs/session-
   releases are ≥70% numbered (at least 3) is Mainline. Measured: mainline
   segments are 75–100% numbered, the leftovers 0–4%, so the bar sits in the gap.
   Everything else goes to "Other Series" rather than being guessed into a line.
+- **"(year) New Models" is the line, not a wave inside it** (2026-11-05,
+  `config/catalog_lines.collapse`, `App\Support\LineNames`). It says the
+  casting was new that year; every car in it is a mainline car, and the wave
+  it really belongs to is the segment printed up the right-hand edge of the
+  card, which the wiki's Series column does not carry. Filed as sub-series
+  these invent a wave per year and bury the real ones, so a matching name is
+  shown, grouped and browsed as its line — exactly as a series sharing its
+  line's name already is. Qualified names are deliberately left alone:
+  "2005 First Editions: Realistix" says more than "new this year".
+  **Nothing is deleted.** The rows keep their releases and their provenance,
+  and a re-import finds them where it left them — which it must, because the
+  importer keys a series by name and `record_sources` allows one provenance
+  row per record, so merging the rows would lose a source key or break that
+  constraint. It is a presentation rule, applied in `Series::path()`, in the
+  browse queries and in the Add-a-car suggestions alike.
+  - **The pattern is written into the SQL, not bound.** Bound, the
+    placeholder in the SELECT is a different parameter from the one in the
+    GROUP BY, so Postgres sees two expressions and refuses to group by either
+    — "column s.name must appear in the GROUP BY clause", which is how this
+    was found. It is a constant in a config file, as much part of the program
+    as the SQL around it; quotes are escaped regardless.
 - **Many rows can share a line's name.** The wiki links each year's mainline to
   its own anchor — 92 rows called "Mainline". The first is the line; the rest
   hang under it, and the browse treats them as the line's own cars.

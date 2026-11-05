@@ -111,6 +111,13 @@ final class CatalogVocabulary
             ->limit(self::LIMIT * 2)
             ->get(['id', 'name', 'parent_id'])
             ->reduce(function (array $carry, Series $series): array {
+                // "2009 New Models" is the line, not a wave inside it, so it
+                // is not offered as one — suggesting it is how the catalog
+                // would keep filling up with them. See App\Support\LineNames.
+                if ($series->isLineItself()) {
+                    return $carry;
+                }
+
                 // Several rows share a name — the wiki links each year's
                 // mainline to its own anchor — and they are one choice here.
                 $carry[$series->name] ??= $series->parent?->name ?? '';

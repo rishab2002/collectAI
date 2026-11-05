@@ -6,6 +6,7 @@ use App\Models\Brand;
 use App\Models\Casting;
 use App\Models\Photo;
 use App\Models\Series;
+use App\Support\LineNames;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
@@ -71,7 +72,8 @@ final class CatalogBrowser
             ->get([
                 'l.id', 'l.name',
                 DB::raw('COUNT(DISTINCT cv.casting_id) as cars'),
-                DB::raw('COUNT(DISTINCT CASE WHEN LOWER(s.name) <> LOWER(l.name) THEN LOWER(s.name) END) as subseries'),
+                DB::raw('COUNT(DISTINCT CASE WHEN LOWER(s.name) <> LOWER(l.name)'
+                    .' AND NOT ('.LineNames::sql('s.name').') THEN LOWER(s.name) END) as subseries'),
                 DB::raw('MIN(r.year) as first_year'),
                 DB::raw('MAX(r.year) as last_year'),
             ]);
@@ -85,17 +87,23 @@ final class CatalogBrowser
      */
     public function subSeries(Series $line, ?int $year = null): Collection
     {
+        // Grouped by the name a release is shown under, so "2009 New Models"
+        // joins the line's own cars instead of standing as a wave of its own.
+        $name = LineNames::effectiveName('s.name');
+
         return $this->inLine($line)
             ->when($year !== null, fn (Builder $query) => $query->where('r.year', $year))
-            ->groupBy('s.name')
+            ->groupByRaw($name)
             ->orderByDesc('last_year')
-            ->orderBy('s.name')
+            ->orderByRaw($name)
             ->get([
-                's.name',
+                DB::raw("{$name} as name"),
                 DB::raw('COUNT(DISTINCT cv.casting_id) as cars'),
                 DB::raw('MIN(r.year) as first_year'),
                 DB::raw('MAX(r.year) as last_year'),
-            ]);
+            ])
+            // The collapsed rows came back as null; they are the line's own.
+            ->each(fn (object $row) => $row->name ??= $line->name);
     }
 
     /**
@@ -125,7 +133,8 @@ final class CatalogBrowser
         return $this->inLine($line)
             ->join('variations as v', 'v.release_id', '=', 'r.id')
             ->when(! $this->preview, fn (Builder $query) => $query->where('v.status', 'live'))
-            ->whereRaw('LOWER(s.name) = LOWER(?)', [$subSeries])
+            ->whereRaw('LOWER(COALESCE('.LineNames::effectiveName('s.name').', ?)) = LOWER(?)',
+                [$line->name, $subSeries])
             ->when($year !== null, fn (Builder $query) => $query->where('r.year', $year))
             ->groupBy('cv.casting_id')
             ->orderByDesc('last_year')
