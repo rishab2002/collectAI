@@ -2344,6 +2344,25 @@ catalog: it only offers cars collectors can add.
   Keep the files somewhere private. They contain every account's email and
   password hash. If the Supabase dashboard shows a newer PostgreSQL major
   version than 17, change `postgres:17-alpine` to match.
+- **"Railway is down" usually means the dashboard, not your site.** Railway has
+  recurring incidents where networks block its IP ranges, which makes
+  **railway.com** unreachable from your connection while **running workloads
+  stay up**. Your visitors are not affected by that: they reach Cloudflare, and
+  Cloudflare connects to Railway from its own network, not from your ISP. So
+  check the two separately —
+
+  ```bash
+  curl -s -o /dev/null -w '%{http_code}\n' https://collectai.club/
+  ```
+
+  a `302` to `…cloudflareaccess.com` means the edge is fine; then open the site
+  in a browser and get through Access to prove the app itself is serving. (You
+  cannot test the origin with `curl` while Access is on: it gates every path
+  before the request reaches Railway.) If only the dashboard is unreachable,
+  try another network — a phone hotspot — or wait it out, and check
+  **status.railway.com**, which is a different host and stays up. Note this
+  also blocks reading your logs, so an app bug and an outage can only be
+  untangled in that order.
 - **Don't turn on Railway's Serverless (sleep) setting for `web`.** The
   scheduler runs inside it, and the hourly deletion of unshared scan photos is
   a promise in the privacy policy.
