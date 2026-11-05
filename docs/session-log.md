@@ -14,6 +14,141 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-11-05 — /scan for cars still in their packaging
+
+The Scan page was built for loose cars on a table: find car-shaped blobs
+against the background colour, name each one's colour, read the base. The
+owner's collection is not photographed that way. It is photographed as retail
+packaging — blister cards and boxes, a dozen or more at a time — where the
+signal is the large printed name on the card and nothing else.
+
+### The loose-car segmenter finds nothing, and it is worth knowing why
+
+The first version of the packaged mode looked for rectangles: packages are
+oblongs, so propose rectangles from the background-difference mask and from
+Canny edges, filter by area, aspect and rectangularity, and suppress overlaps.
+On synthetic layouts this worked perfectly — twelve cards laid out in rows,
+twelve detections, nine named. On the owner's real photographs it found
+**zero**.
+
+Two separate reasons, both worth recognising on sight:
+
+- **A heterogeneous border makes the background threshold enormous.**
+  `background_difference` reads the surface colour from the photo's outer 3%
+  and thresholds at `max(18, noise95 × 1.6)`. When that border is part carpet,
+  part blanket, part the next shelf and part a corner of another package, the
+  95th-percentile noise is huge and the threshold with it, so essentially
+  nothing counts as foreground. The mask for a photo of five packages came back
+  as two yellow logos and nothing else. The loose-car instructions ask for a
+  plain contrasting sheet precisely because of this; nobody does that with a
+  collection.
+- **Packages overlap, and rectangles need edges.** People fan them out or pile
+  them. There is no gap to separate two cards by, and no four clean edges round
+  any but the topmost one.
+
+A third thing was wrong and is a generally useful trap: the edge detector used
+the common "auto Canny" rule of thresholds at 0.66× and 1.33× the image's
+*median brightness*. On a bright surface that puts the upper threshold at 255,
+so only the boldest artwork is outlined at all, and a whole column of pale
+packages is never proposed. Thresholds now come from the 97th percentile of the
+photo's own gradient magnitude, which is what the rule was reaching for.
+
+### What a package actually is, here
+
+The reframing that made it work: **a package is identified exactly when its
+printed name is visible, so find packages by their printing.** One Tesseract
+pass over the whole photo at 2400 px, group the words into lines, keep the
+lines that look like print, cluster the lines that belong together, and each
+cluster is a package. A package whose name is hidden under the next one cannot
+be named by anything, so not finding it costs nothing — it would be a crop with
+no answer in it.
+
+Rectangles kept a job: where one is found round a block of printing it gives
+straight, deskewed bounds, and a rectangle with *no* printing on it is kept as
+an unnamed package — usually one lying on its side, whose name the whole-photo
+pass reads sideways and so does not read. The per-package reader tries every
+rotation, so what the photo missed the crop can still get.
+
+**Telling print from carpet** took a measurement rather than a guess. A blanket
+or a rug yields over a hundred "lines" from Tesseract, and the discriminator
+turned out to be case: real card names are six or more characters in capitals,
+Tesseract's inventions are short and lower case. Hot Wheels and Matchbox both
+print car names in capitals, which is nearly the whole catalog; a mixed-case
+line has to have been read at ≥0.7 instead, which is what a real Mini GT or
+Tomica name reads like and what invented words never do.
+
+### Four false positives, each a different lesson
+
+The discipline in this pipeline is that a wrong answer is much worse than no
+answer, so each of these mattered more than the matches they cost.
+
+1. **"2023 CHEVY® TAHOE™ Z71" → the casting "'57 Chevy".** Five shared letters,
+   confidently, at 0.95. It won because the right casting was excluded: the Z71
+   read as 271, so the rule that every number in a name must be read exactly
+   ruled it out and left the fragment unopposed. A card prints the name in
+   full, so a casting that accounts for a few letters of it is a fragment of
+   the name rather than the car.
+2. **A card printing "FERRARI" → the casting "Ferrari FF".** This one was
+   self-inflicted and is the most interesting. The crop and the whole-photo
+   pass are two readings of the same print and they disagree usefully — on one
+   Matchbox card the whole-photo pass read "2024 TOYOTA TACOMA" at 92% while
+   the enlarged crop scored TOYOTA at 0, correct and thrown away by the
+   under-0.4 rule. Using both was right. **Concatenating them was not**:
+   "FERRARI" twice is "…ferrariferrari…", whose window "ferrarif" matches
+   "ferrariff" at 0.94. The join invented a letter pair that was never printed.
+   They are now kept apart (`Evidence.alternates`) and matched separately.
+3. **"'66 BUICK RIVIERA" → the casting "1971 Buick Riviera"**, and
+   **a 2018 Dodge Challenger SRT Demon → "'71 Dodge Challenger"**, both at 0.96.
+   Both matched the nameplate with the year stripped off — the alias that
+   exists because a worn base often omits the leading '93 of '93 Mazda RX-7.
+   A card prints the year. Off a card, only the whole name now matches.
+4. That rule immediately broke the correct answers, because the catalog says
+   "'04 Subaru Forester STI" and the card says "2004". So, off a card only, a
+   two-digit year in a name is satisfied by the four-digit year ending in it.
+   With that, the 2018 Challenger matches the right casting.
+
+A fifth, smaller one, found on the synthetic layout: a collector number like
+"3/250" printed under "MAZDA RX-3" was being removed from the text a word at a
+time, which took the 3 out of the name as well and failed the exact-numbers
+rule. The collector number now comes out whole.
+
+### What the card's © year means
+
+A base carries the year the tool was cut, so the existing rule reads it against
+the casting's *first* release. A card carries the year of sale, so it is read
+against the whole range. More importantly it was made **corroboration only,
+with no penalty for falling outside** — a casting's recorded years here are the
+years that happen to have been imported, and with 212 live castings out of
+15,796 the model knows about, "outside its years" is far more often a gap than
+a wrong car. Leaving the penalty in was what put the '93 RX-7 above a fully
+read '95, and removing it let the existing dominance rule do its job instead.
+
+### Measured, and what it says
+
+Two of the owner's photographs are committed at `tests/Fixtures/packaging/`,
+unscaled, so the numbers can be taken again. Five overlapping premium
+two-packs: 8 detections, 8 of the 10 printed names located (the two missed are
+one printed upside down and one in the middle of a card), 10 seconds. A fan of
+Matchbox blisters stacked so all but a few have their names hidden: 8
+detections, every name a person can read in it, 8 seconds.
+
+Against the live catalog both photos return **no answers at all**, and that is
+correct — it holds 212 castings, all 2011 Hot Wheels, and none of these cars is
+among them. Against a catalog built to hold them, 3 were named and **none was
+named wrongly**. That second row is the one that says the matching works; the
+first says the catalog is the bottleneck, not the reader.
+
+Two limits worth carrying forward. Tesseract does not read the Hot Wheels flame
+logo — it is artwork, not type — so the brand is usually blank on a Hot Wheels
+card and read on a Matchbox one, which means breaking a tie between two
+castings of one name still depends on the brand being printed in type;
+recognising a logo is a job for the visual model, not for OCR. And a premium
+two-pack yields one detection per *car*, not per package, because each car has
+its own name strip — for a collection that is the more useful answer, so it was
+left alone.
+
+---
+
 ## 2026-11-05 — Three silent failures on the live deployment
 
 The owner reported a 500 on `/scan` "regardless of the options I tick". One

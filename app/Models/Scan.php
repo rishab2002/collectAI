@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable(['consent', 'layout', 'photos', 'error'])]
 class Scan extends Model
 {
-    public const LAYOUTS = ['auto', 'pile', 'single'];
+    public const LAYOUTS = ['auto', 'pile', 'single', 'packaged'];
 
     public function user(): BelongsTo
     {

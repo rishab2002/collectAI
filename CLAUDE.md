@@ -5,7 +5,11 @@ domain model, conventions and current state only have to be explained once.
 **Treat this file as the source of truth, not the conversation history** —
 update it whenever a convention changes.
 
-**Last edited:** 2026-11-04 (**the site is DEPLOYED and LIVE at
+**Last edited:** 2026-11-05 (**`/scan` now reads cars still in their
+packaging** — `layout=packaged`, found by the printing on them rather than by
+their shape, measured on the owner's own photos; see
+[Recognition → Packaged cars](#packaged-cars-2026-11-05) and README §5.8.)
+Before that, 2026-11-04 (**the site is DEPLOYED and LIVE at
 https://collectai.club**, Railway + Supabase, **behind Cloudflare Access** —
 all measured below; the 525 is gone).
 Before that, 2026-11-04 night (every wiki photo collected and the model
@@ -80,11 +84,12 @@ exists.*
 
 **Running:** `docker compose up -d` brings up `app` (:8000), `db` (Postgres 16,
 :5432), `redis` (:6379), `meilisearch` (:7700), `recognizer` (:8090).
-`php artisan test` → **385 passed, 1,569 assertions**; the recognizer's own
-`python -m unittest discover -s tests -t .` (in `recognizer/`) → **52 passed**
-(1 skipped where the machine has no IPv6)
-(both re-measured 2026-11-03, last). The `recognizer` Docker image has not been
-built yet — the Python ran in a venv with the same pinned versions.
+`php artisan test` → **387 passed, 1,587 assertions**; the recognizer's own
+`python -m unittest discover -s tests -t .` (in `recognizer/`) → **66 passed**
+(both re-measured 2026-11-05). The `recognizer` image **does** build and run
+now (`docker compose up -d recognizer`, healthy, `/health` ok); its Tesseract
+is 5.3.0 where a current Homebrew one is 5.5.4, and they read a hard photo
+slightly differently.
 
 **The dev database holds the import *plus* seed data, so its counts are not the
 import's counts.** `CatalogSeeder` and `SubmissionSeeder` contribute 9 castings
@@ -400,6 +405,14 @@ queue worker, `APP_URL=http://localhost` — reachable only from this Mac on
   locally; nothing is deployed. See [Deployment](#deployment) for the settled
   calls.
 
+- **Packaged cars at `/scan`** (2026-11-05): `layout=packaged`,
+  `recognizer/collectai_recognizer/packaging.py`, a fourth option on the Scan
+  page. A photo of a dozen blister cards and boxes returns one detection per
+  package, each named from the printing on it and matched by toy number or
+  whole name. Measured on the owner's own photos — numbers and the rules they
+  produced are under [Recognition](#recognition); two of the photos are
+  committed at `tests/Fixtures/packaging/`. **Nothing in those photos is in
+  the live catalog**, so every answer there is honestly "not sure".
 - **Recognition phase 1** (`recognizer/`, `app/Services/Recognition/`,
   `ScanController`, `resources/views/scan/`, `scans` + `scan_detections`).
   A standalone Python service (OpenCV + Tesseract, stdlib HTTP) finds the cars
@@ -1616,8 +1629,106 @@ measurements in the [session log](docs/session-log.md).*
 - **Numbers in a name must be read exactly** (RX-3 is not RX-7), and words
   Tesseract scores under 0.4 are not evidence. Both are deliberate; don't loosen
   them to make a test photo pass.
-- **`layout` (auto/pile/single) is asked**, because on a close-up the printed
-  words stand out from the metal like cars from a table.
+- **`layout` (auto/pile/single/packaged) is asked**, because on a close-up the
+  printed words stand out from the metal like cars from a table.
+
+#### Packaged cars (2026-11-05)
+
+*`layout=packaged`, `recognizer/collectai_recognizer/packaging.py`. A photo of
+a dozen blister cards and boxes, which is how a collection actually gets
+photographed. Measured on 55 of the owner's own photos; the two the numbers
+below come from are committed at `tests/Fixtures/packaging/`.*
+
+- **A package is found by the printing on it, not by its shape.** The
+  loose-car segmenter was tried first and finds **almost nothing** in a real
+  collection photo: it reads a background colour off the photo's border, and a
+  border that is part carpet, part blanket and part the next shelf makes its
+  noise threshold enormous, so on `premium-two-packs.jpg` the entire foreground
+  mask came back as the two yellow logos. Rectangles fare no better on their
+  own — people lay packages overlapping, in a fan or a pile, so there is no gap
+  between them and no four clean edges round any but the top one. What every
+  identifiable package does have is its name printed across it. **A package
+  whose printing is hidden under the next one cannot be named by anything, so
+  not finding it costs nothing** — it would be a crop with no answer in it.
+- **Rectangles still earn their place**: where one is found round a block of
+  printing it gives the crop straight, deskewed bounds, and a rectangle with no
+  printing on it is kept as an unnamed package — most often one lying on its
+  side, whose name the whole-photo pass reads sideways and so does not read.
+  The per-package reader tries every rotation, so what the photo missed the
+  crop can still get.
+- **A line of print is a name when it has ≥6 alphanumerics and is ≥60%
+  capitals, or was read at ≥0.7 whatever its case.** Measured: a blanket or a
+  carpet yields over a hundred "lines", and essentially all of them are short,
+  lower case and badly scored, while every real name is capitals — Hot Wheels
+  and Matchbox both print car names that way, which is nearly the whole
+  catalog. The confidence route is what keeps a Mini GT or Tomica box, whose
+  names are mixed case, from being thrown away with them.
+- **Each package is read twice and the readings are never joined.** Once in
+  the whole-photo pass that found it, once from the photo at full size.
+  They disagree more than you would expect: on a Matchbox card across a table
+  the whole-photo pass read "2024 TOYOTA TACOMA" at 92% while the enlarged crop
+  scored TOYOTA at 0 — correct, and discarded by the rule that a word under 0.4
+  is not evidence. That rule stays; using only one of the two readings was the
+  mistake. **Concatenating them is also wrong**: "FERRARI" read twice becomes
+  "…ferrariferrari…", whose window "ferrarif" is a 0.94 match for the casting
+  "Ferrari FF" — a car that was not in the photo, named confidently, out of a
+  join. `Evidence.alternates` keeps them apart and the matcher takes the best
+  of them.
+- **Off a card, only the whole name matches** (`printed=True`). The
+  year-stripped alias exists because a base often omits the leading '93 of '93
+  Mazda RX-7; a card prints the year, and dropping it throws away what
+  separates a nameplate's generations. Both of this rule's absences were wrong
+  answers given confidently at 0.96: "'66 BUICK RIVIERA" → the casting "1971
+  Buick Riviera", and a 2018 Dodge Challenger SRT Demon → "'71 Dodge
+  Challenger". Its cost is that a name strip cut off before its year gets no
+  answer rather than a lucky one.
+- **A two-digit year in a casting name is satisfied by the four-digit year
+  printed on the card**, off a card only. The catalog says "'04 Subaru
+  Forester STI" and the card says "2004"; without this, and with whole names
+  now required, no Hot Wheels casting named with a year could match the card
+  it is printed on.
+- **A card's © year corroborates and never counts against.** On a base it is
+  the year the tool was cut, so the base rule reads it against the first
+  release; on a card it is the year of sale, so it is read against the
+  casting's whole range. There is **no penalty** for falling outside: a
+  casting's recorded years are the years that happen to have been imported,
+  and with the catalog this far from complete "outside its years" is far more
+  often a gap than the wrong car. It still breaks a tie between two castings of
+  one name, which is the job it is there for. It also orders the versions
+  offered (`year_match`), which on a sealed package is the only thing that can.
+- **Colour and the trained model take no part.** The dominant colour of a
+  package is its artwork's, so none is reported; the visual model learned loose
+  castings from above. A package is named by what is printed on it, and by the
+  toy number before the name.
+
+**Measured 2026-11-05** on `tests/Fixtures/packaging/` (host Tesseract 5.5.4;
+the container has 5.3.0 and reads slightly differently, so treat these as the
+shape of the result, not a constant):
+
+| | premium-two-packs | matchbox-and-mainline |
+|---|---|---|
+| Packages / named cars in the photo | 5 cards, 10 cars | ~16, most with the name hidden |
+| Detections | 8 | 8 |
+| Printed names located | 8 of 10 | every one a person can read (3), + 3 logo-only, + 1 subtitle |
+| Named against the **live** catalog (212 castings, 2011 Hot Wheels) | **0 named, 0 wrong** | **0 named, 0 wrong** |
+| Named against a catalog holding these cars | 1 correct, 0 wrong | 2 correct, 0 wrong |
+| Time | 10 s | 8 s |
+
+Nothing in these photos is in the live catalog, so zero answers is the right
+answer, and the second row is what says the matching works. **No wrong answer
+survived in any configuration**, which is the number that matters. The two
+names missed on the first photo are one printed upside down and one in the
+middle of a card.
+
+**Known limits, all measured.** Tesseract does not read the Hot Wheels flame
+logo — it is artwork, not type — so `brand` is usually null on a Hot Wheels
+card and is read on a Matchbox one, where the wordmark is plain. Breaking a
+tie between two castings of one name therefore depends on the brand being
+printed in type. A premium two-pack yields **one detection per car, not per
+package**, since each car has its own name strip; for a collection that is
+the more useful answer. Segmentation runs at 2400 px
+(`packaging.SEGMENT_MAX_SIDE`) and reading from the photo as taken — a photo
+scaled down first measurably loses reads.
 - **Scan pictures are private and minimal**: crops only (never the whole
   photo), on `catalog.recognition.disk` (the private `local` disk, a volume in
   production), served only to their owner with `Cache-Control: private`.

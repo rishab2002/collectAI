@@ -134,17 +134,34 @@ class Matcher:
         """
         scores: dict[int, Candidate] = {}
 
-        if len(ev.text) >= 3:
-            tokens = set(ev.words.split())
-            for idx in self.index.shortlist(ev.text):
+        readings = [t for t in ev.readings if t]
+        if readings and max(len(t) for t in readings) >= 3:
+            tokens = set(ev.words.split()) | ev.tokens
+            for idx in self.index.shortlist(" ".join(readings)):
                 cid, alias, flat, full = self.index.entries[idx]
                 if len(flat) < 5:
                     # Short names ("GTO", "Mini") match by accident inside
                     # longer words; only an exact standalone word counts.
                     r = 1.0 if alias in tokens or alias in ev.words.split(" ") else 0.0
                 else:
-                    r = best_window(flat, ev.text)
-                if r < 0.72 or not self._numbers_agree(alias, tokens):
+                    r = max(best_window(flat, t) for t in readings)
+                if printed and not full:
+                    # Only whole names off a card. The shortened alias exists
+                    # because a base often omits the leading '93 of '93 Mazda
+                    # RX-7; a card prints the year, and dropping it throws
+                    # away the one thing that separates a nameplate's
+                    # generations. Measured on the two photographs in
+                    # tests/Fixtures/packaging, both of this rule's absences
+                    # were wrong answers given confidently: "'66 BUICK
+                    # RIVIERA" came back as the casting "1971 Buick Riviera",
+                    # and a 2018 Dodge Challenger SRT Demon as "'71 Dodge
+                    # Challenger". Both matched on the nameplate alone, at
+                    # 0.96, with the year sitting in the read text saying
+                    # otherwise. The cost is a name strip that was cut off
+                    # before its year now gets no answer instead of a lucky
+                    # one, which is the way round this pipeline errs.
+                    continue
+                if r < 0.72 or not self._numbers_agree(alias, tokens, printed):
                     continue
                 score = r - (0.0 if full else 0.04) - (0.04 if len(flat) < 8 else 0.0)
                 current = scores.get(cid)
@@ -266,16 +283,26 @@ class Matcher:
         return 1.0 if printed == year else (0.5 if abs(printed - year) == 1 else 0.0)
 
     @staticmethod
-    def _numbers_agree(alias: str, tokens: set[str]) -> bool:
+    def _numbers_agree(alias: str, tokens: set[str], printed: bool = False) -> bool:
         """RX-3 is not RX-7. Every number in a name must be read, exactly.
 
         Fuzzy similarity treats one wrong digit as a near-perfect match, and in
         a car name the digit is usually the whole difference.
+
+        The one thing that is the same number written two ways is the model
+        year: the catalog calls a casting "'04 Subaru Forester STI" and the
+        card it is sold on prints "2004". Off a card, and only off a card,
+        a two-digit number in the name is therefore satisfied by the four-digit
+        year ending in it — without which, now that a card has to match the
+        whole name, no Hot Wheels casting named with a year could ever match
+        the card it is printed on.
         """
         wanted = re.findall(r"\d+", alias)
         if not wanted:
             return True
         read = {d for t in tokens for d in re.findall(r"\d+", t)}
+        if printed:
+            read |= {y[2:] for y in read if re.fullmatch(r"(19|20)\d{2}", y)}
         return all(d in read for d in wanted)
 
     @staticmethod

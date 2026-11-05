@@ -75,7 +75,9 @@ def recognise(
             "box": [round(x / scale), round(y / scale), round(w / scale), round(h / scale)],
             "whole_frame": obj.whole_frame,
             "colour": {"family": family, "share": share, "distribution": dict(list(distribution.items())[:4])},
-            "text": reading.as_dict(),
+            # Whichever of the two readings of this package got more of its
+            # name: the crop's, or the whole photo's that found it.
+            "text": {**reading.as_dict(), "headline": _headline(reading, obj.printed)},
             "read": {
                 "brand": evidence.brand,
                 "copyright_year": evidence.copyright_year,
@@ -119,6 +121,13 @@ def read_card(bgr: np.ndarray, index: CatalogIndex | None, *, min_confidence: fl
     return packaging.card_output(evidence, match, index)
 
 
+def _headline(reading: ocr.Reading, printed: str) -> str | None:
+    best = reading.headline
+    if printed and len(printed) > len(best or ""):
+        return printed
+    return best
+
+
 def recognise_packages(
     bgr: np.ndarray,
     index: CatalogIndex | None,
@@ -136,8 +145,8 @@ def recognise_packages(
     name on a card in a photo of a dozen is small and reading it is the whole
     job.
     """
-    work, scale = working_copy(bgr)
-    everything = packaging.find_packages(work)
+    work, scale = working_copy(bgr, packaging.SEGMENT_MAX_SIDE)
+    everything = packaging.find_packages(work, read_text=read_text)
     found = everything[:max_objects]
     matcher = Matcher(index, min_confidence, min_margin) if index else None
     detections = []
@@ -148,6 +157,7 @@ def recognise_packages(
         if read_text:
             reading, evidence, match = packaging.read_printed(
                 crop, index, min_confidence=min_confidence, min_margin=min_margin,
+                context=obj.context, printed=obj.printed,
             )
 
         x, y, w, h = obj.box
@@ -159,7 +169,9 @@ def recognise_packages(
             # nothing about the car sealed behind the plastic, so it is not
             # reported and never orders the versions offered.
             "colour": {"family": None, "share": 0.0, "distribution": {}},
-            "text": reading.as_dict(),
+            # Whichever of the two readings of this package got more of its
+            # name: the crop's, or the whole photo's that found it.
+            "text": {**reading.as_dict(), "headline": _headline(reading, obj.printed)},
             "read": {
                 "brand": evidence.brand,
                 "copyright_year": evidence.copyright_year,

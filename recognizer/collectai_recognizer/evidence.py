@@ -35,19 +35,46 @@ COLLECTOR = re.compile(r"\b(\d{1,3})\s*/\s*(\d{2,3})\b")
 
 @dataclass
 class Evidence:
+    """What a reading says. `text`/`words` are the main reading; `alternates`
+    are other readings of the same print — see `from_words`."""
+
     raw: str
     text: str                      # compacted, boilerplate removed — what names are matched in
     words: str                     # normalised, boilerplate removed, spaces kept
+    # Other readings of the same print, compacted the same way. A name is
+    # looked for in each of them separately and the best answer wins; they are
+    # never joined up, because the join invents letter pairs that were never
+    # printed. Measured: a card printing "FERRARI" read twice, concatenated,
+    # makes "…ferrariferrari…", whose window "ferrarif" is a 0.94 match for
+    # the casting "Ferrari FF" — a car that is not in the photo, named
+    # confidently, out of a join.
+    alternates: list[str] = field(default_factory=list)
     brand: str | None = None
     copyright_year: int | None = None
     codes: list[str] = field(default_factory=list)
     collector_number: str | None = None
 
     @classmethod
-    def from_words(cls, words: list[tuple[str, float]], min_word_confidence: float = 0.4) -> "Evidence":
-        """Low-confidence words are noise from tampos and scratches; leave them out."""
+    def from_words(cls, words: list[tuple[str, float]], min_word_confidence: float = 0.4,
+                   context: str = "", also: str = "") -> "Evidence":
+        """Low-confidence words are noise from tampos and scratches; leave them out.
+
+        `context` is print read near this one but not on the crop — on a
+        packaged scan, the brand logo at the top of a card whose name is read
+        off the bottom. It can say what brand, what year and what code, and it
+        deliberately cannot say what the car is: a name belongs to the package
+        it is printed on, and the one stacked behind it is a different car.
+
+        `also` is a second reading of this same print, which can say all of
+        those things including the name. See `packaging.read_printed`.
+        """
         kept = " ".join(w for w, c in words if c >= min_word_confidence)
-        return cls.from_text(kept, everything=" ".join(w for w, _ in words))
+        evidence = cls.from_text(kept, everything=" ".join(w for w, _ in words) + " " + also + " " + context)
+        if also.strip():
+            second = cls.from_text(also).text
+            if second and second != evidence.text:
+                evidence.alternates = [second]
+        return evidence
 
     @classmethod
     def from_text(cls, text: str, everything: str | None = None) -> "Evidence":
@@ -96,3 +123,16 @@ class Evidence:
             codes=codes,
             collector_number=f"{collector.group(1)}/{collector.group(2)}" if collector else None,
         )
+
+    @property
+    def readings(self) -> list[str]:
+        """Every compacted reading of this print, the main one first."""
+        return [self.text, *self.alternates]
+
+    @property
+    def tokens(self) -> set[str]:
+        """Every word read, across every reading."""
+        out = set(self.words.split())
+        for alternate in self.alternates:
+            out |= set(alternate.split())
+        return out

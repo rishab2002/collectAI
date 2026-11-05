@@ -25,12 +25,16 @@ class Found:
     mask: np.ndarray                          # full-image uint8 mask, filled
     foreground: np.ndarray                    # mask AND "differs from background"
     whole_frame: bool = False
+    # Packaged photos only: print read near this object but not on it — see
+    # packaging.Region. Empty for a loose car, which has nothing beside it.
+    context: str = ""
+    printed: str = ""                         # this object's own print, read whole-photo
 
 
-def working_copy(bgr: np.ndarray) -> tuple[np.ndarray, float]:
-    """Downscale so the long side is at most MAX_SIDE; returns the scale used."""
+def working_copy(bgr: np.ndarray, max_side: int = MAX_SIDE) -> tuple[np.ndarray, float]:
+    """Downscale so the long side is at most `max_side`; returns the scale used."""
     h, w = bgr.shape[:2]
-    scale = min(1.0, MAX_SIDE / max(h, w))
+    scale = min(1.0, max_side / max(h, w))
     if scale < 1.0:
         bgr = cv2.resize(bgr, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
     return bgr, scale

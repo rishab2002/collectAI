@@ -89,6 +89,90 @@ class ScanTest extends TestCase
         ])]);
     }
 
+    /**
+     * A photo of two packages: one blister card the scanner matched from the
+     * printing on it, one it could not — but whose card it still read.
+     */
+    private function fakePackagedRecognizer(): void
+    {
+        $card = fn (array $over = []): array => $over + [
+            'schema_version' => 1, 'brand' => 'Hot Wheels', 'year' => null, 'series' => null,
+            'casting_name' => null, 'collector_number' => null, 'toy_number' => null,
+            'confidence' => ['brand' => 0.9, 'year' => 0.0, 'series' => 0.0, 'casting_name' => 0.0,
+                'collector_number' => 0.7, 'toy_number' => 0.95],
+        ];
+
+        Http::fake(['recognizer:8080/recognize*' => Http::response([
+            'found' => 2, 'confident' => 1, 'model' => null,
+            'detections' => [
+                [
+                    'n' => 1, 'box' => [40, 30, 420, 620],
+                    // A package is never given a colour: see ScanProcessor.
+                    'colour' => ['family' => null, 'share' => 0.0, 'distribution' => []],
+                    'text' => ['lines' => ['BONE SHAKER', 'HW FLAMES', '77/250'], 'headline' => 'BONE SHAKER', 'rotation' => 0],
+                    'read' => ['brand' => 'Hot Wheels', 'copyright_year' => 2019, 'codes' => ['DTX12']],
+                    'card' => $card(['casting_name' => 'Bone Shaker', 'collector_number' => '77/250', 'toy_number' => 'DTX12']),
+                    'looks' => null, 'confident' => true,
+                    'match' => [
+                        'confident' => true, 'casting_id' => $this->casting->id, 'casting_name' => 'Bone Shaker', 'confidence' => 0.97,
+                        'reasons' => ['name read as “bone shaker” (1.00)', 'brand Hot Wheels', '© 2019 is within 2006–2019'],
+                        'variations' => [
+                            ['variation_id' => $this->cars['Red']->id, 'year' => 2019, 'year_match' => 1.0, 'colour_match' => 0.0, 'code_match' => false],
+                            ['variation_id' => $this->cars['Black']->id, 'year' => 2006, 'year_match' => 0.0, 'colour_match' => 0.0, 'code_match' => false],
+                        ],
+                        'candidates' => [],
+                    ],
+                    'crop_jpeg' => base64_encode('CARD-1'),
+                ],
+                [
+                    'n' => 2, 'box' => [500, 30, 420, 620],
+                    'colour' => ['family' => null, 'share' => 0.0, 'distribution' => []],
+                    'text' => ['lines' => ['SUBARU FORESTER STI', 'HW WAGONS'], 'headline' => 'SUBARU FORESTER STI', 'rotation' => 0],
+                    'read' => ['brand' => 'Hot Wheels', 'copyright_year' => null, 'codes' => []],
+                    'card' => $card(['collector_number' => '12/250']),
+                    'looks' => null, 'confident' => false,
+                    'match' => ['confident' => false, 'casting_id' => null, 'confidence' => 0.0, 'reasons' => [], 'variations' => [], 'candidates' => []],
+                    'crop_jpeg' => base64_encode('CARD-2'),
+                ],
+            ],
+        ])]);
+    }
+
+    public function test_a_photo_of_packages_names_each_one_from_its_card(): void
+    {
+        $this->fakePackagedRecognizer();
+
+        $this->actingAs($this->user)->post(route('scan.store'), [
+            'photos' => [UploadedFile::fake()->create('shelf.jpg', 400, 'image/jpeg')],
+            'layout' => 'packaged',
+        ])->assertRedirect();
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'layout=packaged'));
+
+        $scan = Scan::sole();
+        [$matched, $unmatched] = $scan->detections->all();
+        $this->assertSame($this->casting->id, $matched->casting_id);
+        $this->assertSame('Bone Shaker', $matched->reading['card']['casting_name']);
+        $this->assertSame('DTX12', $matched->reading['card']['toy_number']);
+        $this->assertSame('SUBARU FORESTER STI', $unmatched->reading['headline']);
+
+        // The colour of a package is its artwork's, so none is claimed.
+        $this->assertNull($matched->colour_family);
+
+        $this->actingAs($this->user)->get(route('scan.show', $scan))
+            ->assertOk()
+            ->assertSeeInOrder([
+                'the year printed on the card',
+                'package 1',
+                'The card says', 'Hot Wheels · BONE SHAKER · 77/250 · DTX12',
+                'Found, but not sure what they are',
+                // A package the catalog hasn't got is still shown as the car
+                // it says it is, rather than as a crop with no name.
+                'Hot Wheels · SUBARU FORESTER STI · 12/250',
+            ], escape: false)
+            ->assertDontSee('Turn these over and scan the bases');
+    }
+
     private function scan(bool $consent = false): Scan
     {
         $this->fakeRecognizer();

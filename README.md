@@ -72,7 +72,7 @@ they get identified and published.
 | Browse like a collector | The public site at `/` |
 | Keep your own collection and wishlist | **Join** (top right), then *Add to my collection* on any car ([§5.6](#56-collector-accounts-and-collections)) |
 | Show what cars are worth | The daily price run ([§5.7](#57-prices-ebay-sold-ebay-asking-msrp)) |
-| Photograph a pile of your cars and add them to your collection | **Scan** (top bar) ([§5.8](#58-scan-a-pile-of-cars--scan)) |
+| Photograph your cars — packaged or loose — and add them to your collection | **Scan** (top bar) ([§5.8](#58-scan-your-cars--scan)) |
 
 **No outside AI is needed.** Reading cards, scanning piles and naming the real
 car behind each casting all run on your own server: the *recognizer* (a small
@@ -686,10 +686,42 @@ past that, raise the budget and ask eBay for a higher limit.
 hobbyDB (it blocks automated access outright), and toy-store pages for MSRP
 (their terms forbid scraping). See [§11](#11-data-rules-you-must-not-break).
 
-### 5.8 Scan a pile of cars — *Scan*
+### 5.8 Scan your cars — *Scan*
 
 Signed-in collectors get **Scan** in the top bar (`/scan`). Upload up to six
-photos, say what they show, and confirm what was found:
+photos, say what they show, and confirm what was found. **Say which kind of
+photo it is** — cars still in their packaging and loose cars are found in
+completely different ways:
+
+#### Cars still in their packaging
+
+Pick **Cars still in their packaging** for blister cards and boxes — a dozen
+or more in one shot is fine, and they may overlap.
+
+Each package is found by **the printing on it**, so the one thing that
+matters is that **each car's name is showing**. A package stacked under
+another one, with its name hidden, cannot be identified by anything, and the
+scanner will not pretend otherwise. Lay them out so every name strip is
+visible and the rest takes care of itself: they can touch, they can be at an
+angle, they can be upside down, and the surface does not have to contrast
+with anything.
+
+Each one is then read from the photo at full size — the brand, the car's name
+as printed, the collector number and the toy number — and matched against the
+catalog by toy number first, then by the whole printed name. The results page
+shows **The card says …** under every package, matched or not, so a package
+the catalog has not got yet still tells you what it is.
+
+Two things it deliberately will not do. It will not name a package from the
+colour you can see through the blister or from what the car looks like: the
+colour is the artwork's, and a sealed car is a photograph of a photograph. And
+it will not match a nameplate without its year — a card prints "'66 BUICK
+RIVIERA", so a casting called "1971 Buick Riviera" is a different car, not a
+near miss.
+
+A premium two-pack comes back as **two** cars, one per name printed on it.
+
+#### Loose cars
 
 1. **Lay the cars out** on a plain surface that contrasts with them (a white
    sheet for dark cars, a dark one for light cars), **not touching** — cars
@@ -701,6 +733,8 @@ photos, say what they show, and confirm what was found:
 3. Choose **Several cars, spread out** — or **One car close up** for a single
    base or a card (otherwise the printed words on a close-up are mistaken for
    separate objects).
+
+#### Either way
 4. On the results page:
    - **Identified — confirm each one.** Only cars the scanner is sure of appear
      here (score ≥ 0.9 *and* clearly ahead of the next possibility). It names
@@ -729,7 +763,9 @@ The recognizer notices the new file by itself. Only **live** cars are in it
 (only those can be collected); a car you publish today is scannable after the
 next export.
 
-**What it is measured to do, and what isn't measured.** On rendered test
+**What it is measured to do, and what isn't measured.**
+
+*Loose cars.* On rendered test
 images it finds every separate car, names its colour, reads base text the right
 way up or upside down, and tells same-named castings apart by the © year
 (Hot Wheels and Matchbox both make a "Bone Shaker"). Matching a photo against
@@ -738,6 +774,22 @@ all 6,810 castings and 51,236 variations takes about 3 seconds for three cars.
 base text is small and low-contrast, so expect it to read some bases and not
 others. Real photos will tell; `RECOGNIZER_MIN_CONFIDENCE` is the dial if it
 offers too much or too little.
+
+*Packaged cars.* Measured 2026-11-05 on two real photographs of the owner's own
+collection, kept at `tests/Fixtures/packaging/` so the numbers can be taken
+again. A photo of five overlapping Hot Wheels premium two-packs gave 8
+detections and read 8 of the 10 printed names (the two missed are one printed
+upside down and one in the middle of a card), in 10 seconds; a fan of Matchbox
+blisters stacked so that all but a few have their names hidden gave 8
+detections and read every name a person can read in it, in 8 seconds.
+**Nothing in either photo is in the catalog yet** (it holds 212 live castings,
+all 2011 Hot Wheels), so both came back with no answers — which is the right
+answer. Against a catalog that does hold those cars, 3 were named and **none
+was named wrongly**, which is the number to watch. Expect "not sure" to be the
+usual result until more years are imported (§3). The limits worth knowing:
+Tesseract does not read the Hot Wheels flame logo, so the brand is usually
+blank on a Hot Wheels card and read on a Matchbox one; and a name strip cut
+off before its year gets no answer rather than a guess.
 
 ### 5.9 Run the recognizer yourself
 
@@ -766,7 +818,8 @@ Then scan photos:
 
 It prints each car it is sure of, with its reasons and the best-matching
 version, and with `--all` the ones it isn't. `--json` prints everything;
-`--layout single` is for close-ups; `card photo.jpg` reads a carded car;
+`--layout single` is for close-ups and `--layout packaged` for cars still on
+their cards; `card photo.jpg` reads one carded car;
 `serve --port 8090` runs the same HTTP service the website uses. Its tests:
 
 ```bash
