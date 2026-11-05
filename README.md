@@ -808,6 +808,17 @@ base text is small and low-contrast, so expect it to read some bases and not
 others. Real photos will tell; `RECOGNIZER_MIN_CONFIDENCE` is the dial if it
 offers too much or too little.
 
+*Which brands it knows.* Not a fixed list. `recognizer/data/brands.json`
+seeds it with the makers worth knowing before the catalog has met them —
+Hot Wheels, Matchbox, Tomica, Mini GT, Schuco, Herpa, BBR, Para64, Inno64,
+Shadow Model, Majorette, Maisto, GreenLight, M2, Tarmac Works and about thirty
+more — and **every brand in your catalog is added to it automatically**, so a
+brand you type into *Add a car* is recognised from the next index export with
+nothing to edit. Add to the file when you meet a maker neither half knows;
+`spellings` are what the text might read as. Lines are not brands there: TLV
+and TLV Neo report Tomica, Kaido House reports Mini GT, because that is how
+the catalog files their cars — the line belongs in the series box.
+
 *Brand logos.* The Hot Wheels flame and the Matchbox box are type drawn as
 artwork, and reading a whole card never finds them — which is why a Hot Wheels
 card used to come back with no brand. Handed just the logo, Tesseract reads

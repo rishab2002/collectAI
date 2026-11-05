@@ -1788,6 +1788,30 @@ scaled down first measurably loses reads.
   Without consent they are deleted when the scan is answered or after 24 h.
 - **Training data is consented scan crops and nothing else** — the
   *Data sources* rules apply to training exactly as to catalog photos.
+- **`recognizer/data/brands.json` is the one brand vocabulary**, read by the
+  card reader and the logo reader alike, exactly as `colour_families.json` is
+  the one colour vocabulary. It is a **seed, not a limit**: `brands.known()`
+  adds every brand name in the catalog index, so a brand typed into the
+  Add-a-car form is recognised from the next index export with nothing edited
+  in the recognizer. The file is for the makers the catalog has not met yet —
+  Schuco, Herpa, BBR, Para64, Inno64, Majorette and the rest — because there
+  are far more diecast makers than any list holds and the two halves cover
+  the two ways a new one turns up. Lines are not brands: TLV and TLV Neo
+  report Tomica, Kaido House reports Mini GT, because that is how the catalog
+  files their cars.
+  - **A spelling under 8 characters must be spelled out as whole words**
+    (`WHOLE_WORD_UNDER`), never found as a window. This is the rule that makes
+    a long list safe, and it is measured: at 44 brands the photographs that
+    had produced no wrong brand at four produced **ten** — Welly, Peako,
+    Norev — because a five-letter name finds a five-letter window inside
+    seventy characters of OCR noise. With short names spelled out, 44 brands
+    measure exactly as 4 did: no wrong brand on any photograph, by either
+    route. "Whole *words*", plural, because "Mini GT" compacts to six
+    characters across two tokens and a single-token test would never find it.
+  - Briefly there were two vocabularies, a long one for type and a short
+    catalog-only one for logos. There is one. The short list was treating the
+    symptom; scoping measured identically once the real cause was fixed, and
+    it would have stopped a Schuco logo ever being read.
 - **Brand logos are read as the text they are** (`logos.py`, 2026-11-05). A
   Hot Wheels flame and a Matchbox box are type drawn as artwork, and
   Tesseract reading a whole card never finds them — so until now a Hot Wheels

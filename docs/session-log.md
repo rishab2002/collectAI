@@ -14,6 +14,62 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-11-05 — A brand vocabulary that grows, and the short-name trap
+
+Four hardcoded brands, in two places, was the wrong shape for a catalog that
+keeps meeting new makers. The owner named Schuco, Para64, Inno64, Shadow
+Model, BBR, TLV, Herpa and Majorette and said there are lots more.
+
+`data/brands.json` is now the one vocabulary, read by the card reader and the
+logo reader alike — the same arrangement `colour_families.json` has, for the
+same reason. It is seeded with about forty makers and, more importantly, is
+**not the limit**: every brand name in the catalog index joins it at scan
+time, so a brand entered on the Add-a-car form is recognised from the next
+export with nothing edited in the recognizer. The two halves cover the two
+ways a new maker appears — one somebody has entered, and one that is only on
+a box on the table.
+
+### The measurement that nearly produced the wrong design
+
+Going from 4 brands to 44 broke the logo reader badly. The same photographs
+that had produced *no* wrong brand now produced **ten**: Welly, Peako, Norev,
+Herpa on cards that say Hot Wheels. The obvious reading was that a garbled
+logo read ("Hor wres", "JTIATLHBOX") only works by elimination against a
+handful of names, and that the earlier clean result had been the short list
+doing the work rather than any skill. So the first fix was two vocabularies —
+the long one for printed type, a catalog-only short one for artwork.
+
+That was treating the symptom. Looking at *which* brands were wrong gave it
+away: Herpa, Norev, Welly, Peako, IXO — all five letters or fewer. A card's
+crop carries seventy-odd characters of OCR noise round its printing, and in
+that much garbage a five-letter name will always find a five-letter window
+that matches it at 0.80. The length of the list was not the problem; short
+names being matched *fuzzily* was.
+
+With spellings under eight characters required to be spelled out as whole
+words, 44 brands measure exactly as 4 did — no wrong brand on any photograph,
+by either route — and scoping artwork to the catalog measured identically to
+not scoping it. So the second vocabulary came out again. Keeping it would
+have cost something real: a Schuco logo could never have been read, because
+Schuco is not in the catalog, which is the whole case for having a seed list.
+
+"Whole *words*", plural, matters: "Mini GT" compacts to six characters across
+two tokens, so a single-token test would never find it however plainly the
+box says it. The check is against every run of up to three consecutive words.
+
+Eight is where the catalog's own short names stop needing fuzziness —
+"matchbox" is exactly eight and does need it, because OCR drops a letter out
+of a word it otherwise reads cleanly.
+
+### A note on TLV
+
+The owner listed TLV and TLV Neo as brands. They are Tomica's lines, and the
+importer files their cars under the brand Tomica with the line in the series
+field, so the vocabulary maps them to Tomica rather than minting brands the
+schema would then have to reconcile. Same for Kaido House under Mini GT.
+
+---
+
 ## 2026-11-05 — A 500 in the review queue, and queueing a scanned car
 
 ### The 500
