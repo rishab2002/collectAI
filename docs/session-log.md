@@ -14,6 +14,80 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-11-05 — Three silent failures on the live deployment
+
+The owner reported a 500 on `/scan` "regardless of the options I tick". One
+log they pasted contained three separate faults, none of them the one being
+chased, and each invisible in a different way.
+
+### The 500: a Railway reference that resolved to nothing
+
+`Unable to parse URI: http://:8080/recognize`. `RECOGNIZER_URL` was
+`http://${{recognizer.RAILWAY_PRIVATE_DOMAIN}}:8080` and the reference
+resolved to **empty** — scheme, port, no host.
+
+Two theories were wrong before the right one. First that the service was named
+something else: Railway's docs say renaming updates the internal DNS name, and
+the owner confirmed the services were `web` and `recognizer`. Then that
+references resolve at deploy time and `web` had been deployed before
+`recognizer` existed — which the README's own step order causes, so it was
+written up as a required redeploy. It survived the redeploy.
+
+The fix was to stop depending on the mechanism. Private DNS names are always
+`<service name>.railway.internal`, so a reference buys nothing here, and it has
+one genuinely bad property: **Railway substitutes nothing for a reference it
+cannot satisfy, rather than failing.** Nothing anywhere says a variable did not
+resolve. A literal hostname either resolves or fails naming the host.
+
+`RecognizerClient` also now refuses an address with no host before sending.
+Its docblock already promised that every failure becomes "a message a person
+can act on", and a Guzzle `MalformedUriException` escaping as a 500 broke that
+promise. **The first version of that guard was wrong**: `parse_url()` returns
+*false* for a URL that malformed and `blank(false)` is `false`, so it waved the
+bad value straight through. The test caught it by reproducing the live 500
+exactly — which is the argument for writing the test from the real failure
+rather than from the fix.
+
+### The scheduler had never run. Not once.
+
+In the same log, from `ScheduleRunCommand`: `SQLSTATE[08006] … could not open
+certificate file "/root/.postgresql/postgresql.crt": Permission denied`.
+
+supervisord runs as root, and a program with `user = www-data` inherits root's
+environment — `HOME=/root`, which `www-data` cannot traverse. libpq checks
+`$HOME/.postgresql/postgresql.crt` on every connection and a permission error
+reading it is fatal. So every scheduler tick since the first boot had died, and
+the queue worker had the identical fault: no nightly recognition index export,
+no price job, no hourly `catalog:prune-scans` — the last being a promise in the
+privacy policy about deleting scan photos nobody agreed to share.
+
+What hid it is worth remembering: **php-fpm is unaffected**, because FastCGI
+passes no `HOME` and libpq then skips the lookup. So the site worked perfectly
+while two of its three processes could not reach the database at all. The
+compose path is unaffected too — there the entrypoint runs them as root. Only
+supervisord + `www-data` breaks, which is to say only Railway.
+
+### Watching for it
+
+Both rules are now in CLAUDE.md's *Deployment*. The broader lesson is cheaper
+to state: **three rounds went on theorising about private DNS from outside,
+when the resolved value is shown next to the variable in Railway's own
+Variables tab.** Same shape as the Access débâcle the day before, where the
+Applications list answered in one line what three rounds of external probing
+could not. When a managed platform is involved, read its own view of its own
+state before reasoning about it.
+
+### Also this session
+
+The owner asked for the scanner to read photos of *packaged* cars — blister
+cards and boxes, a dozen at a time. That is not what the pipeline does: it
+segments loose cars, reads base text and matches a model trained on loose
+castings, whereas a card's signal is its large printed text. It went to its own
+session with a brief to reuse `/read-card` and `variations.toy_number` rather
+than rebuild. That session works in this same checkout, which is why the
+`RECOGNIZER_URL` fix was committed straight to `main` with three files staged
+by hand: switching branches would have carried its uncommitted work along.
+
 ## 2026-11-03 (duplicate) — The Railway route built twice; what was kept
 
 **Asked:** walk the owner through getting the site live on collectai.club

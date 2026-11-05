@@ -1834,6 +1834,31 @@ why it says what it says. None of it has run against real infrastructure yet.*
   IP. `map_hash_bucket_size 128` is load-bearing — a 64-character secret
   failed "could not build map_hash" at the default, so the build check uses
   the longest secret the entrypoint accepts (100).
+- **On Railway, write service addresses literally; never through a
+  `${{service.RAILWAY_PRIVATE_DOMAIN}}` reference.** Private DNS names are
+  always `<service name>.railway.internal`, so a reference buys nothing, and it
+  has one property a literal does not: **when Railway cannot satisfy a
+  reference it substitutes nothing rather than failing.** `RECOGNIZER_URL`
+  became `http://:8080` — scheme, port, no host — with no sign anywhere that a
+  variable had not resolved, and it stayed that way across a redeploy with both
+  services present and correctly named (measured 2026-11-05; the scan died on
+  an unparseable URI and `RecognizerClient` now refuses an address with no host
+  before sending, naming the variable). A literal hostname either resolves or
+  fails with an error naming the host.
+- **A supervisord program with `user = www-data` must set `HOME`.**
+  supervisord runs as root, so such a program inherits `HOME=/root`, which
+  `www-data` cannot even traverse (0700, root-owned); libpq then checks
+  `$HOME/.postgresql/postgresql.crt` on every connection and treats the
+  permission error as fatal — `SQLSTATE[08006] … could not open certificate
+  file … Permission denied`, which reads like a database or TLS fault and is
+  neither. **The queue worker and the scheduler had therefore never run once on
+  the live deployment** (found 2026-11-05 in a stack trace the owner pasted
+  while chasing something else): no nightly recognition index, no price job,
+  and no hourly `catalog:prune-scans`, which the privacy policy promises.
+  php-fpm is unaffected and that is what hides it — FastCGI passes no `HOME`,
+  so libpq skips the lookup and web requests reach Postgres perfectly. The
+  entrypoint's own `worker`/`scheduler` roles under compose are unaffected too,
+  because there the process is root. Only supervisord + `www-data` breaks.
 - **Railway SSL is Cloudflare *Full*, not Full (strict)** — Railway's own
   docs: strict doesn't work with a proxied domain. Not Flexible either.
 - **On Railway the recognizer is its own service and nothing is shared on
