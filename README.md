@@ -2098,6 +2098,22 @@ three in your password manager, not in a file in the project.
    them; `RAILWAY_DOCKERFILE_PATH` is what points this service at the
    scanner's Dockerfile instead of the website's.
 
+**Then redeploy `web` — this step is not optional and the symptom if you skip
+it is baffling.** Railway resolves `${{service.VARIABLE}}` references **when a
+service deploys**, not continuously. `web` was deployed in step 4, before any
+service called `recognizer` existed, so its `RECOGNIZER_URL` resolved to
+`http://:8080` — scheme, no host, port — and that empty value is baked into the
+running container. Creating the recognizer afterwards does not re-trigger it.
+A scan then fails with `Unable to parse URI: http://:8080/recognize`, which
+looks like a bug in the app and is a stale environment variable. Measured on
+this deployment 2026-11-05. **Deployments → Redeploy** on `web` is the whole
+fix; a push to `main` does it too.
+
+The same applies to any later rename: rename a service and the services that
+*reference* it keep the old resolved value until they redeploy. Check what a
+reference actually resolved to in **Variables** — Railway shows the resolved
+value beside it — rather than trusting the expression you typed.
+
 **Deploy both** (the first builds take several minutes each; the scanner's is
 the bigger one). What the logs should show:
 
