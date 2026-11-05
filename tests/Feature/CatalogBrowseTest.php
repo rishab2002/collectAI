@@ -11,6 +11,7 @@ use App\Models\Release;
 use App\Models\Series;
 use App\Models\User;
 use App\Models\Variation;
+use App\Services\Catalog\CatalogBrowser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
@@ -174,6 +175,38 @@ class CatalogBrowseTest extends TestCase
         $this->actingAs($user)->withSession(['catalog_preview' => true])
             ->get(route('catalog.casting', $pending->id))
             ->assertNotFound();
+    }
+
+    /**
+     * "2009 New Models" is not a wave a car was sold in — it says the casting
+     * was new that year, and every car in it is a mainline car. Filed as a
+     * sub-series it invents a wave per year and buries the real ones.
+     */
+    public function test_a_new_models_series_is_shown_as_its_line_not_as_a_wave(): void
+    {
+        $line = Series::factory()->for($this->brand)->create(['name' => 'Mainline']);
+        $newModels = Series::factory()->for($this->brand)->create(['name' => '2009 New Models', 'parent_id' => $line->id]);
+        $real = Series::factory()->for($this->brand)->create(['name' => 'HW J-Imports', 'parent_id' => $line->id]);
+        $qualified = Series::factory()->for($this->brand)->create(['name' => '2005 First Editions: Realistix', 'parent_id' => $line->id]);
+
+        $this->car('Honda Civic', $newModels, [2009]);
+        $this->car('Mazda RX-7', $real, [2009]);
+        $this->car('Ford GT', $qualified, [2009]);
+
+        $this->assertSame('Mainline', $newModels->fresh()->path(), 'shown as the line');
+        $this->assertSame('Mainline / HW J-Imports', $real->fresh()->path());
+        $this->assertSame('Mainline / 2005 First Editions: Realistix', $qualified->fresh()->path(),
+            'a qualified name says more than "new this year" and stays a wave');
+
+        $browser = new CatalogBrowser;
+        $waves = $browser->subSeries($line->fresh())->pluck('name')->all();
+        sort($waves);
+        $this->assertSame(['2005 First Editions: Realistix', 'HW J-Imports', 'Mainline'], $waves,
+            'the New Models car joined the line\'s own cars');
+
+        // And the cars in it are reachable under the line, not under a wave.
+        $this->assertSame(1, $browser->cars($line->fresh(), 'Mainline')->total());
+        $this->assertSame(0, $browser->cars($line->fresh(), '2009 New Models')->total());
     }
 
     public function test_a_sub_series_is_not_a_line(): void

@@ -32,6 +32,25 @@ return [
 
     'other' => 'Other Series',
 
+    /*
+    | Series names that are the line itself, not a wave inside it.
+    |
+    | "2009 New Models" is not a wave a car was sold in, it is a note that the
+    | casting was new that year — every car in it is a mainline car, and the
+    | wave it really belongs to is the segment printed up the right-hand edge
+    | of the card, which the wiki's Series column does not carry. Filed as
+    | sub-series these invent a hundred-odd waves that never existed and bury
+    | the real ones, so they are shown and grouped as their line instead.
+    |
+    | A POSIX regex, used case-insensitively by Postgres (`~*`) and by PHP
+    | alike — see App\Support\LineNames. Nothing is deleted: the rows keep
+    | their releases and their provenance, and a re-import finds them where it
+    | left them. Qualified names are deliberately NOT caught: "2005 First
+    | Editions: Realistix" and "2006 First Editions 5-Pack" say something more
+    | than "new this year" and stay as sub-series.
+    */
+    'collapse' => '^[[:space:]]*([0-9]{4}[[:space:]]+)?(new models?|first editions?)[[:space:]]*$',
+
     // An unmatched series whose releases mostly carry a collector number in the
     // year's run (≥70%, at least 3 releases) is a mainline segment. See
     // SeriesClassifier::lineFor() for the measurement behind the bar.

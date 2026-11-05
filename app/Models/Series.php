@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasApprovalStatus;
+use App\Support\LineNames;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Table;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -60,11 +61,25 @@ class Series extends Model
      */
     public function path(): string
     {
-        if ($this->parent === null || mb_strtolower($this->parent->name) === mb_strtolower($this->name)) {
-            return $this->parent->name ?? $this->name;
+        if ($this->parent === null) {
+            return $this->name;
+        }
+
+        if (mb_strtolower($this->parent->name) === mb_strtolower($this->name) || $this->isLineItself()) {
+            return $this->parent->name;
         }
 
         return "{$this->parent->name} / {$this->name}";
+    }
+
+    /**
+     * A name that is the line rather than a wave inside it — "2009 New
+     * Models". See App\Support\LineNames for why, and
+     * config/catalog_lines.collapse for which.
+     */
+    public function isLineItself(): bool
+    {
+        return LineNames::isLineItself($this->name);
     }
 
     /**
