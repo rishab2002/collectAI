@@ -97,9 +97,16 @@ def _from_surface(bgr: np.ndarray) -> list[Proposal]:
     rectangle, which the edge proposals below are there to split.
     """
     differs = background_difference(bgr)
-    k = max(3, int(min(bgr.shape[:2]) * 0.012)) | 1
+    # Only enough morphology to close speckle. The loose-car segmenter closes
+    # hard, to join a car's body to its dark windows; here the same kernel
+    # welds a column of packages into one strip, because what separates two
+    # packages is a gap of the same few pixels. Holes inside a package — a
+    # blister bubble the colour of the table — need no closing at all:
+    # RETR_EXTERNAL returns the outline, and its area counts them in.
+    k = max(3, int(min(bgr.shape[:2]) * 0.004)) | 1
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
-    mask = cv2.morphologyEx(differs, cv2.MORPH_CLOSE, kernel, iterations=2)
+    mask = cv2.morphologyEx(differs, cv2.MORPH_OPEN, kernel)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     return [p for c in contours if (p := _proposal(c, "stands out from the surface"))]
 
@@ -111,8 +118,15 @@ def _from_edges(bgr: np.ndarray) -> list[Proposal]:
     gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
     # Keeps an edge sharp while flattening the artwork either side of it.
     gray = cv2.bilateralFilter(gray, 7, 60, 60)
-    middle = float(np.median(gray))
-    edges = cv2.Canny(gray, int(max(10, 0.66 * middle)), int(min(255, 1.33 * middle)), L2gradient=True)
+    # Thresholds from how steep this photo's edges actually are, not from how
+    # bright it is. The usual median-brightness rule sets them from the table:
+    # photograph packages on a white sheet and the upper threshold lands at
+    # 255, so only the highest-contrast packages are outlined at all and a
+    # whole column of pale ones is never proposed (measured).
+    gx = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
+    gy = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
+    steep = max(30.0, float(np.percentile(cv2.magnitude(gx, gy), 97)))
+    edges = cv2.Canny(gray, steep * 0.4, steep, L2gradient=True)
     k = max(3, int(min(bgr.shape[:2]) * 0.006)) | 1
     edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_RECT, (k, k)))
 
@@ -181,10 +195,13 @@ def find_packages(bgr: np.ndarray, limit: int = 60) -> list[Found]:
         cv2.drawContours(filled, [p.points], -1, 255, thickness=cv2.FILLED)
         found.append(Found(box=cv2.boundingRect(p.points), contour=p.points, mask=filled, foreground=filled))
 
-    # Reading order: rows top to bottom, then left to right. The row band is a
-    # package's own height, so a layout of five rows reads as five rows.
-    row = max(1, int(np.median([f.box[3] for f in found]) * 0.6)) if found else 1
-    found.sort(key=lambda f: (f.box[1] // row, f.box[0]))
+    # Reading order: rows top to bottom, then left to right, banded by a
+    # package's own height so a layout of five rows reads as five rows. By
+    # centre, not by top edge: a box laid on its side among upright cards
+    # starts lower down and ends higher up, but sits in the same row, and
+    # banding by its top edge puts it in a row of its own.
+    band = max(1, int(np.median([f.box[3] for f in found]) * 0.7)) if found else 1
+    found.sort(key=lambda f: ((f.box[1] + f.box[3] // 2) // band, f.box[0]))
     return found[:limit]
 
 
@@ -210,6 +227,18 @@ def deskewed_crop(bgr: np.ndarray, contour: np.ndarray, scale: float = 1.0, pad:
     rotated = cv2.warpAffine(bgr, matrix, (bgr.shape[1], bgr.shape[0]), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
     size = (max(8, int(rw * (1 + pad))), max(8, int(rh * (1 + pad))))
     return cv2.getRectSubPix(rotated, size, (cx, cy))
+
+
+def upright(bgr: np.ndarray, rotation: int) -> np.ndarray:
+    """The crop turned the way its text read best.
+
+    Deskewing leaves a package in whatever orientation it was lying in, and a
+    boxed car laid on its side reads sideways. The reader already worked out
+    which way up the printing is, so the collector may as well be shown it
+    that way on the confirm screen.
+    """
+    turns = {90: cv2.ROTATE_90_CLOCKWISE, 180: cv2.ROTATE_180, 270: cv2.ROTATE_90_COUNTERCLOCKWISE}
+    return bgr if rotation not in turns else cv2.rotate(bgr, turns[rotation])
 
 
 def read_printed(

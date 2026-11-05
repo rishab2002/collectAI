@@ -77,10 +77,16 @@ class Evidence:
         collector = COLLECTOR.search(everything)
         # The year, codes and collector number are evidence of their own; left
         # in, they would be read as part of a name.
+        #
+        # The collector number comes out whole, as the text it was printed as.
+        # Taking it out word by word would take out its digits wherever they
+        # appear, and on a card that is most of the catalog: "3/250" under the
+        # name "MAZDA RX-3" leaves "mazda rx", which then fails the rule that
+        # every number in a name must be read exactly, and the car goes
+        # unnamed. Measured on a layout of twelve packages, this was the
+        # difference between 8 identified and 9.
         drop = {str(year)} | {c.lower() for c in codes}
-        if collector:
-            drop |= {collector.group(1), collector.group(2)}
-        words = " ".join(w for w in meaningful(text).split() if w not in drop)
+        words = " ".join(w for w in meaningful(COLLECTOR.sub(" ", text)).split() if w not in drop)
         return cls(
             raw=everything,
             text=words.replace(" ", ""),

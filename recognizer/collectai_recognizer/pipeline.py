@@ -169,7 +169,7 @@ def recognise_packages(
             "match": match.as_dict() if match else None,
             "looks": None,
             "confident": bool(match and match.confident),
-            "crop_jpeg": jpeg_base64(crop) if crops else None,
+            "crop_jpeg": jpeg_base64(packaging.upright(crop, reading.rotation)) if crops else None,
         })
 
     return {

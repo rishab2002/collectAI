@@ -180,16 +180,22 @@ class Matcher:
             if ev.copyright_year and first:
                 if printed:
                     # A card is printed for the year it is sold in, so its
-                    # copyright year falls inside the casting's own years.
-                    # Judging it by the base rule below would penalise exactly
-                    # the right answer: a 2024 card for a tool cut in 2010 is
-                    # neither near the first release nor after the last.
+                    # copyright year falls inside the casting's own years, and
+                    # the base rule below would mark down exactly the right
+                    # answer: a 2024 card for a tool cut in 2010 is neither
+                    # near the first release nor after the last.
+                    #
+                    # It only ever corroborates — there is no penalty for a
+                    # year outside the range, where the base rule has one.
+                    # A casting's first and last year here are the years that
+                    # happen to have been imported, not the years it sold in,
+                    # so with a catalog this far from complete "outside its
+                    # years" is far more often a gap than the wrong car. It
+                    # still does the job the year is there for, which is
+                    # telling two castings of one name apart.
                     if first - 1 <= ev.copyright_year <= (last or first) + 1:
                         c.score += 0.03
                         c.reasons.append(f"© {ev.copyright_year} is within {first}–{last or first}")
-                    else:
-                        c.score -= 0.1
-                        c.reasons.append(f"© {ev.copyright_year} is outside {first}–{last or first}")
                 # A base carries the year the tool was cut, a year or so before
                 # the first release.
                 elif first - 8 <= ev.copyright_year <= first + 1:
