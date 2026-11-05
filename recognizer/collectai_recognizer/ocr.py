@@ -99,7 +99,14 @@ def prepare(bgr: np.ndarray) -> np.ndarray:
     return cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8)).apply(gray)
 
 
-def read(bgr: np.ndarray, rotations: tuple[int, ...] = (0, 180)) -> Reading:
+def read(bgr: np.ndarray, rotations: tuple[int, ...] = (0, 180), stop_score: float | None = None) -> Reading:
+    """`stop_score` ends the search as soon as one rotation reads this well.
+
+    Worth having when there are four rotations and a dozen crops to get
+    through — a card that reads at 0° with several confident words is not also
+    going to read at 90°. Left unset, every rotation is tried and the best
+    wins.
+    """
     base = prepare(bgr)
     best = Reading()
     for rotation in rotations:
@@ -114,4 +121,6 @@ def read(bgr: np.ndarray, rotations: tuple[int, ...] = (0, 180)) -> Reading:
         reading.rotation = rotation
         if reading.score > best.score:
             best = reading
+        if stop_score is not None and best.score >= stop_score:
+            break
     return best

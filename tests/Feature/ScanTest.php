@@ -280,6 +280,33 @@ class ScanTest extends TestCase
         $this->assertSame([], Storage::disk('local')->allFiles());
     }
 
+    public function test_a_recognizer_address_with_no_host_is_explained_rather_than_a_500(): void
+    {
+        // What an unresolved Railway variable reference leaves behind:
+        // RECOGNIZER_URL=http://${{recognizer.RAILWAY_PRIVATE_DOMAIN}}:8080
+        // with no service of that name becomes `http://:8080`. Guzzle throws
+        // MalformedUriException from inside the client, which is not one of
+        // the failures this class converts, so it reached the browser as a
+        // 500 on the live site until this guard existed.
+        config(['catalog.recognition.url' => 'http://:8080']);
+        Http::fake();
+
+        $this->actingAs($this->user)->from(route('scan.index'))->post(route('scan.store'), [
+            'photos' => [UploadedFile::fake()->create('pile.jpg', 200, 'image/jpeg')],
+            'layout' => 'auto',
+        ])->assertRedirect(route('scan.index'))->assertSessionHasErrorsIn('default', ['photos']);
+
+        $this->assertStringContainsString(
+            'RECOGNIZER_URL',
+            (string) session('errors')->first('photos'),
+        );
+
+        // Nothing was attempted, and nothing was left behind.
+        Http::assertNothingSent();
+        $this->assertSame(0, Scan::count());
+        $this->assertSame([], Storage::disk('local')->allFiles());
+    }
+
     public function test_photos_must_be_images_the_recognizer_can_read(): void
     {
         Http::fake();
