@@ -4,11 +4,12 @@ namespace App\Http\Controllers\Account;
 
 use App\Exceptions\RecognizerUnavailableException;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\StoreCarRequest;
+use App\Http\Requests\StoreScanCarRequest;
 use App\Models\Casting;
 use App\Models\Scan;
 use App\Models\ScanDetection;
 use App\Models\Variation;
+use App\Services\Catalog\CatalogVocabulary;
 use App\Services\Catalog\ManualCatalogEntry;
 use App\Services\Recognition\CardSuggestion;
 use App\Services\Recognition\ScanProcessor;
@@ -103,9 +104,13 @@ class ScanController extends Controller
             'search' => $labelling ? $this->search((string) $request->query('q', '')) : collect(),
             // Only an admin may add to the catalog from here, so only an admin
             // is offered anything to add.
-            'suggestion' => $labelling && $request->user()->is_admin
+            'suggestion' => $suggestion = $labelling && $request->user()->is_admin
                 ? CardSuggestion::from($scan->detections->firstWhere('id', $labelling) ?? new ScanDetection)
                 : null,
+            // Scoped to the brand the card says, so the series offered are
+            // that brand's. Nothing is limited to them: every one of these
+            // fields takes a name the catalog has never seen.
+            'vocabulary' => $suggestion ? CatalogVocabulary::for($suggestion['brand']) : null,
             'owned' => $request->user()->collectionItems()->whereIn('variation_id', $variations->keys())->pluck('quantity', 'variation_id'),
         ]);
     }
@@ -162,7 +167,7 @@ class ScanController extends Controller
      * Admin only, for the reason manual entry is admin only — what is typed
      * here goes live, and the admin is the reviewer.
      */
-    public function catalog(StoreCarRequest $request, int $scan, int $detection, ManualCatalogEntry $entry, ScanProcessor $processor): RedirectResponse
+    public function catalog(StoreScanCarRequest $request, int $scan, int $detection, ManualCatalogEntry $entry, ScanProcessor $processor): RedirectResponse
     {
         abort_unless($request->user()->is_admin, 404);
 

@@ -14,6 +14,89 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-11-05 — Pick-or-create labels, and logos read as text
+
+Two things the owner asked for after the first pass at labelling from a scan,
+with a photograph of a mainline card as the worked example.
+
+### Pick from what exists, or make a new one
+
+The add-from-scan form was free text throughout, which resolves correctly —
+`ManualCatalogEntry` matches an existing name exactly and case-insensitively,
+or creates — but gives no way to *see* what already exists. On an ever-growing
+catalog that is how you end up with "factory fresh" sitting beside "Factory
+Fresh": not a bug in the resolver, a bug in the typing.
+
+`CatalogVocabulary` fills a `<datalist>` for brand, series, sub-series, make
+and model. A datalist is the right shape here precisely because it is not a
+`<select>`: the input stays plain text, so the list suggests without
+constraining, and it needs no JavaScript, so it does not touch the CSP rule
+that forbids inline script. Two things it has to get right:
+
+- **Scope and cap.** A full import is ~6,500 series, which as options is
+  megabytes on a phone. The list is the card's brand's, ordered by how many
+  releases each series has, capped at 400. A series missing from it costs
+  nothing — typing it finds it.
+- **Lines come from `config/catalog_lines.php` as well as the database.**
+  Reading lines out of the database alone gives nothing useful on a database
+  where `catalog:classify-series` has not run: every one of the dev
+  database's 1,857 series has no parent, so all 1,857 look like lines. The
+  config is the editorial list the classifier itself applies, so offering it
+  keeps a hand-entered car in the same lines an imported one lands in.
+
+The form now says **Series** and **Sub-series**, which is what a card says,
+and `StoreScanCarRequest` maps those onto the `line`/`series` pair the service
+takes. An empty sub-series hangs the release on the line itself.
+
+### The Hot Wheels logo is text, and can be read as text
+
+The packaged-scan work had recorded, as a measured limitation, that Tesseract
+does not read the Hot Wheels flame and that recognising a logo is a job for
+the visual model. The first half was right and the conclusion was too quick.
+
+Tesseract does not find the logo when it is reading a whole card — it is a
+slanted, outlined word on a field of flame, and a page-level pass walks past
+it. Handed *just the logo*, at psm 8, it reads "Hor wres". That is garbage,
+and garbage is enough, because the thing being identified is one of four
+brand names rather than one of fifteen thousand castings. Measured:
+
+| | Hot Wheels | best other |
+|---|---|---|
+| "Hor wres" (HW flame) | **0.62** | 0.27 |
+| "JTIATLHBOX" (Matchbox wordmark) | 0.21 | **0.80** Matchbox |
+| "MTATLHBON WWF" | 0.00 | **0.75** Matchbox |
+| PORSCHE / CHALLENGER / FACTORY FRESH / GUARANTEED FOR LIFE | ≤ 0.38 | ≤ 0.36 |
+
+Real wordmarks 0.59–0.80, everything else ≤ 0.40, so the bar goes at 0.55 in
+the empty gap — the same way the generation threshold was placed, and for the
+same reason: a bar inside a cluster is a bar sitting on noise.
+
+**The band is red through yellow, and that was the whole difference.** Red
+alone is the obvious choice for a Hot Wheels flame and a Matchbox box, and it
+found not one logo in the owner's photographs. The Premium logo is *yellow on
+black*. Red-only measured zero; red-plus-yellow with the saturation floor
+dropped for dim indoor light measured five of eight packages on the
+two-packs photo and 0.71 on a close-up card.
+
+Two rules keep it honest. **Type beats artwork**: a brand spelled out in the
+small print is read properly and wins, and the logo only answers when there
+is no printed brand. And **a logo-read brand corroborates but never counts
+against a casting** — the matcher's -0.2 for a brand that disagrees applies
+only to a brand read as type. Same shape as the decision about a card's ©
+year, for the same reason: weaker evidence should be allowed to help and not
+to veto. It is reported at confidence 0.6 rather than 0.75.
+
+What it does not do: read the *name* off artwork. A logo says which company
+made the car, and that is all it is allowed to say.
+
+The measured limits are worth keeping in view. It is reliable on a card that
+fills the crop and patchy in a pile, where the logos are small and dim — and
+it moves with the Tesseract version, branding five packages on one photo
+under 5.5.4 and none under the 5.3.0 in the container. No wrong brand
+appeared in anything measured, which is the property that matters.
+
+---
+
 ## 2026-11-05 — Labelling a car the catalog hasn't got
 
 Immediately after the packaged-scan work, the owner put the hole in it plainly:

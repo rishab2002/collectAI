@@ -189,8 +189,8 @@ class Matcher:
             if ev.brand and brands:
                 if ev.brand in brands:
                     c.score += 0.03
-                    c.reasons.append(f"brand {ev.brand}")
-                else:
+                    c.reasons.append(f"brand {ev.brand}" + (" (from the logo)" if ev.brand_from_logo else ""))
+                elif not ev.brand_from_logo:
                     c.score -= 0.2
                     c.reasons.append(f"base says {ev.brand}, casting is {', '.join(sorted(b for b in brands if b))}")
             first, last = casting.get("first_year"), casting.get("last_year")

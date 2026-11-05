@@ -758,6 +758,17 @@ A premium two-pack comes back as **two** cars, one per name printed on it.
      the nameplate alone — `911`, not `911 Carrera T` — and guessing that
      split is what fills `models` with near-duplicates. The **colour** is left
      for you too: a sealed card shows its artwork, not its car.
+
+     **Every name is pick-or-type.** Brand, series, sub-series, make and model
+     each drop down what the catalog already holds, so you land on the
+     existing spelling instead of minting "factory fresh" beside "Factory
+     Fresh" — and all of them are ordinary text boxes, so typing something the
+     catalog has never seen creates it. That is the point: the catalog grows
+     from here. **Series** is the line (Mainline, Car Culture, Premium) and
+     **Sub-series** the wave inside it (Factory Fresh) — leave the sub-series
+     empty and the car hangs on the line itself. The lists are the brand's
+     own and capped at 400, so a series missing from the drop-down is not a
+     problem: type it.
 5. **Help teach the scanner** (the tick box) keeps the picture of each car you
    confirm or name, with what it is. That is the training data for a future
    recognizer that can name loose cars from the top (§5.9). Unticked, the
@@ -789,6 +800,20 @@ all 6,810 castings and 51,236 variations takes about 3 seconds for three cars.
 base text is small and low-contrast, so expect it to read some bases and not
 others. Real photos will tell; `RECOGNIZER_MIN_CONFIDENCE` is the dial if it
 offers too much or too little.
+
+*Brand logos.* The Hot Wheels flame and the Matchbox box are type drawn as
+artwork, and reading a whole card never finds them — which is why a Hot Wheels
+card used to come back with no brand. Handed just the logo, Tesseract reads
+them badly but consistently, and badly is enough when the vocabulary is four
+names. Measured 2026-11-05: a close-up of one card reads Hot Wheels at 0.71;
+a photo of five overlapping premium two-packs gets the brand right on 5 of its
+8 packages; three other pile photos get nothing, because the logos in them are
+small and dim. **No wrong brand in anything measured.** It also moves with the
+Tesseract version — the same photo brands five packages under 5.5.4 and none
+under the 5.3.0 in the container — so treat it as reliable on a card that
+fills the frame and patchy in a pile. A brand read this way only ever supports
+a match; it never counts against one, and the form shows it for you to
+correct.
 
 *Packaged cars.* Measured 2026-11-05 on two real photographs of the owner's own
 collection, kept at `tests/Fixtures/packaging/` so the numbers can be taken
