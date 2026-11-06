@@ -17,9 +17,21 @@ final class RecognizerClient
     /**
      * @return array<string, mixed>
      */
-    public function recognize(string $image, string $layout = 'auto'): array
+    public function recognize(string $image, string $layout = 'auto', ?array $region = null): array
     {
-        return $this->post('/recognize', $image, ['layout' => $layout]);
+        // `region` is x, y, width, height as fractions of the photo — the part
+        // of it to scan. The recognizer does the cutting because this
+        // container has no GD and cannot crop an image at all.
+        $query = ['layout' => $layout];
+
+        if ($region !== null) {
+            $query['region'] = implode(',', array_map(
+                static fn (float $part): string => rtrim(rtrim(number_format($part, 6, '.', ''), '0'), '.') ?: '0',
+                $region,
+            ));
+        }
+
+        return $this->post('/recognize', $image, $query);
     }
 
     /**

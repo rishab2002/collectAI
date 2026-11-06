@@ -17,6 +17,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -72,7 +73,9 @@ class ScanController extends Controller
 
     public function show(Request $request, int $scan): View
     {
-        $scan = $request->user()->scans()->with('detections.casting', 'detections.variation.release.castingVersion.casting')->findOrFail($scan);
+        $scan = $request->user()->scans()
+            ->with('scanPhotos', 'detections.casting', 'detections.variation.release.castingVersion.casting')
+            ->findOrFail($scan);
         $offered = $scan->detections->flatMap->offeredVariationIds()->unique()->all();
 
         // The variations offered, as the catalog has them now and only if still
@@ -248,6 +251,61 @@ class ScanController extends Controller
             // A collector's own photo: never in a shared cache.
             'Cache-Control' => 'private, max-age=3600',
         ]);
+    }
+
+    /**
+     * One of the photos the scan was made from. The collector's own, so the
+     * same private serving the crops get.
+     */
+    public function photo(Request $request, int $scan, int $photo): StreamedResponse
+    {
+        $record = $request->user()->scans()->findOrFail($scan)
+            ->scanPhotos()->whereNotNull('path')->findOrFail($photo);
+
+        return Storage::disk($record->disk)->response($record->path, null, [
+            'Content-Type' => 'image/jpeg',
+            'Cache-Control' => 'private, max-age=3600',
+        ]);
+    }
+
+    /**
+     * Scan a piece of one photo again, cut out by hand.
+     *
+     * The segmenter finds a package by the printing on it, so one whose name
+     * it cannot read it walks past — and nothing on the confirm screen can
+     * recover that, because no detection was ever made. Drawing a rectangle
+     * round it is the way back in, and it can be done as many times as there
+     * are packages it missed.
+     */
+    public function rescan(Request $request, int $scan, int $photo, ScanProcessor $processor): RedirectResponse
+    {
+        $scan = $request->user()->scans()->findOrFail($scan);
+        $record = $scan->scanPhotos()->whereNotNull('path')->findOrFail($photo);
+
+        $data = $request->validate([
+            // Fractions of the photo, so the browser can work in whatever
+            // size it displayed and never has to know the original's.
+            'x' => ['required', 'numeric', 'between:0,1'],
+            'y' => ['required', 'numeric', 'between:0,1'],
+            'width' => ['required', 'numeric', 'between:0.02,1'],
+            'height' => ['required', 'numeric', 'between:0.02,1'],
+        ]);
+
+        $region = [(float) $data['x'], (float) $data['y'], (float) $data['width'], (float) $data['height']];
+
+        if ($region[0] + $region[2] > 1.0001 || $region[1] + $region[3] > 1.0001) {
+            return back()->withErrors(['width' => 'That selection runs off the edge of the photo.']);
+        }
+
+        try {
+            $found = $processor->rescan($record, $region);
+        } catch (RecognizerUnavailableException $e) {
+            return back()->withErrors(['width' => $e->getMessage()]);
+        }
+
+        return redirect()->route('scan.show', $scan)->with('status', $found === 0
+            ? 'Nothing found in that piece. Try a tighter crop round one package, with its name showing.'
+            : $found.' more '.Str::plural('car', $found).' found in that piece of photo '.$record->number.'.');
     }
 
     public function destroy(Request $request, int $scan): RedirectResponse

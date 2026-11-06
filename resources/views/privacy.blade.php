@@ -21,7 +21,7 @@
                 <li><strong>Browsing the catalog</strong> needs no account. Like any website, our servers and our network provider (Cloudflare) see your IP address and browser details to deliver pages and protect the site from abuse; these appear in short-lived server logs.</li>
                 <li><strong>Your account:</strong> your name, email address and password. The password is stored only as a one-way hash — nobody, including us, can read it.</li>
                 <li><strong>Your collection and wishlist:</strong> the cars you add, with the quantity, condition and date acquired you choose to enter.</li>
-                <li><strong>Scans:</strong> when you use Scan, we receive your photos, find the cars in them and keep a cropped picture of each car, with what the scanner read and what you confirmed. We do not keep the full photo.</li>
+                <li><strong>Scans:</strong> when you use Scan, we receive your photos, find the cars in them, and keep both a cropped picture of each car and the photo it was cut from — with what the scanner read and what you confirmed. The photo is kept so that you can draw a box round a package the scanner walked past and scan just that piece; it is yours, shown only to you, and it goes when the crops go.</li>
                 <li><strong>Sign-in session:</strong> a cookie that keeps you signed in and protects forms against forgery. Your active sessions are stored with your IP address and browser name so they can be secured. We use no advertising, analytics or tracking cookies.</li>
             </ul>
         </section>
@@ -31,7 +31,7 @@
             <ul class="mt-2 list-disc space-y-2 pl-5">
                 <li>To run your account, show your collection and wishlist, and work out its value from published price data.</li>
                 <li>To recognise the cars in your scans. This runs on collectAI's own servers; your photos are not sent to any outside AI or image service.</li>
-                <li><strong>Only if you tick “Help teach the scanner”</strong>, the cropped pictures of cars you confirm or name are kept, with what they are, to train collectAI's own recognizer. They are never published or shared outside collectAI. Without that tick, they are deleted when you finish the scan, or after 24 hours at the latest.</li>
+                <li><strong>Only if you tick “Help teach the scanner”</strong>, the cropped pictures of cars you confirm or name are kept, with what they are, to train collectAI's own recognizer. They are never published or shared outside collectAI. Without that tick, they and the photos they were cut from are deleted when you finish the scan, or after 24 hours at the latest.</li>
                 <li>To keep the site secure: limiting repeated sign-in and sign-up attempts by IP address, and blocking abuse.</li>
             </ul>
             <p class="mt-2">We do not sell your data, use it for advertising, or share it with data brokers.</p>

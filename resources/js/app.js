@@ -190,3 +190,90 @@ if (form) {
 
     retry.addEventListener('click', upload);
 }
+
+/**
+ * Drag a box on a scan photo to pick the piece to scan again.
+ *
+ * Enhancement only. The form underneath is four number inputs that work on
+ * their own; this writes the same four values and draws what they mean, so a
+ * broken bundle costs the convenience and not the feature. Values are
+ * fractions of the photo, never pixels, so the browser never has to know how
+ * big the original is.
+ */
+function cropSelection(form) {
+    const canvas = form.querySelector('[data-crop-canvas]');
+    const image = form.querySelector('[data-crop-image]');
+    const box = form.querySelector('[data-crop-box]');
+
+    if (!canvas || !image || !box) {
+        return;
+    }
+
+    const fields = {};
+    form.querySelectorAll('[data-crop-field]').forEach((input) => {
+        fields[input.dataset.cropField] = input;
+    });
+
+    const draw = () => {
+        const x = parseFloat(fields.x.value) || 0;
+        const y = parseFloat(fields.y.value) || 0;
+        const w = parseFloat(fields.width.value) || 0;
+        const h = parseFloat(fields.height.value) || 0;
+        box.style.left = `${x * 100}%`;
+        box.style.top = `${y * 100}%`;
+        box.style.width = `${w * 100}%`;
+        box.style.height = `${h * 100}%`;
+        box.classList.toggle('hidden', w <= 0 || h <= 0);
+    };
+
+    const at = (event) => {
+        const rect = image.getBoundingClientRect();
+        const point = event.touches ? event.touches[0] : event;
+        return {
+            x: Math.min(1, Math.max(0, (point.clientX - rect.left) / rect.width)),
+            y: Math.min(1, Math.max(0, (point.clientY - rect.top) / rect.height)),
+        };
+    };
+
+    let start = null;
+
+    const move = (event) => {
+        if (!start) {
+            return;
+        }
+        // Dragging a selection is not scrolling the page.
+        event.preventDefault();
+        const now = at(event);
+        fields.x.value = Math.min(start.x, now.x).toFixed(3);
+        fields.y.value = Math.min(start.y, now.y).toFixed(3);
+        fields.width.value = Math.abs(now.x - start.x).toFixed(3);
+        fields.height.value = Math.abs(now.y - start.y).toFixed(3);
+        draw();
+    };
+
+    const end = () => { start = null; };
+
+    const begin = (event) => {
+        start = at(event);
+        fields.width.value = '0';
+        fields.height.value = '0';
+        draw();
+    };
+
+    canvas.addEventListener('mousedown', begin);
+    canvas.addEventListener('touchstart', begin, { passive: true });
+    window.addEventListener('mousemove', move);
+    window.addEventListener('touchmove', move, { passive: false });
+    window.addEventListener('mouseup', end);
+    window.addEventListener('touchend', end);
+    Object.values(fields).forEach((input) => input.addEventListener('input', draw));
+
+    // The photo has to be laid out before a box drawn over it means anything.
+    if (image.complete) {
+        draw();
+    } else {
+        image.addEventListener('load', draw);
+    }
+}
+
+document.querySelectorAll('[data-crop-form]').forEach(cropSelection);

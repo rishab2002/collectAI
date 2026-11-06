@@ -111,7 +111,7 @@ return [
 
     'privacy' => [
         'contact' => env('PRIVACY_CONTACT_EMAIL', 'privacy@collectai.club'),
-        'updated' => '2026-11-04',
+        'updated' => '2026-11-06',
     ],
 
     'recognition' => [

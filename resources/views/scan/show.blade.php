@@ -138,6 +138,10 @@
         </ul>
     @endif
 
+    @if ($scan->scanPhotos->isNotEmpty())
+        @include('scan.partials.cut-out', ['scan' => $scan])
+    @endif
+
     @if ($scan->detections->isEmpty())
         <p class="mt-6 rounded-xl border border-neutral-200 bg-white p-4 text-sm text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900">
             @if ($scan->layout === 'packaged')
