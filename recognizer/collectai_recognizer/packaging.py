@@ -235,6 +235,55 @@ class Region:
     context: str                        # print read near it, but not on it
 
 
+# How the photo is prepared before Tesseract looks for printing in it. Two
+# passes, because **no single preparation reads every package** and the one
+# that misses is not the same one each time. Measured on three photographs:
+# over a card half in sun and half in shadow, 8 tiles reads "2003 DODGE VIPER
+# SRT-10" and not the Corvette beside it on the same card; 16 tiles reads the
+# Corvette and not the Viper. Running both and taking the union found 6 names
+# of 10 where one pass found 5, 4 of 4 where one found 3, and recovered a
+# whole two-pack that had been invisible. A third pass on the plain grey
+# added nothing either of these missed, so there are two.
+#
+# Enlarging the photo first was measured too, and it is worse: this photo
+# reads "2O12,CORVETTES 206" at its own size and "2002 GORVETTE® 06" blown up
+# to 2400. The working copy still only ever shrinks.
+CLAHE_TILES = (8, 16)
+CLAHE_CLIP = 2.0
+
+# Two passes find the same line twice. Overlapping this much, it is one piece
+# of printing read twice, and the better-scored reading is the one to keep —
+# which also hands the matcher the better text.
+SAME_LINE = 0.5
+
+
+def _printed_lines(bgr: np.ndarray) -> list[tuple[tuple[int, int, int, int], float, str]]:
+    """Every line of printing in the photo, from each preparation in turn."""
+    gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+    found: list[tuple[float, tuple[int, int, int, int], float, str]] = []
+
+    for tiles in CLAHE_TILES:
+        reading = ocr.tesseract(cv2.createCLAHE(clipLimit=CLAHE_CLIP, tileGridSize=(tiles, tiles)).apply(gray))
+        for box, height, text, score in zip(reading.boxes, reading.heights, reading.lines, reading.scores):
+            if box[2] > 0 and box[3] > 0 and _is_printing(text, score):
+                found.append((score, box, height, text))
+
+    kept: list[tuple[tuple[int, int, int, int], float, str]] = []
+    for _, box, height, text in sorted(found, key=lambda line: -line[0]):
+        if not any(_covers(box, already) > SAME_LINE for already, _, _ in kept):
+            kept.append((box, height, text))
+    return kept
+
+
+def _covers(box: tuple[int, int, int, int], other: tuple[int, int, int, int]) -> float:
+    """Shared area as a share of the smaller box."""
+    x, y, w, h = box
+    ox, oy, ow, oh = other
+    over = max(0, min(x + w, ox + ow) - max(x, ox)) * max(0, min(y + h, oy + oh) - max(y, oy))
+
+    return over / max(1, min(w * h, ow * oh))
+
+
 def _text_regions(bgr: np.ndarray) -> list[Region]:
     """The blocks of printing in the photo, one per package that can be read.
 
@@ -248,14 +297,7 @@ def _text_regions(bgr: np.ndarray) -> list[Region]:
     printing is hidden under the next package cannot be named by anything, so
     finding it would only produce a crop with no answer in it.
     """
-    gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
-    reading = ocr.tesseract(cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray))
-
-    lines = [
-        (box, height, text)
-        for box, height, text, score in zip(reading.boxes, reading.heights, reading.lines, reading.scores)
-        if box[2] > 0 and box[3] > 0 and _is_printing(text, score)
-    ]
+    lines = _printed_lines(bgr)
     if not lines:
         return []
 
@@ -293,15 +335,16 @@ def _text_regions(bgr: np.ndarray) -> list[Region]:
         x1 = min(W, int(max(b[0] + b[2] for b, _, _ in group) + pad))
         y1 = min(H, int(max(b[1] + b[3] for b, _, _ in group) + pad))
         box = (x0, y0, x1 - x0, y1 - y0)
-        regions.append(Region(box, " ".join(t for _, _, t in group), _near(reading, box, CONTEXT_REACH * tall)))
+        regions.append(Region(box, " ".join(t for _, _, t in group), _near(lines, box, CONTEXT_REACH * tall)))
     return regions
 
 
-def _near(reading: ocr.Reading, box: tuple[int, int, int, int], reach: float) -> str:
+def _near(lines: list[tuple[tuple[int, int, int, int], float, str]],
+          box: tuple[int, int, int, int], reach: float) -> str:
     """Every line read within `reach` of the box, but not inside it."""
     x, y, w, h = box
     out = []
-    for (bx, by, bw, bh), line in zip(reading.boxes, reading.lines):
+    for (bx, by, bw, bh), _, line in lines:
         if bw <= 0 or bh <= 0 or (x <= bx and by >= y and bx + bw <= x + w and by + bh <= y + h):
             continue
         if (max(0, max(x, bx) - min(x + w, bx + bw)) <= reach

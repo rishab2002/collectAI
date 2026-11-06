@@ -1734,6 +1734,22 @@ below come from are committed at `tests/Fixtures/packaging/`.*
   side, whose name the whole-photo pass reads sideways and so does not read.
   The per-package reader tries every rotation, so what the photo missed the
   crop can still get.
+- **The photo is read twice, with different preparation, and the lines are
+  unioned** (`CLAHE_TILES = (8, 16)`, 2026-11-06). **No single preparation
+  reads every package, and the one that misses is not the same one each
+  time.** Measured on a card half in sun and half in shadow: 8 tiles reads
+  "2003 DODGE VIPER SRT-10" and not the Corvette beside it on the same card;
+  16 tiles reads the Corvette and not the Viper. This is why two-packs went
+  missing — not the filters, and not resolution. The union found 10 packages
+  where one pass found 8 on `premium-two-packs.jpg`, 9 of 8 on
+  `matchbox-and-mainline.jpg` (recovering "'66 BUICK RIVIERA"), 5 of 3 on
+  `IMG_6180.jpg`, and recovered a whole two-pack on the owner's own photo. A
+  third pass over the plain grey added nothing the two missed, so there are
+  two. It costs roughly double the whole-photo pass — about 25 s for a dense
+  photo against 11 s.
+  - **Enlarging the photo first was measured and is worse**: the same card
+    reads "2O12,CORVETTES 206" at its own size and "2002 GORVETTE® 06" blown
+    up to 2400. `working_copy` still only ever shrinks.
 - **A line of print is a name when it has ≥6 alphanumerics and is ≥60%
   capitals, or was read at ≥0.7 whatever its case.** Measured: a blanket or a
   carpet yields over a hundred "lines", and essentially all of them are short,
@@ -1844,6 +1860,18 @@ scaled down first measurably loses reads.
   the two ways a new one turns up. Lines are not brands: TLV and TLV Neo
   report Tomica, Kaido House reports Mini GT, because that is how the catalog
   files their cars.
+  - **A spelling under 4 characters is never matched at all** (`MIN_SPELLING`).
+    EFE, BBR, TSM, IXO and TLV are real makers and also tokens that turn up
+    in the noise off almost any package: "EFE" was reported off a Hot Wheels
+    Subaru Forester card, out of the garbage the crop read around the name.
+    Requiring whole words does not help, because the garbage contains whole
+    three-letter words. They keep their longer spellings — "bbr models",
+    "true scale miniatures", "ixo models", "tomica limited vintage" — so a
+    box that spells itself out is still read; what is given up is a box that
+    says nothing but three letters.
+  - **Print *beside* a package may only name a brand with ≥5 characters**
+    (`CONTEXT_BRAND`). Context corroborates; it does not get to name a brand
+    off a neighbour's small print.
   - **A spelling under 8 characters must be spelled out as whole words**
     (`WHOLE_WORD_UNDER`), never found as a window. This is the rule that makes
     a long list safe, and it is measured: at 44 brands the photographs that

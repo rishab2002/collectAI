@@ -14,6 +14,62 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-11-06 — Why it missed two-packs
+
+The owner asked why the packaged scan walks past two-packs. On their photo of
+a Pagani single card and two two-packs it found three things, one of them
+junk, and neither two-pack was named.
+
+The obvious suspects were wrong, which is why measuring first mattered. It is
+**not the filters**: dumping every line Tesseract returned showed "2012
+CORVETTE Z06" was never read at all, in any form, so nothing downstream could
+have dropped it. It is **not resolution**: sweeping the working size from
+1500 to 3600 never produced it either, and enlarging actively hurt — the same
+card reads "2O12,CORVETTES 206" at its own size and "2002 GORVETTE® 06" blown
+up to 2400.
+
+It is the **preparation**. Sweeping CLAHE clip and tile size against plain
+grey, Otsu and two adaptive thresholds showed the thing that matters: with 8
+tiles Tesseract reads "2003 DODGE VIPER SRT-10" and misses the Corvette
+beside it on the same card; with 16 tiles it reads the Corvette and misses
+the Viper. That card is half in sunlight and half in shadow, and no single
+contrast treatment copes with both halves.
+
+So the photo is read twice and the lines unioned, deduplicated where the two
+passes found the same printing (keeping the better-scored read, which also
+hands the matcher better text). A third pass over the plain grey found
+nothing the two missed, so there are two. Measured: 10 packages where one
+pass found 8 on premium-two-packs, 9 where one found 8 on
+matchbox-and-mainline — recovering "'66 BUICK RIVIERA" — 5 where one found 3
+on IMG_6180, and the Corvette two-pack recovered on the owner's own photo.
+Roughly double the whole-photo cost: 25 s for a dense photo against 11 s.
+
+This is the same shape as a lesson already in this file — "each package is
+read twice and the readings are never joined" — except that one was about
+*reading* a package and this one is about *finding* it.
+
+### The guard paid for itself again
+
+More text found means more chances to be wrong, and the photograph guard
+failed immediately: a Hot Wheels Subaru Forester card came back branded
+**EFE**. Not from a neighbour's print — from the garbage the crop read around
+the name, which happened to contain a whole three-letter word.
+
+Three characters cannot be evidence. EFE, BBR, TSM, IXO and TLV are real
+makers and also tokens that fall out of OCR noise constantly, and the
+whole-word rule is no defence because the noise contains whole three-letter
+words. Spellings under four characters are no longer matched. Those brands
+keep their longer spellings — "bbr models", "true scale miniatures", "ixo
+models", "tomica limited vintage" — so a box that spells itself out is still
+read, and what is given up is a box bearing nothing but three letters. Two
+tests asserted the old behaviour and were changed, not worked around.
+
+A narrower rule went in alongside it: print *beside* a package may only name
+a brand with five or more characters. Context corroborates; it does not get
+to name a brand off a neighbour's small print.
+
+---
+
 ## 2026-11-05 — "New Models" is not a sub-series
 
 The owner's point: on a mainline card the wave is printed up the right-hand
