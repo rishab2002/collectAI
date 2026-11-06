@@ -9,7 +9,9 @@ authentication of its own and must not be published to the internet.
 
 Query parameters on POST: min_confidence, min_margin, crops=0, and on
 /recognize layout=auto|pile|single|packaged (single = one car or base, close
-up; packaged = cars still on their cards or in their boxes).
+up; packaged = cars still on their cards or in their boxes). `region=x,y,w,h`
+— fractions of the photo — scans only that part of it, which is how a person
+crops a photo by hand and hands back the part the segmenter missed.
 The index file is re-read whenever it changes on disk, so a fresh export
 needs no restart. With RECOGNIZER_INDEX_URL set (Railway), the recognizer
 fetches that file from the app itself — see index_sync.
@@ -31,7 +33,7 @@ from urllib.parse import parse_qs, urlparse
 
 from . import __version__, index_sync, ocr
 from .catalog import CatalogIndex
-from .pipeline import decode, read_card, recognise
+from .pipeline import decode, read_card, recognise, region_of
 from .segment import LAYOUTS
 
 MAX_BODY = 25 * 1024 * 1024
@@ -138,6 +140,12 @@ def make_handler(cache: IndexCache, defaults: dict, models: ModelCache | None = 
                 return self._send(422, {"error": str(e)})
 
             q = {k: v[-1] for k, v in parse_qs(url.query).items()}
+            try:
+                region = _region(q.get("region"))
+            except ValueError as e:
+                return self._send(422, {"error": str(e)})
+            image = region_of(image, region)
+
             options = {
                 "min_confidence": float(q.get("min_confidence", defaults["min_confidence"])),
                 "min_margin": float(q.get("min_margin", defaults["min_margin"])),
@@ -157,6 +165,22 @@ def make_handler(cache: IndexCache, defaults: dict, models: ModelCache | None = 
             self._send(200, result)
 
     return Handler
+
+
+def _region(value: str | None) -> tuple[float, float, float, float] | None:
+    """`region=x,y,w,h`, each a fraction of the photo — the part to scan."""
+    if not value:
+        return None
+    parts = value.split(",")
+    if len(parts) != 4:
+        raise ValueError("region must be x,y,w,h as four fractions of the photo")
+    try:
+        x, y, w, h = (float(p) for p in parts)
+    except ValueError:
+        raise ValueError("region must be four numbers") from None
+    if w <= 0 or h <= 0 or not all(0 <= v <= 1 for v in (x, y, x + w, y + h)):
+        raise ValueError("region must sit inside the photo and have a positive size")
+    return (x, y, w, h)
 
 
 class DualStackServer(ThreadingHTTPServer):

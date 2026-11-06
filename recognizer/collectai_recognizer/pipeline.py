@@ -14,6 +14,28 @@ from .evidence import Evidence
 from .segment import aligned_crop, find_objects, padded_crop, working_copy
 
 
+def region_of(bgr: np.ndarray, region: tuple[float, float, float, float] | None) -> np.ndarray:
+    """A rectangle of the photo, given as fractions of its width and height.
+
+    Cropping happens here rather than in the app because the app's container
+    has no GD and cannot cut an image at all — and because the recognizer has
+    already decoded the photo, so the alternative is sending the same bytes
+    twice. Fractions rather than pixels so the caller can work from whatever
+    size it showed the person, which is never the size of the original.
+    """
+    if region is None:
+        return bgr
+
+    height, width = bgr.shape[:2]
+    x, y, w, h = region
+    left, top = max(0, int(x * width)), max(0, int(y * height))
+    right, bottom = min(width, int((x + w) * width)), min(height, int((y + h) * height))
+
+    cut = bgr[top:bottom, left:right]
+
+    return cut if cut.size and min(cut.shape[:2]) >= 16 else bgr
+
+
 def decode(data: bytes) -> np.ndarray:
     img = cv2.imdecode(np.frombuffer(data, dtype=np.uint8), cv2.IMREAD_COLOR)
     if img is None:
