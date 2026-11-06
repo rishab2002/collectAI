@@ -847,6 +847,17 @@ fills the frame and patchy in a pile. A brand read this way only ever supports
 a match; it never counts against one, and the form shows it for you to
 correct.
 
+*Why it used to miss two-packs.* Not the filters and not resolution: the
+photo is read once per preparation and **no single preparation reads every
+package**. On a card half in sun and half in shadow, one setting reads "2003
+DODGE VIPER SRT-10" and misses the Corvette beside it on the same card, and
+another reads the Corvette and misses the Viper. It now reads the photo twice
+and takes the union, which found 10 packages where one pass found 8, 9 where
+one found 8, and 5 where one found 3 — recovering whole two-packs that had
+been invisible. It costs about double the first pass, so a dense photo takes
+roughly 25 seconds rather than 11. Enlarging the photo first was measured too
+and is worse, so it is not done.
+
 *Packaged cars.* Measured 2026-11-05 on two real photographs of the owner's own
 collection, kept at `tests/Fixtures/packaging/` so the numbers can be taken
 again. A photo of five overlapping Hot Wheels premium two-packs gave 8

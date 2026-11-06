@@ -25,13 +25,31 @@ class SeedTest(unittest.TestCase):
         vocabulary = brands.known()
         for printed, brand in [("SCHUCO 1:64", "Schuco"), ("INNO64 MODELS", "Inno64"),
                                ("made by Tarmac Works", "Tarmac Works"), ("PARA64", "Para64"),
-                               ("MINI GT", "Mini GT"), ("BBR", "BBR")]:
+                               ("MINI GT", "Mini GT"), ("BBR MODELS", "BBR")]:
             with self.subTest(printed=printed):
                 self.assertEqual(brand, vocabulary.match(printed, PRINTED_BRAND)[0])
 
     def test_a_line_is_reported_as_the_brand_whose_line_it_is(self):
         # TLV is Tomica's line, and the catalog files its cars under Tomica.
-        self.assertEqual("Tomica", brands.known().match("a TLV release", PRINTED_BRAND)[0])
+        self.assertEqual("Tomica",
+                         brands.known().match("TOMICA LIMITED VINTAGE", PRINTED_BRAND)[0])
+
+    def test_three_letters_are_never_enough(self):
+        """A three-character spelling is not matched at all.
+
+        EFE, BBR, TSM and IXO are real makers and also tokens that turn up in
+        the noise off almost any package — "EFE" was reported off a Hot
+        Wheels Subaru Forester card, out of the garbage the crop read around
+        the name, and requiring whole words does not help because the garbage
+        contains whole three-letter words. What is given up is a box that
+        says nothing but three letters; a box that spells itself out is still
+        read.
+        """
+        vocabulary = brands.known()
+        for printed in ("BBR", "EFE", "TSM", "IXO", "TLV"):
+            with self.subTest(printed=printed):
+                self.assertIsNone(vocabulary.match(printed, PRINTED_BRAND))
+        self.assertEqual("IXO", vocabulary.match("IXO Models", PRINTED_BRAND)[0])
 
     def test_card_text_that_is_not_a_brand_names_none(self):
         vocabulary = brands.known()
@@ -53,7 +71,7 @@ class SeedTest(unittest.TestCase):
 
     def test_but_a_short_name_actually_printed_is_still_read(self):
         self.assertEqual("Welly", brands.known().match("WELLY diecast", PRINTED_BRAND)[0])
-        self.assertEqual("IXO", brands.known().match("IXO Models", PRINTED_BRAND)[0])
+        self.assertEqual("Welly", brands.known().match("WELLY DIECAST", PRINTED_BRAND)[0])
 
 
 class NoFalseBrandsTest(unittest.TestCase):

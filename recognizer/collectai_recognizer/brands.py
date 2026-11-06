@@ -37,6 +37,18 @@ DATA_FILE = Path(__file__).resolve().parent.parent / "data" / "brands.json"
 # because OCR drops a letter out of a word it otherwise reads.
 WHOLE_WORD_UNDER = 8
 
+# And a spelling shorter than this is not matched at all.
+#
+# Three characters is a real brand — EFE, BBR, TSM, IXO — and also a token
+# that turns up in the noise off almost any package. Measured: "EFE" was
+# reported off a Hot Wheels Subaru Forester card, out of the garbage the crop
+# read around the name, and no amount of requiring whole words helps because
+# the garbage contains whole three-letter words. Those brands keep their
+# longer spellings — "bbr models", "true scale miniatures", "ixo models" —
+# so a box that spells itself out is still read; what is given up is a box
+# that says nothing but three letters.
+MIN_SPELLING = 4
+
 
 @dataclass(frozen=True)
 class Vocabulary:
@@ -71,6 +83,16 @@ class Vocabulary:
             if score >= threshold and (best is None or score > best[1]):
                 best = (name, round(score, 3))
         return best
+
+    def only_longer_than(self, shortest: int) -> "Vocabulary":
+        """The spellings of at least this length.
+
+        For matching against print that is *near* a package rather than on
+        it. A three-letter name is a real brand — EFE, BBR, TSM — and also a
+        token that turns up in the noise beside almost any card, so off the
+        package itself it needs more than three characters to be believed.
+        """
+        return Vocabulary(tuple((n, s) for n, s in self.spellings if len(s) >= shortest))
 
     def with_names(self, names: list[str]) -> "Vocabulary":
         """This vocabulary plus brands the catalog knows.
@@ -108,7 +130,7 @@ def seed(path: str | None = None) -> Vocabulary:
         (brand["name"], flat)
         for brand in data["brands"]
         for spelling in brand["spellings"]
-        if (flat := compact(spelling))
+        if len(flat := compact(spelling)) >= MIN_SPELLING
     ]
     # Longest first, so "Tomica Limited Vintage" is tried before "Tomica" and
     # "Inno Models" before a shorter spelling that is inside it.
