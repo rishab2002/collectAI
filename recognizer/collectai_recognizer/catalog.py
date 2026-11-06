@@ -59,6 +59,16 @@ class CatalogIndex:
             for code in c.get("codes", []) or []:
                 self.toy_numbers[code.upper().replace(" ", "").replace("-", "")].add(int(c["id"]))
 
+        # Every wave name the catalog knows, for reading the segment printed
+        # up the edge of a card. A series arrives as "Line / Sub-series" where
+        # it has a parent, and the card prints the sub-series.
+        self.series_names: list[str] = sorted({
+            part.strip()
+            for v in data.get("variations", [])
+            for part in str(v.get("series") or "").split("/")
+            if len(part.strip()) >= 4
+        })
+
         # (casting id, alias with spaces, alias compacted, is the full name)
         self.entries: list[tuple[int, str, str, bool]] = []
         self.grams: dict[str, list[int]] = defaultdict(list)

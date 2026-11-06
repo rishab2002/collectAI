@@ -114,11 +114,17 @@ def read_card(bgr: np.ndarray, index: CatalogIndex | None, *, min_confidence: fl
     work, _ = working_copy(bgr)
     # Three rotations, all of them: one card in the frame is worth the time,
     # and a close-up of a card is rarely upside down.
-    _, evidence, match = packaging.read_printed(
+    reading, evidence, match = packaging.read_printed(
         work, index, min_confidence=min_confidence, min_margin=min_margin,
         rotations=(0, 90, 270), stop_score=None,
     )
-    return packaging.card_output(evidence, match, index)
+    # From the photo as taken, not the working copy: the segment strip is a
+    # few pixels wide and downscaling to 1600 reads it as nothing. Measured —
+    # "Factory Fresh" at 0.92 full size, nothing at all off the working copy.
+    series = packaging.read_edge_series(packaging.upright(bgr, reading.rotation),
+                                        index.series_names) if index else None
+
+    return packaging.card_output(evidence, match, index, series)
 
 
 def _headline(reading: ocr.Reading, printed: str) -> str | None:
@@ -171,6 +177,12 @@ def recognise_packages(
                 logo_brand=logos.nearest(artwork, obj.box), vocabulary=vocabulary,
             )
 
+        # The wave is printed up the card's right edge, so it can only be
+        # read once the crop is the right way up — which the reading above is
+        # what settles.
+        shown = packaging.upright(crop, reading.rotation)
+        series = packaging.read_edge_series(shown, index.series_names) if (read_text and index) else None
+
         x, y, w, h = obj.box
         detections.append({
             "n": n + 1,
@@ -188,11 +200,11 @@ def recognise_packages(
                 "copyright_year": evidence.copyright_year,
                 "codes": evidence.codes,
             },
-            "card": packaging.card_output(evidence, match, index),
+            "card": packaging.card_output(evidence, match, index, series),
             "match": match.as_dict() if match else None,
             "looks": None,
             "confident": bool(match and match.confident),
-            "crop_jpeg": jpeg_base64(packaging.upright(crop, reading.rotation)) if crops else None,
+            "crop_jpeg": jpeg_base64(shown) if crops else None,
         })
 
     return {
