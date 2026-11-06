@@ -88,7 +88,7 @@ exists.*
 
 **Running:** `docker compose up -d` brings up `app` (:8000), `db` (Postgres 16,
 :5432), `redis` (:6379), `meilisearch` (:7700), `recognizer` (:8090).
-`php artisan test` → **402 passed, 1,688 assertions**; the recognizer's own
+`php artisan test` → **403 passed, 1,694 assertions**; the recognizer's own
 `python -m unittest discover -s tests -t .` (in `recognizer/`) → **84 passed**
 (both re-measured 2026-11-05). The `recognizer` image **does** build and run
 now (`docker compose up -d recognizer`, healthy, `/health` ok); its Tesseract
@@ -1001,9 +1001,13 @@ The rationale for each is in the [session log](docs/session-log.md).*
   be paid in the application. Unpaid, it is paid by the review screen: one
   proposal for a `VehicleModel` that had been deleted rendered as null,
   `ProposalPresenter::for()` refused a null, and the whole submission queue
-  returned a 500 the admin could not get past. Both review queries also carry
-  `->recordStillExists()`, because the hook cannot retrieve rows orphaned
-  before it existed.
+  returned a 500 the admin could not get past. The hook cannot retrieve rows
+  orphaned before it existed, so **`undecided()` itself excludes them** — not
+  the call sites. Hiding an orphan from the review *screen* while the *queue*
+  still counted it left a submission with every visible proposal decided
+  sitting in the queue reading "0 of 4 left", for ever, because the fifth can
+  never be ruled on. Three places count undecided proposals and the queue was
+  the one that got missed; the invariant belongs in the scope.
 - **Rejected is a terminal state, not a delete**, so a resubmitted photo can be
   recognised as something an admin already turned down.
 - **`config/catalog.php`** holds the admin identity and

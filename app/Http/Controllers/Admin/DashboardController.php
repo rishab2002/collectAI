@@ -24,10 +24,7 @@ class DashboardController extends Controller
         return view('admin.dashboard', [
             'submissions' => Submission::query()
                 ->awaitingReview()
-                ->withCount([
-                    'proposals as undecided_count' => fn ($query) => $query
-                        ->where('decision', SubmissionProposal::DECISION_PENDING),
-                ])
+                ->withCount(['proposals as undecided_count' => fn ($query) => $query->undecided()])
                 ->latest()
                 ->get(),
 
