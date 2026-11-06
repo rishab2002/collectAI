@@ -52,10 +52,22 @@ class SubmissionProposal extends Model
         return $this->belongsTo(User::class, 'decided_by');
     }
 
+    /**
+     * Proposals still waiting on a decision — and that one can still be made
+     * about.
+     *
+     * A proposal whose record has been deleted is pending for ever: the
+     * review screen cannot render it, so nobody can approve or reject it. If
+     * "undecided" counted those, a submission would sit in the queue after
+     * every proposal a person can see has been ruled on, reading "0 of 4
+     * left" and never leaving. That is what happened. Folding the test in
+     * here rather than at each call site is the point — there were three,
+     * and the queue was the one that got missed.
+     */
     #[Scope]
     protected function undecided(Builder $query): void
     {
-        $query->where('decision', self::DECISION_PENDING);
+        $query->where('decision', self::DECISION_PENDING)->recordStillExists();
     }
 
     /**

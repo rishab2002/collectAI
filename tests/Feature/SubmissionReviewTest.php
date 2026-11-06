@@ -47,6 +47,40 @@ class SubmissionReviewTest extends TestCase
             ->assertSee("'92 Honda Prelude");
     }
 
+    /**
+     * Ruling on everything the screen shows has to clear the submission out
+     * of the queue. It did not: the screen hides a proposal whose record was
+     * deleted, the queue counted it, and a submission with every visible
+     * proposal decided sat there reading "0 of 4 left" for ever.
+     */
+    public function test_a_submission_leaves_the_queue_when_every_proposal_a_person_can_see_is_decided(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $submission = Submission::factory()->create();
+        $casting = Casting::factory()->create(['name' => "'92 Honda Prelude"]);
+        $model = VehicleModel::factory()->create();
+
+        $visible = SubmissionProposal::factory()->create([
+            'submission_id' => $submission->id,
+            'proposable_id' => $casting->id, 'proposable_type' => $casting->getMorphClass(),
+        ]);
+        SubmissionProposal::factory()->create([
+            'submission_id' => $submission->id,
+            'proposable_id' => $model->id, 'proposable_type' => $model->getMorphClass(),
+        ]);
+        VehicleModel::withoutEvents(fn () => $model->delete());
+
+        $link = route('admin.submissions.show', $submission);
+        $this->actingAs($admin)->get(route('admin.dashboard'))->assertOk()->assertSee($link);
+        $this->assertSame(1, Submission::awaitingReview()->count());
+
+        // The one proposal the screen offers, ruled on.
+        $this->actingAs($admin)->post(route('admin.submissions.proposals.reject', [$submission, $visible]));
+
+        $this->assertSame(0, Submission::awaitingReview()->count(), 'still queued with nothing left to decide');
+        $this->actingAs($admin)->get(route('admin.dashboard'))->assertOk()->assertDontSee($link);
+    }
+
     public function test_deleting_a_record_takes_its_proposal_with_it(): void
     {
         $casting = Casting::factory()->create();

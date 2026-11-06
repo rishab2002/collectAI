@@ -65,9 +65,10 @@ class Submission extends Model
     #[Scope]
     protected function awaitingReview(Builder $query): void
     {
-        $query->whereHas('proposals', function (Builder $proposals): void {
-            $proposals->where('decision', SubmissionProposal::DECISION_PENDING);
-        });
+        // undecided(), not a bare pending check: a proposal whose record was
+        // deleted can never be ruled on, and counting it kept a finished
+        // submission in the queue for ever.
+        $query->whereHas('proposals', fn (Builder $proposals) => $proposals->undecided());
     }
 
     /**
