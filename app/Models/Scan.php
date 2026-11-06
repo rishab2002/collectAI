@@ -28,7 +28,16 @@ class Scan extends Model
     public function deleteWithPhotos(): void
     {
         $this->detections()->get()->each->deleteCrop();
+        $this->scanPhotos()->get()->each->deleteFile();
         $this->delete();
+    }
+
+    /**
+     * The photos it was made from, kept so they can be cropped by hand.
+     */
+    public function scanPhotos(): HasMany
+    {
+        return $this->hasMany(ScanPhoto::class)->orderBy('number');
     }
 
     public function detections(): HasMany

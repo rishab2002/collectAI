@@ -30,7 +30,7 @@ from . import brands, logos, ocr
 from .catalog import CatalogIndex, Match, Matcher
 from .evidence import Evidence
 from .segment import Found, background_difference
-from .textmatch import best_window, compact
+from .textmatch import best_window, compact, normalise
 
 # A package in a photo of a dozen is a few per cent of the frame; in a photo of
 # two it is a third. Below the floor is artwork inside a card, above the ceiling
@@ -310,6 +310,72 @@ def _near(reading: ocr.Reading, box: tuple[int, int, int, int], reach: float) ->
     return " ".join(out)
 
 
+# What a blister card looks like around its name. The name is printed across
+# the lower part of the face, not quite reaching the edges, and the card is
+# about half as tall again as it is wide.
+CARD_RATIO = 1.5
+NAME_SITS_AT = 0.86
+
+# The name does not sit in the middle of the card. On a mainline card it runs
+# across the left and centre of the face and the right eighth or so is the
+# segment strip — the wave, printed on its side. So the box grows further
+# right than left, which is what puts that strip inside the crop and lets
+# `read_edge_series` find it at all.
+NAME_WIDTH = 0.72
+GROW_RIGHT = 0.62
+
+
+def _card_box(region: "Region", others: list["Region"], shape: tuple[int, int]) -> tuple[int, int, int, int]:
+    """A name strip grown into the card it is printed on.
+
+    Without this a package's crop is the strip and nothing else — a band of
+    plastic with a name on it, no car, no artwork, no use as a picture of
+    anything. The strip's own width is most of the card's, so the card can be
+    estimated round it: wider by a little, half as tall again as it is wide,
+    with the name near the bottom.
+
+    Where that reaches into the next package it is pulled back to **halfway
+    between the two names**. Each package owns the space up to the midpoint
+    with its neighbour, which needs no judgement about which of them the
+    ground belongs to and degrades sensibly however densely they are piled.
+    A guess at the card's extent is better than a certainty about the strip:
+    the reader works on the crop either way, and the collector gets something
+    they can recognise.
+    """
+    x, y, w, h = region.box
+    height, width = shape
+
+    wide = min(float(width), w / NAME_WIDTH)
+    tall = wide * CARD_RATIO
+    spare = wide - w
+    bottom = y + h + (1 - NAME_SITS_AT) * tall
+
+    left = x - spare * (1 - GROW_RIGHT)
+    right = x + w + spare * GROW_RIGHT
+    top = bottom - tall
+
+    for other in others:
+        if other is region:
+            continue
+        ox, oy, ow, oh = other.box
+        # Only a neighbour the grown box would actually swallow.
+        if right <= ox or left >= ox + ow or bottom <= oy or top >= oy + oh:
+            continue
+        if oy + oh <= y:                                   # above this one
+            top = max(top, (oy + oh + y) / 2)
+        elif oy >= y + h:                                  # below it
+            bottom = min(bottom, (oy + y + h) / 2)
+        elif ox + ow <= x:                                 # to its left
+            left = max(left, (ox + ow + x) / 2)
+        elif ox >= x + w:                                  # to its right
+            right = min(right, (ox + x + w) / 2)
+
+    left, top = max(0, int(left)), max(0, int(top))
+    right, bottom = min(width, int(right)), min(height, int(bottom))
+
+    return (left, top, max(1, right - left), max(1, bottom - top))
+
+
 def _inside(region: tuple[int, int, int, int], p: Proposal, share: float = 0.8) -> bool:
     """Is this block of printing on that package?
 
@@ -374,7 +440,8 @@ def find_packages(bgr: np.ndarray, limit: int = 60, read_text: bool = True) -> l
             taken.append(rectangle)
             found.append(_as_found(rectangle.points, (h, w), region))
         else:
-            x, y, rw, rh = region.box
+            # No rectangle round it, so the card is estimated from the name.
+            x, y, rw, rh = _card_box(region, regions, (h, w))
             found.append(_as_found(np.array([[[x, y]], [[x + rw, y]], [[x + rw, y + rh]], [[x, y + rh]]], np.int32),
                                    (h, w), region))
 
@@ -434,6 +501,88 @@ def upright(bgr: np.ndarray, rotation: int) -> np.ndarray:
     return bgr if rotation not in turns else cv2.rotate(bgr, turns[rotation])
 
 
+# Where the wave is printed on a mainline card: up the right-hand edge,
+# bottom to top, in the lower part of the face. A band rather than a line,
+# because how far in it sits varies with the brand and the year.
+EDGE_BAND = 0.26
+EDGE_FROM = 0.18
+
+# A segment read off a 90°-rotated strip is a decent read, not a wordmark
+# guess, so the bar is near the printed-type one. Measured: on the owner's
+# mainline card "FACTORY FRESH" comes back clean, and the rest of the band —
+# the collector number, the Mattel small print — reaches nothing.
+EDGE_SIMILARITY = 0.8
+
+# …and it has to line up with whole words, not with any window anywhere in the
+# band. Similarity alone is not enough against 1,200 wave names: a band that
+# OCRs as "ly aba . DO /m,. OT js (\) 7 4 2 mA" hands "Mopar" a five-character
+# window at 0.80, and a card that plainly says FACTORY FRESH came back as
+# X-Men. Matching run-by-run fixes it where a coverage floor could not — the
+# band legitimately carries the collector number and the small print beside
+# the wave, so the wave is never most of what is read.
+EDGE_RUN = 4
+EDGE_LENGTH = (0.7, 1.45)
+
+# The strip is a few pixels wide on the card and has to be blown up before
+# Tesseract will take it seriously.
+EDGE_HEIGHT = 220
+
+
+def _runs(words: list[str], longest: int) -> list[str]:
+    """Every run of up to `longest` consecutive words, joined up."""
+    return [
+        "".join(words[start:start + length])
+        for length in range(1, longest + 1)
+        for start in range(len(words) - length + 1)
+    ]
+
+
+def read_edge_series(upright_card: np.ndarray, names: list[str]) -> tuple[str, float] | None:
+    """The wave printed up the right-hand edge of a card, if it says one.
+
+    On a mainline card the segment — "Factory Fresh", "HW J-Imports" — runs
+    bottom to top along the bottom right, which is why the whole-card pass
+    never finds it: Tesseract reads a page left to right and this is turned
+    on its side. The band is cut out and turned the right way up on its own.
+
+    Matched against the catalog's own wave names rather than reported raw: a
+    name read off a 90° strip is good but not perfect, and a wave that
+    already exists should land on the spelling the catalog has.
+    """
+    if not names or upright_card.size == 0:
+        return None
+
+    height, width = upright_card.shape[:2]
+    band = upright_card[int(height * EDGE_FROM):, int(width * (1 - EDGE_BAND)):]
+    if band.size == 0 or min(band.shape[:2]) < 8:
+        return None
+
+    # Both ways round. Which way the segment runs is not a convention you can
+    # rely on — it reads bottom-to-top on one card and top-to-bottom on the
+    # next, and turned the wrong way "FACTORY FRESH" comes back as mirrored
+    # nonsense rather than as nothing, so there is no telling from the result.
+    best: tuple[str, float] | None = None
+    for turn in (cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_90_COUNTERCLOCKWISE):
+        turned = cv2.rotate(band, turn)
+        scale = max(1.0, EDGE_HEIGHT / max(1, turned.shape[0]))
+        turned = cv2.resize(turned, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+        gray = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8)).apply(cv2.cvtColor(turned, cv2.COLOR_BGR2GRAY))
+
+        for psm in (7, 6):
+            text = ocr.tesseract(gray, psm=psm).text
+            if len(compact(text)) < 4:
+                continue
+            runs = _runs(normalise(text).split(), EDGE_RUN)
+            for name in names:
+                wave = compact(name)
+                low, high = EDGE_LENGTH[0] * len(wave), EDGE_LENGTH[1] * len(wave)
+                score = max((best_window(wave, run) for run in runs if low <= len(run) <= high),
+                            default=0.0)
+                if score >= EDGE_SIMILARITY and (best is None or score > best[1]):
+                    best = (name, round(score, 3))
+    return best
+
+
 def read_printed(
     bgr: np.ndarray,
     index: CatalogIndex | None,
@@ -472,14 +621,19 @@ def read_printed(
     return reading, evidence, match
 
 
-def card_output(evidence: Evidence, match: Match | None, index: CatalogIndex | None) -> dict:
+def card_output(evidence: Evidence, match: Match | None, index: CatalogIndex | None,
+                series: tuple[str, float] | None = None) -> dict:
     """What the card says, in the OCR Agent's output shape (ocr_output.json v1).
 
-    Year and series are left null: the year on a card is artwork, not text
-    Tesseract reads reliably, and the schema is explicit that the copyright
-    year in the small print is not it — a wrong year is worse than none. The
-    casting name is reported only when it matches a catalog casting
-    confidently, and then as the catalog spells it.
+    Year is left null: the year on a card is artwork, not text Tesseract reads
+    reliably, and the schema is explicit that the copyright year in the small
+    print is not it — a wrong year is worse than none. The casting name is
+    reported only when it matches a catalog casting confidently, and then as
+    the catalog spells it.
+
+    `series` is the wave read up the right-hand edge, where a mainline card
+    prints it — see `read_edge_series`. Null for a package with no such
+    strip, which is most of them outside the mainlines.
     """
     casting_name, casting_conf = None, 0.0
     if match is not None and match.confident and match.best:
@@ -508,14 +662,14 @@ def card_output(evidence: Evidence, match: Match | None, index: CatalogIndex | N
         "schema_version": 1,
         "brand": evidence.brand,
         "year": None,
-        "series": None,
+        "series": series[0] if series else None,
         "casting_name": casting_name,
         "collector_number": evidence.collector_number,
         "toy_number": toy_number,
         "confidence": {
             "brand": brand_conf,
             "year": 0.0,
-            "series": 0.0,
+            "series": round(series[1], 3) if series else 0.0,
             "casting_name": casting_conf,
             "collector_number": 0.7 if evidence.collector_number else 0.0,
             "toy_number": toy_conf,

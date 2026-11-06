@@ -62,6 +62,9 @@ Route::middleware(['auth', 'throttle:account'])->group(function () {
     Route::post('scan/{scan}/detections/{detection}/catalog', [ScanController::class, 'catalog'])->whereNumber(['scan', 'detection'])->name('scan.catalog');
     Route::post('scan/{scan}/detections/{detection}/reject', [ScanController::class, 'reject'])->whereNumber(['scan', 'detection'])->name('scan.reject');
     Route::get('scan/{scan}/detections/{detection}/crop', [ScanController::class, 'crop'])->whereNumber(['scan', 'detection'])->name('scan.crop');
+    // The photos the scan was made from, and scanning a piece of one again.
+    Route::get('scan/{scan}/photos/{photo}', [ScanController::class, 'photo'])->whereNumber(['scan', 'photo'])->name('scan.photo');
+    Route::post('scan/{scan}/photos/{photo}/rescan', [ScanController::class, 'rescan'])->whereNumber(['scan', 'photo'])->middleware('throttle:scan')->name('scan.rescan');
 
     Route::get('account', [AccountController::class, 'show'])->name('account.show');
     Route::put('account/password', [AccountController::class, 'password'])->name('account.password');

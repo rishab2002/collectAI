@@ -61,7 +61,18 @@ class ScanTest extends TestCase
      */
     private function fakeRecognizer(): void
     {
-        Http::fake(['recognizer:8080/recognize*' => Http::response([
+        Http::fake(['recognizer:8080/recognize*' => Http::response($this->twoCars())]);
+    }
+
+    /**
+     * Two cars found: one read off its base and offered with the red version
+     * first (colour match), one loose car the recognizer would not name.
+     *
+     * @return array<string, mixed>
+     */
+    private function twoCars(): array
+    {
+        return [
             'found' => 2, 'confident' => 1,
             'detections' => [
                 [
@@ -88,7 +99,7 @@ class ScanTest extends TestCase
                     'crop_jpeg' => base64_encode('CROP-2'),
                 ],
             ],
-        ])]);
+        ];
     }
 
     /**
@@ -175,9 +186,11 @@ class ScanTest extends TestCase
             ->assertDontSee('Turn these over and scan the bases');
     }
 
-    private function scan(bool $consent = false): Scan
+    private function scan(bool $consent = false, bool $fake = true): Scan
     {
-        $this->fakeRecognizer();
+        if ($fake) {
+            $this->fakeRecognizer();
+        }
 
         $this->actingAs($this->user)->post(route('scan.store'), [
             'photos' => [UploadedFile::fake()->create('pile.jpg', 200, 'image/jpeg')],
@@ -489,6 +502,110 @@ class ScanTest extends TestCase
         $this->assertSame(0, $this->user->collectionItems()->count());
     }
 
+    /**
+     * The scanner walks past a package whose printing it cannot read, so
+     * there is no detection to confirm and no way to reach the car from the
+     * results. Cutting it out by hand is the way back in, and it has to work
+     * as many times as there are packages it missed.
+     */
+    public function test_a_piece_of_a_photo_can_be_scanned_again_by_hand(): void
+    {
+        // A sequence, not two Http::fake calls: a second fake for the same URL
+        // is merged behind the first, so the re-scan would get the first
+        // stub's answer and the test would quietly prove nothing.
+        Http::fakeSequence('recognizer:8080/recognize*')
+            ->push($this->twoCars())
+            ->push([
+                'found' => 1, 'confident' => 0,
+                'detections' => [[
+                    'n' => 1, 'box' => [10, 20, 100, 200], 'colour' => ['family' => null],
+                    'text' => ['lines' => ['PAGANI ZONDA CINQUE'], 'headline' => 'PAGANI ZONDA CINQUE'],
+                    'read' => ['brand' => 'Hot Wheels', 'copyright_year' => null, 'codes' => []],
+                    'confident' => false,
+                    'match' => ['confident' => false, 'casting_id' => null, 'confidence' => 0.0,
+                        'reasons' => [], 'variations' => [], 'candidates' => []],
+                    'crop_jpeg' => base64_encode('CUT-OUT'),
+                ]],
+            ])
+            ->push(['found' => 0, 'detections' => []]);
+
+        $scan = $this->scan(fake: false);
+        $photo = $scan->scanPhotos()->sole();
+        $this->assertSame(1, $photo->number);
+        Storage::disk('local')->assertExists($photo->path);
+        $this->assertSame(2, $scan->detections()->count());
+
+        $this->actingAs($this->user)
+            ->post(route('scan.rescan', [$scan, $photo]), ['x' => 0.5, 'y' => 0.1, 'width' => 0.5, 'height' => 0.8])
+            ->assertRedirect(route('scan.show', $scan));
+
+        Http::assertSent(fn ($request) => str_contains(urldecode($request->url()), 'region=0.5,0.1,0.5,0.8'));
+
+        // reorder(): the relation sorts by photo then number, which would
+        // otherwise win over latest() and hand back the first detection.
+        $added = $scan->detections()->reorder()->latest('id')->first();
+        $this->assertSame('PAGANI ZONDA CINQUE', $added->reading['headline']);
+        $this->assertSame(1, $added->photo, 'it came out of photo 1');
+        $this->assertSame(3, $added->number, 'numbered after the two already there');
+        $this->assertSame([0.5, 0.1, 0.5, 0.8], $added->reading['region']);
+
+        // The box is put back where it is in the whole photo, so every
+        // detection on the scan is measured against the same picture.
+        $this->assertSame([10 + (int) round(0.5 * $photo->width), 20 + (int) round(0.1 * $photo->height), 100, 200],
+            $added->box);
+
+        // And again, as many times as needed.
+        $this->actingAs($this->user)
+            ->post(route('scan.rescan', [$scan, $photo]), ['x' => 0, 'y' => 0, 'width' => 0.4, 'height' => 0.4])
+            ->assertRedirect();
+        $this->assertSame(3, $scan->detections()->count(), 'a piece with nothing in it adds nothing');
+    }
+
+    public function test_the_prune_takes_the_photos_too_not_just_the_crops(): void
+    {
+        $scan = $this->scan();
+        $scan->forceFill(['created_at' => now()->subHours(48)])->save();
+        $photo = $scan->scanPhotos()->sole();
+
+        $this->artisan('catalog:prune-scans')->assertSuccessful();
+
+        $this->assertNull($photo->fresh()->path, 'the photo outlived the crops');
+        Storage::disk('local')->assertMissing($photo->path);
+    }
+
+    public function test_a_selection_off_the_edge_is_refused(): void
+    {
+        $scan = $this->scan();
+        $photo = $scan->scanPhotos()->sole();
+
+        $this->actingAs($this->user)
+            ->post(route('scan.rescan', [$scan, $photo]), ['x' => 0.8, 'y' => 0, 'width' => 0.5, 'height' => 0.5])
+            ->assertSessionHasErrors('width');
+        $this->actingAs($this->user)
+            ->post(route('scan.rescan', [$scan, $photo]), ['x' => 0, 'y' => 0, 'width' => 0, 'height' => 0.5])
+            ->assertSessionHasErrors('width');
+
+        $this->assertSame(2, $scan->detections()->count(), 'nothing was added');
+    }
+
+    public function test_the_photos_are_the_collectors_own_and_go_when_the_crops_do(): void
+    {
+        $scan = $this->scan();                       // no consent
+        $photo = $scan->scanPhotos()->sole();
+
+        $this->actingAs($this->user)->get(route('scan.photo', [$scan, $photo]))->assertOk();
+        $this->actingAs(User::factory()->create())->get(route('scan.photo', [$scan, $photo]))->assertNotFound();
+
+        // Answering everything finishes the scan, and an unconsented scan's
+        // pictures go — the photo it was cut from as well as the crops.
+        foreach ($scan->detections as $detection) {
+            $this->actingAs($this->user)->post(route('scan.reject', [$scan, $detection]));
+        }
+
+        $this->assertNull($photo->fresh()->path);
+        Storage::disk('local')->assertMissing($photo->path);
+    }
+
     public function test_another_collectors_scan_is_not_found(): void
     {
         $scan = $this->scan();
@@ -549,7 +666,9 @@ class ScanTest extends TestCase
         Storage::disk('local')->assertExists($path);
 
         $this->travel(25)->hours();
-        $this->artisan('catalog:prune-scans')->expectsOutputToContain('Deleted 2')->assertSuccessful();
+        // Three: the two crops and the photo they were cut from, which is
+        // kept so a missed package can be cut out by hand and goes with them.
+        $this->artisan('catalog:prune-scans')->expectsOutputToContain('Deleted 3')->assertSuccessful();
         Storage::disk('local')->assertMissing($path);
 
         $this->actingAs($this->user)->get(route('scan.show', $scan))->assertOk()->assertSee('Picture deleted');

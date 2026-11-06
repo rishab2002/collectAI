@@ -14,6 +14,28 @@ from .evidence import Evidence
 from .segment import aligned_crop, find_objects, padded_crop, working_copy
 
 
+def region_of(bgr: np.ndarray, region: tuple[float, float, float, float] | None) -> np.ndarray:
+    """A rectangle of the photo, given as fractions of its width and height.
+
+    Cropping happens here rather than in the app because the app's container
+    has no GD and cannot cut an image at all — and because the recognizer has
+    already decoded the photo, so the alternative is sending the same bytes
+    twice. Fractions rather than pixels so the caller can work from whatever
+    size it showed the person, which is never the size of the original.
+    """
+    if region is None:
+        return bgr
+
+    height, width = bgr.shape[:2]
+    x, y, w, h = region
+    left, top = max(0, int(x * width)), max(0, int(y * height))
+    right, bottom = min(width, int((x + w) * width)), min(height, int((y + h) * height))
+
+    cut = bgr[top:bottom, left:right]
+
+    return cut if cut.size and min(cut.shape[:2]) >= 16 else bgr
+
+
 def decode(data: bytes) -> np.ndarray:
     img = cv2.imdecode(np.frombuffer(data, dtype=np.uint8), cv2.IMREAD_COLOR)
     if img is None:
@@ -114,11 +136,17 @@ def read_card(bgr: np.ndarray, index: CatalogIndex | None, *, min_confidence: fl
     work, _ = working_copy(bgr)
     # Three rotations, all of them: one card in the frame is worth the time,
     # and a close-up of a card is rarely upside down.
-    _, evidence, match = packaging.read_printed(
+    reading, evidence, match = packaging.read_printed(
         work, index, min_confidence=min_confidence, min_margin=min_margin,
         rotations=(0, 90, 270), stop_score=None,
     )
-    return packaging.card_output(evidence, match, index)
+    # From the photo as taken, not the working copy: the segment strip is a
+    # few pixels wide and downscaling to 1600 reads it as nothing. Measured —
+    # "Factory Fresh" at 0.92 full size, nothing at all off the working copy.
+    series = packaging.read_edge_series(packaging.upright(bgr, reading.rotation),
+                                        index.series_names) if index else None
+
+    return packaging.card_output(evidence, match, index, series)
 
 
 def _headline(reading: ocr.Reading, printed: str) -> str | None:
@@ -171,6 +199,12 @@ def recognise_packages(
                 logo_brand=logos.nearest(artwork, obj.box), vocabulary=vocabulary,
             )
 
+        # The wave is printed up the card's right edge, so it can only be
+        # read once the crop is the right way up — which the reading above is
+        # what settles.
+        shown = packaging.upright(crop, reading.rotation)
+        series = packaging.read_edge_series(shown, index.series_names) if (read_text and index) else None
+
         x, y, w, h = obj.box
         detections.append({
             "n": n + 1,
@@ -188,11 +222,11 @@ def recognise_packages(
                 "copyright_year": evidence.copyright_year,
                 "codes": evidence.codes,
             },
-            "card": packaging.card_output(evidence, match, index),
+            "card": packaging.card_output(evidence, match, index, series),
             "match": match.as_dict() if match else None,
             "looks": None,
             "confident": bool(match and match.confident),
-            "crop_jpeg": jpeg_base64(packaging.upright(crop, reading.rotation)) if crops else None,
+            "crop_jpeg": jpeg_base64(shown) if crops else None,
         })
 
     return {

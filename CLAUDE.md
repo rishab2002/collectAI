@@ -88,7 +88,7 @@ exists.*
 
 **Running:** `docker compose up -d` brings up `app` (:8000), `db` (Postgres 16,
 :5432), `redis` (:6379), `meilisearch` (:7700), `recognizer` (:8090).
-`php artisan test` → **398 passed, 1,659 assertions**; the recognizer's own
+`php artisan test` → **402 passed, 1,688 assertions**; the recognizer's own
 `python -m unittest discover -s tests -t .` (in `recognizer/`) → **84 passed**
 (both re-measured 2026-11-05). The `recognizer` image **does** build and run
 now (`docker compose up -d recognizer`, healthy, `/health` ok); its Tesseract
@@ -1803,10 +1803,28 @@ package**, since each car has its own name strip; for a collection that is
 the more useful answer. Segmentation runs at 2400 px
 (`packaging.SEGMENT_MAX_SIDE`) and reading from the photo as taken — a photo
 scaled down first measurably loses reads.
-- **Scan pictures are private and minimal**: crops only (never the whole
-  photo), on `catalog.recognition.disk` (the private `local` disk, a volume in
-  production), served only to their owner with `Cache-Control: private`.
-  Without consent they are deleted when the scan is answered or after 24 h.
+- **Scan pictures are private, and the photo is kept as well as the crops**
+  (changed 2026-11-06; it was crops only, never the whole photo). `scan_photos`
+  holds each uploaded photo on `catalog.recognition.disk` beside the crops,
+  because the segmenter walks past a package whose printing it cannot read and
+  the only way back to that car is to cut it out by hand — which needs the
+  photo. Everything else about the promise is unchanged, and the code has to
+  keep it in **three** places rather than one: `Scan::deleteWithPhotos`,
+  `ScanProcessor::tidy` and `catalog:prune-scans`. The prune is the one that
+  was nearly missed, and a prune taking only the crops would leave the larger
+  half of what was promised sitting on disk. Served only to their owner
+  (`scan.photo`, scoped through the user's own scans), `Cache-Control:
+  private`, deleted when the scan is answered or after 24 h without consent.
+- **A region of a scan photo can be scanned again** (`region=x,y,w,h` as
+  fractions, `ScanProcessor::rescan`, `/scan` → "Missed one?"). The cutting
+  happens **in the recognizer**, because the app's container has no GD and
+  cannot crop an image at all — and because the recognizer has already
+  decoded the photo, so the alternative is sending the same bytes twice to a
+  service that cannot use them. Boxes come back offset into the whole photo's
+  coordinates, so every detection on a scan is measured against the same
+  picture, and the new ones are numbered after those already there — the
+  confirm screen, the add-to-catalog form and the training export need to
+  know nothing about where a detection came from.
 - **Training data is consented scan crops and nothing else** — the
   *Data sources* rules apply to training exactly as to catalog photos.
 - **`recognizer/data/brands.json` is the brand vocabulary** — **471 brands,

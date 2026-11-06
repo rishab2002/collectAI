@@ -743,6 +743,13 @@ A premium two-pack comes back as **two** cars, one per name printed on it.
      my collection* adds one (or one more, if you already have it).
    - **Found, but not sure what they are.** No guesses. *Name it* lets you
      search the catalog and pick the car yourself.
+   - **Missed one? Cut it out yourself.** The scanner finds a package by the
+     printing on it, so one whose name it cannot read it walks past
+     altogether — no detection, nothing to confirm. Under the results each
+     photo you uploaded is shown: drag a box round the package it missed and
+     *Scan this piece*, and the cars found in that rectangle join the scan
+     like any others. Repeat for as many as it missed. (No JavaScript? The
+     four boxes under the photo take the same rectangle as fractions.)
    - **Not in the catalog? Add it** (admin only, inside *Name it*). The search
      can only offer cars that are already published, and the ones the scanner
      gets wrong are mostly the ones nobody has entered — so this adds the car
@@ -783,6 +790,9 @@ A premium two-pack comes back as **two** cars, one per name printed on it.
 
 Pictures are stored privately (`SCAN_DISK`, the `local` disk by default — not
 the public photo bucket) and only the collector who took them can see them.
+That now covers **the photos you upload as well as the crops**, because
+cutting a missed package out by hand needs the photo to still be there; they
+are deleted on exactly the same terms, including by the hourly prune.
 Nothing is sent to any outside service.
 
 The scanner matches against **`storage/app/recognition/catalog-index.json`**,
