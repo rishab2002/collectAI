@@ -109,13 +109,48 @@ now (`docker compose up -d recognizer`, healthy, `/health` ok); its Tesseract
 is 5.3.0 where a current Homebrew one is 5.5.4, and they read a hard photo
 slightly differently.
 
-**The dev database holds the import *plus* seed data, so its counts are not the
-import's counts.** `CatalogSeeder` and `SubmissionSeeder` contribute 9 castings
-(`'92 Honda Prelude`, `Twin Mill`, four RX-7s, …), 8 casting versions, 1 series,
-2 releases and 3 variations on top of the 241 imported castings — which is why a
-`Casting::count()` says 250. The reliable test of what came from the wiki is a
-`record_sources` row, not a total: provenance sits at exactly 12,934 and is
-untouched by seeding. Check that before concluding the importer double-ran.
+**The dev database now holds the FULL import of all four sources** (run
+2026-11-07 on the owner's own Mac, from a `migrate:fresh --seed` — the
+previous database held only 2011 Hot Wheels). Measured after
+`catalog:publish-imported`:
+
+| | total | live |
+|---|---|---|
+| Castings | 6,819 | **3,213** |
+| Casting versions | 7,053 | 3,277 |
+| Series | 6,601 | 6,601 |
+| Releases | 38,266 | 16,420 |
+| Variations | 51,239 | **22,101** |
+| Makes / models | 81 / 548 | 81 / 548 |
+| Provenance rows | 110,094 | — |
+| Photos | 157 | — |
+
+Live castings by brand: Hot Wheels 788, Matchbox 542, Mini GT 390, Tomica
+1,487. Per-importer creations reproduced the cloud session's figures
+exactly — Hot Wheels 2,073 castings / 22,631 releases / 33,744 variations /
+539 skips; Matchbox 1,763 / 12,292 / 13,702 / 209 (that is the recorded
+1,569 plus the +194 Lesney castings `--from=1953` adds); Tomica 2,534;
+Mini GT 440. `catalog:identify-castings` on the free local driver: 3,162
+identified, 44 fantasy, 3,604 unknown, 3,206 proposals auto-approved.
+**54,757 records are still pending behind the 3,604 unidentified castings**
+— that backlog is the local driver's honest "unknown", not a failure.
+
+**The counts above include seed data.** `CatalogSeeder` and
+`SubmissionSeeder` contribute 9 castings (`'92 Honda Prelude`, `Twin Mill`,
+four RX-7s, …), 8 casting versions, 1 series, 2 releases and 3 variations.
+The reliable test of what came from a wiki is a `record_sources` row, not a
+total. Check that before concluding an importer double-ran.
+
+**Re-importing into a database that already holds an older import of the
+same pages can die on a unique violation, and that is not a bug in the
+dump.** Measured 2026-11-07: a full run against the August 2011-only import
+aborted at 8% on `variations_unique_attributes_idx` for
+`page:2804:row:20` (Mad Propz) — the page's rows had renumbered between the
+August import and the October dump, so the update wrote attributes a
+sibling row already held. The fix taken was `migrate:fresh --seed` and a
+clean run; the alternative, making `CatalogImporter` catch the collision
+and report it as a skip, is unbuilt. Production will meet this the first
+time it re-imports, so decide which before then.
 
 **A clean checkout has no `.env`** (it's gitignored), so the suite fails on
 `MissingAppKeyException` before it reaches anything real. `cp .env.example .env
@@ -1875,6 +1910,42 @@ catalog at all and "not sure" was the only honest answer.
 - Unfixed on purpose: whether a stripped nameplate may match a casting whose
   name carries no year, and whether a cross-brand match may be confident when
   no brand was read, is a design call, not a threshold to nudge.
+
+**A FILLED CATALOG BREAKS THE "no wrong answer" RESULT ABOVE — measured
+2026-11-07; one of the two causes is fixed.** Those zero-wrong numbers were
+measured against 212 live castings, where almost nothing matched at all.
+Against the full import (3,213 live castings, 172 names shared by more than
+one live casting) the same two photographs named two cars each and **both
+were wrong, both across brands**. Treat any "no wrong answer" measurement
+taken on a small catalog as untested, not as passed.
+
+- **Fixed: a brand that disagrees now stops the answer, even read off a
+  logo.** A Hot Wheels 2018 Challenger SRT Demon card matched the
+  **Matchbox** casting `Dodge Challenger` at 1.00 — with its own brand
+  correctly read off the flame logo, and no way to say so, because a
+  logo-read brand may only corroborate. That rule still holds for
+  *ranking*; what it may now do is withhold confidence
+  (`Candidate.brand_clashes` in `Matcher.match`). The casting stays a
+  candidate; it stops being an answer.
+- **Not fixed: a casting name that is a strict prefix of the printed name,
+  with no brand read.** A Hot Wheels **2004 Subaru Forester STI** card
+  (confirmed by eye on the crop) matched the **Tomica** casting `Subaru
+  Forester`. No brand was read off that crop, and `'04 Subaru Forester STI`
+  is not in the catalog in any status — 44 castings carry " STI" and none
+  is a Forester, so the wiki import has gaps around recent premium
+  releases. With the right car absent and no brand legible, every answer
+  available was wrong.
+
+  **Two fixes were tried and rejected, so don't re-try them blind.** A
+  coverage floor — requiring the casting's name to account for most of the
+  printed name — looks right on these four cases and is **inverted** in
+  general: the correct `Mazda RX-3` off "MAZDA RX-3 HW EXOTICS 3/250"
+  covers 0.47 while the wrong Forester covers 0.82, because a card prints
+  its series beside the name and no length rule separates "SRT DEMON" from
+  "HW EXOTICS". `test_a_collector_number_does_not_take_a_number_out_of_the_name`
+  catches this. Preferring a longer casting name that also matches does not
+  help either — here no such casting exists. What would help is the
+  catalog holding the car, and the brand being legible.
 
 **Known limits, all measured.** Tesseract does not read the Hot Wheels flame
 logo — it is artwork, not type — so `brand` is usually null on a Hot Wheels
