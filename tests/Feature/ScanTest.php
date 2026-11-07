@@ -13,6 +13,7 @@ use App\Models\Series;
 use App\Models\SubmissionProposal;
 use App\Models\User;
 use App\Models\Variation;
+use App\Services\Recognition\ScanProcessor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\UploadedFile;
@@ -527,7 +528,7 @@ class ScanTest extends TestCase
                     'crop_jpeg' => base64_encode('CUT-OUT'),
                 ]],
             ])
-            ->push(['found' => 0, 'detections' => []]);
+            ->push($this->unnamedPackage('A CAR NOBODY READ'));
 
         $scan = $this->scan(fake: false);
         $photo = $scan->scanPhotos()->sole();
@@ -537,9 +538,12 @@ class ScanTest extends TestCase
 
         $this->actingAs($this->user)
             ->post(route('scan.rescan', [$scan, $photo]), ['x' => 0.5, 'y' => 0.1, 'width' => 0.5, 'height' => 0.8])
-            ->assertRedirect(route('scan.show', $scan));
+            ->assertRedirect();
 
-        Http::assertSent(fn ($request) => str_contains(urldecode($request->url()), 'region=0.5,0.1,0.5,0.8'));
+        Http::assertSent(fn ($request) => str_contains(urldecode($request->url()), 'region=0.5,0.1,0.5,0.8')
+            // A rectangle somebody drew is one package, not a photo to
+            // search for packages in — see packaging.whole_package.
+            && str_contains($request->url(), 'whole=1'));
 
         // reorder(): the relation sorts by photo then number, which would
         // otherwise win over latest() and hand back the first detection.
@@ -554,11 +558,65 @@ class ScanTest extends TestCase
         $this->assertSame([10 + (int) round(0.5 * $photo->width), 20 + (int) round(0.1 * $photo->height), 100, 200],
             $added->box);
 
-        // And again, as many times as needed.
-        $this->actingAs($this->user)
-            ->post(route('scan.rescan', [$scan, $photo]), ['x' => 0, 'y' => 0, 'width' => 0.4, 'height' => 0.4])
-            ->assertRedirect();
-        $this->assertSame(3, $scan->detections()->count(), 'a piece with nothing in it adds nothing');
+        // And again, as many times as needed — and a piece whose printing
+        // says nothing still becomes a car, with the form for naming it
+        // already open on it. Cutting it out *is* the collector saying a
+        // package is there; coming back with "nothing found" leaves them
+        // exactly where they started.
+        $response = $this->actingAs($this->user)
+            ->post(route('scan.rescan', [$scan, $photo]), ['x' => 0, 'y' => 0, 'width' => 0.4, 'height' => 0.4]);
+        $this->assertSame(4, $scan->detections()->count());
+
+        $unnamed = $scan->detections()->reorder()->latest('id')->first();
+        $this->assertFalse($unnamed->confident);
+        $response->assertRedirect(route('scan.show', ['scan' => $scan, 'label' => $unnamed->id]).'#d'.$unnamed->id);
+    }
+
+    /**
+     * A phone names its photos IMG_6180.jpg, which says nothing; a collector
+     * who files theirs by what is in them has written down something worth
+     * reading. It is read as print *beside* a package is — brand, year, a
+     * code — never as which car, because a photo of a dozen named after one
+     * of them says nothing about the other eleven.
+     */
+    public function test_a_photos_own_name_is_read_as_a_hint_and_a_cameras_is_not(): void
+    {
+        $this->assertSame('matchbox audi rs6 avant', ScanProcessor::fileNameHint('matchbox-audi-rs6-avant.jpeg'));
+        $this->assertSame('hot wheels premium two packs', ScanProcessor::fileNameHint('hot_wheels premium two packs.JPG'));
+
+        foreach (['IMG_6180.jpg', 'DSC00031.JPG', 'PXL_20260104_221530.jpg', 'Screenshot 2026-11-06.png',
+            'image.jpg', '20261106.jpg', '', 'a b.jpg'] as $name) {
+            $this->assertSame('', ScanProcessor::fileNameHint($name), $name.' says nothing');
+        }
+    }
+
+    public function test_the_photos_name_is_sent_to_the_recognizer(): void
+    {
+        $this->fakeRecognizer();
+
+        $this->actingAs($this->user)->post(route('scan.store'), [
+            'photos' => [UploadedFile::fake()->create('matchbox-audi-rs6.jpg', 200, 'image/jpeg')],
+            'layout' => 'packaged',
+        ])->assertRedirect();
+
+        Http::assertSent(fn ($request) => str_contains(urldecode($request->url()), 'context=matchbox audi rs6'));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function unnamedPackage(string $headline): array
+    {
+        return [
+            'found' => 1, 'confident' => 0,
+            'detections' => [[
+                'n' => 1, 'box' => [0, 0, 100, 100], 'colour' => ['family' => null],
+                'text' => ['lines' => [], 'headline' => $headline],
+                'read' => ['brand' => null, 'copyright_year' => null, 'codes' => []],
+                'confident' => false, 'match' => null,
+                'crop_jpeg' => base64_encode('CUT-OUT-2'),
+            ]],
+        ];
     }
 
     public function test_the_prune_takes_the_photos_too_not_just_the_crops(): void

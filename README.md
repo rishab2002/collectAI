@@ -743,13 +743,26 @@ A premium two-pack comes back as **two** cars, one per name printed on it.
      my collection* adds one (or one more, if you already have it).
    - **Found, but not sure what they are.** No guesses. *Name it* lets you
      search the catalog and pick the car yourself.
+   - **Name your photos if you like.** A file called
+     `matchbox-audi-rs6.jpg` is read the way print *beside* a package is: it
+     can say the brand, the year or a toy number, and it deliberately cannot
+     say which car, since a photo of a dozen named after one of them says
+     nothing about the other eleven. `IMG_6180.jpg` and the rest of a
+     camera's own names are ignored.
    - **Missed one? Cut it out yourself.** The scanner finds a package by the
      printing on it, so one whose name it cannot read it walks past
      altogether — no detection, nothing to confirm. Under the results each
      photo you uploaded is shown: drag a box round the package it missed and
-     *Scan this piece*, and the cars found in that rectangle join the scan
-     like any others. Repeat for as many as it missed. (No JavaScript? The
-     four boxes under the photo take the same rectangle as fractions.)
+     *Scan this piece*. **Whatever you box becomes one car** — it is not
+     searched for packages again, because you have already said there is one
+     in it — so you always get something back, named if the printing can be
+     read and yours to name if not, with the naming form already open on it.
+     Repeat for as many as it missed. (No JavaScript? The four boxes under
+     the photo take the same rectangle as fractions.)
+
+     This is also the way in when a scan finds **nothing at all**: the
+     photos are still there under the message, and a box drawn on one always
+     gives you a car to name.
    - **Not in the catalog? Add it** (admin only, inside *Name it*). The search
      can only offer cars that are already published, and the ones the scanner
      gets wrong are mostly the ones nobody has entered — so this adds the car

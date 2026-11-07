@@ -138,17 +138,21 @@
         </ul>
     @endif
 
-    @if ($scan->scanPhotos->isNotEmpty())
-        @include('scan.partials.cut-out', ['scan' => $scan])
-    @endif
-
+    {{-- Nothing found, said before the way out of it rather than after. --}}
     @if ($scan->detections->isEmpty())
         <p class="mt-6 rounded-xl border border-neutral-200 bg-white p-4 text-sm text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900">
             @if ($scan->layout === 'packaged')
-                No packages were found. Lay the cards and boxes out face up on a plain surface, with a little space between them, and keep the whole of each one in the photo.
+                Nothing in the photo read as a package — usually the printing is too small, at too much of an angle, or in shadow.
             @else
-                No cars stood out from the background. Try a plain, contrasting surface with the cars spread apart, or choose “One car close up”.
+                No cars stood out from the background. A plain, contrasting surface with the cars spread apart reads best, and “One car close up” is better for a single car.
+            @endif
+            @if ($scan->scanPhotos->isNotEmpty())
+                You don't have to rescan: draw a box round one below and it becomes a car you can name, whether or not the scanner can read it.
             @endif
         </p>
+    @endif
+
+    @if ($scan->scanPhotos->isNotEmpty())
+        @include('scan.partials.cut-out', ['scan' => $scan, 'open' => $scan->detections->isEmpty()])
     @endif
 </x-layouts.app>

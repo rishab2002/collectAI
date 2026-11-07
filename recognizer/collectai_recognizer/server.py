@@ -11,7 +11,11 @@ Query parameters on POST: min_confidence, min_margin, crops=0, and on
 /recognize layout=auto|pile|single|packaged (single = one car or base, close
 up; packaged = cars still on their cards or in their boxes). `region=x,y,w,h`
 — fractions of the photo — scans only that part of it, which is how a person
-crops a photo by hand and hands back the part the segmenter missed.
+crops a photo by hand and hands back the part the segmenter missed; with
+`whole=1` that part is taken to be one object, because somebody chose it.
+`context=...` is words about the photo that are not in it — the collector's
+own file name — read as print beside a package is: brand, year and codes,
+never the car's name.
 The index file is re-read whenever it changes on disk, so a fresh export
 needs no restart. With RECOGNIZER_INDEX_URL set (Railway), the recognizer
 fetches that file from the app itself — see index_sync.
@@ -159,6 +163,7 @@ def make_handler(cache: IndexCache, defaults: dict, models: ModelCache | None = 
                 if layout not in LAYOUTS:
                     return self._send(422, {"error": f"layout must be one of {', '.join(LAYOUTS)}"})
                 result = recognise(image, index, crops=q.get("crops", "1") != "0", layout=layout,
+                                   whole=q.get("whole", "0") == "1", context=q.get("context", "")[:200],
                                    visual=models.get() if models else None, **options)
                 result["index_error"] = cache.error
             result["seconds"] = round(time.monotonic() - started, 2)
