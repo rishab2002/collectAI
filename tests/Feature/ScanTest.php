@@ -573,6 +573,26 @@ class ScanTest extends TestCase
         Storage::disk('local')->assertMissing($photo->path);
     }
 
+    /**
+     * Pressing on the photo has to start a selection, not pick the picture
+     * up. A browser's own answer to dragging an image is to drag the image —
+     * it trails a ghost of it under the cursor and the drag never reaches
+     * the selection code, so the width stays at zero and the form comes back
+     * with "must be between 0.02 and 1", which reads like a bad number
+     * rather than a selection that never happened.
+     */
+    public function test_the_photo_cannot_be_dragged_away_instead_of_selected(): void
+    {
+        $scan = $this->scan();
+
+        $this->actingAs($this->user)->get(route('scan.show', $scan))
+            ->assertOk()
+            ->assertSee('draggable="false"', escape: false)
+            // The inputs refuse what the server refuses, so an empty
+            // selection is caught before it is a round trip.
+            ->assertSee('min="0.02"', escape: false);
+    }
+
     public function test_a_selection_off_the_edge_is_refused(): void
     {
         $scan = $this->scan();
@@ -583,7 +603,7 @@ class ScanTest extends TestCase
             ->assertSessionHasErrors('width');
         $this->actingAs($this->user)
             ->post(route('scan.rescan', [$scan, $photo]), ['x' => 0, 'y' => 0, 'width' => 0, 'height' => 0.5])
-            ->assertSessionHasErrors('width');
+            ->assertSessionHasErrors(['width' => 'Draw a box on the photo first — press and drag across the package you want.']);
 
         $this->assertSame(2, $scan->detections()->count(), 'nothing was added');
     }

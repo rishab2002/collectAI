@@ -27,8 +27,11 @@
                 <p class="text-sm font-medium">Photo {{ $photo->number }}</p>
 
                 <div class="relative inline-block max-w-full" data-crop-canvas>
+                    {{-- draggable=false, or the browser picks the picture up and
+                         trails a ghost of it instead of starting a selection. --}}
                     <img src="{{ route('scan.photo', [$scan, $photo]) }}" alt="Photo {{ $photo->number }} of this scan"
-                         class="max-h-96 w-auto max-w-full select-none rounded-lg border border-neutral-200 dark:border-neutral-800"
+                         draggable="false"
+                         class="max-h-96 w-auto max-w-full cursor-crosshair select-none rounded-lg border border-neutral-200 dark:border-neutral-800"
                          data-crop-image>
                     <div class="pointer-events-none absolute hidden border-2 border-sky-500 bg-sky-500/20" data-crop-box></div>
                 </div>
@@ -37,7 +40,10 @@
                     @foreach ([['x', 'Left'], ['y', 'Top'], ['width', 'Width'], ['height', 'Height']] as [$field, $label])
                         <label class="block text-sm">
                             <span class="block text-xs text-neutral-500">{{ $label }}</span>
-                            <input type="number" name="{{ $field }}" step="0.001" min="0" max="1" required
+                            {{-- The same floor the server applies, so a mis-started
+                                 drag is caught here rather than as an error page. --}}
+                            <input type="number" name="{{ $field }}" step="0.001" max="1" required
+                                   min="{{ in_array($field, ['width', 'height'], true) ? '0.02' : '0' }}"
                                    value="{{ old($field, in_array($field, ['width', 'height'], true) ? '1' : '0') }}"
                                    data-crop-field="{{ $field }}"
                                    class="mt-1 w-full rounded-lg border border-neutral-300 px-2 py-1 dark:border-neutral-700 dark:bg-neutral-950">
@@ -45,6 +51,9 @@
                     @endforeach
                 </div>
                 <p class="text-xs text-neutral-500">Fractions of the photo, 0 to 1. Drag on the picture to set them.</p>
+                <p class="text-sm text-red-700 dark:text-red-300" data-crop-note hidden>
+                    Draw a box on the photo first — press and drag across the package you want.
+                </p>
 
                 @error('width') <p class="text-sm text-red-700 dark:text-red-300">{{ $message }}</p> @enderror
 

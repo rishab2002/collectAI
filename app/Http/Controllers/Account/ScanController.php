@@ -289,6 +289,12 @@ class ScanController extends Controller
             'y' => ['required', 'numeric', 'between:0,1'],
             'width' => ['required', 'numeric', 'between:0.02,1'],
             'height' => ['required', 'numeric', 'between:0.02,1'],
+        ], [
+            // The default reads as a number being out of range, which is not
+            // what went wrong: the selection was never drawn, usually
+            // because the press turned into the browser dragging the picture.
+            'width.between' => 'Draw a box on the photo first — press and drag across the package you want.',
+            'height.between' => 'Draw a box on the photo first — press and drag across the package you want.',
         ]);
 
         $region = [(float) $data['x'], (float) $data['y'], (float) $data['width'], (float) $data['height']];
