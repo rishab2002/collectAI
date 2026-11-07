@@ -309,9 +309,21 @@ class ScanController extends Controller
             return back()->withErrors(['width' => $e->getMessage()]);
         }
 
-        return redirect()->route('scan.show', $scan)->with('status', $found === 0
-            ? 'Nothing found in that piece. Try a tighter crop round one package, with its name showing.'
-            : $found.' more '.Str::plural('car', $found).' found in that piece of photo '.$record->number.'.');
+        // What was cut out is one package, so there is always something to
+        // show. Land on it, and on the form for naming it when the scanner
+        // couldn't — that form is the whole reason for cutting it out, and
+        // reaching it meant finding the new card again in the list below.
+        $one = count($found) === 1 ? $found[0] : null;
+        $to = ['scan' => $scan];
+
+        if ($one && ! $one->confident) {
+            $to['label'] = $one->id;
+        }
+
+        return redirect()->to(route('scan.show', $to).($one ? '#d'.$one->id : ''))
+            ->with('status', $one && $one->confident
+                ? 'That piece reads as '.($one->match['casting_name'] ?? 'a car we know').'. Confirm it below.'
+                : count($found).' '.Str::plural('car', count($found)).' from that piece of photo '.$record->number.' — name it below.');
     }
 
     public function destroy(Request $request, int $scan): RedirectResponse

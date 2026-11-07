@@ -63,11 +63,27 @@ def recognise(
     crops: bool = True,
     layout: str = "auto",
     visual=None,
+    whole: bool = False,
+    context: str = "",
 ) -> dict:
-    """`visual` is a loaded visual.VisualModel, or None to use text and colour only."""
+    """`visual` is a loaded visual.VisualModel, or None to use text and colour only.
+
+    `whole` says the frame is one object because a person cut it out — see
+    `packaging.whole_package`. For the loose layouts `single` already says
+    that, so it only changes the packaged one.
+
+    `context` is words about the photo that did not come out of it — the
+    name the collector's own file has. It is read exactly as print beside a
+    package is: it may say the brand, the year or a code, and it may not say
+    what the car is, because a photo of a dozen packages named after one of
+    them says nothing about the other eleven.
+    """
     if layout == "packaged":
         return recognise_packages(bgr, index, min_confidence=min_confidence, min_margin=min_margin,
-                                  read_text=read_text, max_objects=max_objects, crops=crops)
+                                  read_text=read_text, max_objects=max_objects, crops=crops, whole=whole,
+                                  context=context)
+    if whole:
+        layout = "single"
 
     work, scale = working_copy(bgr)
     everything = find_objects(work, layout=layout)
@@ -87,7 +103,7 @@ def recognise(
         distribution = classify_pixels(work, obj.foreground)
         family, share = dominant(distribution)
         reading = ocr.read(aligned_crop(work, obj)) if read_text else ocr.Reading()
-        evidence = Evidence.from_words(reading.words, vocabulary=brands.known(index))
+        evidence = Evidence.from_words(reading.words, context=context, vocabulary=brands.known(index))
         seen = looks[n] if looks else None
         match = matcher.match(evidence, family, seen).as_dict() if matcher else None
 
@@ -165,6 +181,8 @@ def recognise_packages(
     read_text: bool = True,
     max_objects: int = 40,
     crops: bool = True,
+    whole: bool = False,
+    context: str = "",
 ) -> dict:
     """Every retail package in the photo, each named by what is printed on it.
 
@@ -174,7 +192,8 @@ def recognise_packages(
     job.
     """
     work, scale = working_copy(bgr, packaging.SEGMENT_MAX_SIDE)
-    everything = packaging.find_packages(work, read_text=read_text)
+    everything = ([packaging.whole_package(work)] if whole
+                  else packaging.find_packages(work, read_text=read_text))
     found = everything[:max_objects]
     matcher = Matcher(index, min_confidence, min_margin) if index else None
     detections = []
@@ -195,7 +214,8 @@ def recognise_packages(
         if read_text:
             reading, evidence, match = packaging.read_printed(
                 crop, index, min_confidence=min_confidence, min_margin=min_margin,
-                context=obj.context, printed=obj.printed, artwork=False,
+                context=" ".join(filter(None, (obj.context, context))),
+                printed=obj.printed, artwork=False,
                 logo_brand=logos.nearest(artwork, obj.box), vocabulary=vocabulary,
             )
 
@@ -209,7 +229,7 @@ def recognise_packages(
         detections.append({
             "n": n + 1,
             "box": [round(x / scale), round(y / scale), round(w / scale), round(h / scale)],
-            "whole_frame": False,
+            "whole_frame": obj.whole_frame,
             # The colour of a package is the colour of its artwork: it says
             # nothing about the car sealed behind the plastic, so it is not
             # reported and never orders the versions offered.

@@ -1845,6 +1845,47 @@ scaled down first measurably loses reads.
   picture, and the new ones are numbered after those already there — the
   confirm screen, the add-to-catalog form and the training export need to
   know nothing about where a detection came from.
+  - **A hand-cut region is one package, not a photo to look for packages
+    in** (`whole=1`, `packaging.whole_package`, 2026-11-06). Re-segmenting
+    it rediscovers the very miss that made the collector cut it out, and
+    comes back with nothing — so the one thing that always had to give an
+    answer sometimes gave none, and a crop with nothing in it cannot be
+    labelled either. Measured before the fix: `premium-two-packs.jpg`
+    cropped to its top-left quarter found **0** packages segmented and
+    **1** whole. A person drew that rectangle, so whatever is in it is a
+    package; the reader still runs over it at full size and every way up,
+    and when it cannot name it the honest answer is an unnamed package with
+    its picture. The collector is then landed on that detection with the
+    naming form already open — reaching it meant finding the new card again
+    in the list, and the form is the whole reason for cutting it out.
+- **The trained model does not recognise a car through its packaging —
+  measured 2026-11-06, which is why the packaged path still uses none.**
+  It was wired in (looks corroborating only, never answering alone) and
+  measured against the full 62,149-photo gallery on
+  `tests/Fixtures/packaging/`. Roughly half the package crops **pass the
+  familiarity gate** (0.714), so the gate does not protect against this;
+  what comes back is the wrong car. The nearest neighbour for a Hot Wheels
+  premium two-pack was the casting "Pontiac J-2000", and restricting the
+  gallery to the 12,718 reference-source product photos gave
+  `horizon|item:hw-1-64-premium-car-culture-2-pk-k-case` — a *packaging*
+  match — with an unrelated Bburago 1:24 Porsche at 0.737. **It is matching
+  packaging, not cars**: blister sheen, card shape and artwork, which every
+  package shares. The gallery is photos of loose castings from above, and a
+  car sealed behind curved plastic is not one of those. What would work is
+  its own gallery of packaged photos — the reference sources' carded shots
+  and the collectors' own consented scan crops — and a crop of the blister
+  rather than the whole card. Don't re-wire the existing model and hope.
+- **A photo's own file name is read as print beside a package is**
+  (`ScanProcessor::fileNameHint` → `context=`, 2026-11-06). A collector who
+  files a photo as "matchbox-audi-rs6.jpg" has written down what is in it.
+  It may say the brand, the year or a code, and it **may not say which
+  car** — the same rule context has always had, and for the same reason: a
+  photo of a dozen packages named after one of them says nothing about the
+  other eleven. A camera's own name says nothing at all, so `IMG_6180`,
+  `DSC00031`, `PXL_…`, `Screenshot …` and anything without three letters in
+  it are dropped rather than fed in as tokens for the brand matcher to find
+  names inside. Sent on the first upload only; a hand-cut region inherits
+  nothing, because the original name is not stored.
 - **Training data is consented scan crops and nothing else** — the
   *Data sources* rules apply to training exactly as to catalog photos.
 - **`recognizer/data/brands.json` is the brand vocabulary** — **471 brands,

@@ -11,11 +11,12 @@
     writes the same four values — enhancement, not dependency, as the capture
     form is. Nothing inline, because the CSP forbids it.
 --}}
-<details class="mt-8 rounded-xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+<details @if ($open ?? false) open @endif class="mt-8 rounded-xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
     <summary class="cursor-pointer px-4 py-3 font-medium">
         Missed one? Cut it out yourself
         <span class="block text-sm font-normal text-neutral-500">
             Draw a box round a package the scanner walked past and scan just that — as many times as you need.
+            Whatever you box becomes one car, named if it can be read and yours to name if not.
         </span>
     </summary>
 

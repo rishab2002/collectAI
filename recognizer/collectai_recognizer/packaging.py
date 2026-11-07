@@ -459,6 +459,29 @@ def _one_each(found: list[Found], share: float = 0.5) -> list[Found]:
     return kept
 
 
+def whole_package(bgr: np.ndarray) -> Found:
+    """The frame itself, as one package — for a rectangle somebody cut out.
+
+    A hand-cut region has already been segmented, by a person, and looking
+    for printing in it to decide whether a package is there can only
+    disagree with them. It did: the way back in for a package the segmenter
+    walks past is to cut it out by hand, and re-segmenting the cut-out
+    rediscovered the same miss and returned nothing — so the one thing that
+    was meant to always give an answer sometimes gave none at all, and a
+    crop with nothing to name is a crop that cannot be labelled either.
+
+    Whatever is in that rectangle is a package because somebody said so. The
+    reader still runs over it, at full size and every way up, so it is named
+    if it can be; when it cannot, the honest answer is an unnamed package
+    with its picture, which is what a label needs.
+    """
+    h, w = bgr.shape[:2]
+    points = np.array([[[0, 0]], [[w - 1, 0]], [[w - 1, h - 1]], [[0, h - 1]]], np.int32)
+    found = _as_found(points, (h, w))
+    found.whole_frame = True
+    return found
+
+
 def find_packages(bgr: np.ndarray, limit: int = 60, read_text: bool = True) -> list[Found]:
     """Every retail package the photo can name, in reading order.
 
@@ -651,6 +674,10 @@ def read_printed(
     that a word under 0.4 is not evidence. That rule is right and stays; what
     was wrong was using only one of the two readings. Only print that has
     already passed `_is_printing` arrives here.
+
+    The trained model takes no part. It was wired in here and measured, and
+    it does not recognise a car through its packaging — see `Recognition →
+    Packaged cars` in CLAUDE.md for the numbers.
     """
     reading = ocr.read(bgr, rotations=rotations, stop_score=stop_score)
     # `artwork` looks for a logo on this crop, which is right when the crop is

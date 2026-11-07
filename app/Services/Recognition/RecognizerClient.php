@@ -17,12 +17,27 @@ final class RecognizerClient
     /**
      * @return array<string, mixed>
      */
-    public function recognize(string $image, string $layout = 'auto', ?array $region = null): array
+    public function recognize(string $image, string $layout = 'auto', ?array $region = null,
+        bool $whole = false, string $context = ''): array
     {
         // `region` is x, y, width, height as fractions of the photo — the part
         // of it to scan. The recognizer does the cutting because this
         // container has no GD and cannot crop an image at all.
+        //
+        // `whole` says that part is one object, because a person chose it:
+        // segmenting a rectangle somebody cut out by hand can only disagree
+        // with them, and did — see packaging.whole_package.
         $query = ['layout' => $layout];
+
+        if ($whole) {
+            $query['whole'] = '1';
+        }
+
+        // Words about the photo that are not in it — see
+        // ScanProcessor::fileNameHint for what may be read out of them.
+        if ($context !== '') {
+            $query['context'] = $context;
+        }
 
         if ($region !== null) {
             $query['region'] = implode(',', array_map(

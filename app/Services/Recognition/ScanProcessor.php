@@ -41,7 +41,10 @@ final class ScanProcessor
         try {
             foreach (array_values($photos) as $i => $photo) {
                 try {
-                    $result = $this->recognizer->recognize((string) file_get_contents($photo->getRealPath()), $layout);
+                    $result = $this->recognizer->recognize(
+                        (string) file_get_contents($photo->getRealPath()), $layout,
+                        context: self::fileNameHint($photo->getClientOriginalName()),
+                    );
                 } catch (RecognizerUnavailableException $e) {
                     $first ??= $e;
                     $problems[] = 'Photo '.($i + 1).': '.$e->getMessage();
@@ -92,6 +95,33 @@ final class ScanProcessor
     }
 
     /**
+     * What a photo's own file name says about it, or '' when it says nothing.
+     *
+     * A collector who files their photos as "matchbox-audi-rs6.jpg" has
+     * written down what is in them, and the recognizer reads it exactly as
+     * it reads print beside a package: it may say the brand, the year or a
+     * code, and it may not say which car — a photo of a dozen named after
+     * one of them says nothing about the other eleven.
+     *
+     * A camera's own name says nothing at all, so IMG_6180, DSC00031,
+     * PXL_20260104_… and the rest are dropped rather than fed in as
+     * tokens for the matcher to find brands inside.
+     */
+    public static function fileNameHint(?string $name): string
+    {
+        $stem = pathinfo((string) $name, PATHINFO_FILENAME);
+        $words = trim((string) preg_replace('/[^a-z0-9]+/i', ' ', $stem));
+
+        if ($words === '' || preg_match('/^(img e|img|dscf|dscn|dsc|pxl|gopr|photo|image|screenshot|video|vid|mvimg|signal|whatsapp|untitled)(\d|\s|$)/i', $words)) {
+            return '';
+        }
+
+        // Nothing but numbers and single letters is a camera's counter under
+        // another name, not a description.
+        return preg_match('/[a-z]{3}/i', $words) ? Str::limit($words, 200, '') : '';
+    }
+
+    /**
      * One detection, saved — from a first scan or from a hand-cut region.
      *
      * `$region` offsets the box back into the photo's own coordinates, so
@@ -104,7 +134,7 @@ final class ScanProcessor
      * @param  array{0: float, 1: float, 2: float, 3: float}|null  $region
      */
     private function record(Scan $scan, array $found, int $photo, int $number, string $disk,
-        string $folder, array &$stored, ?array $region = null): void
+        string $folder, array &$stored, ?array $region = null): ScanDetection
     {
         $crop = null;
 
@@ -125,7 +155,7 @@ final class ScanProcessor
 
         $confident = (bool) ($found['confident'] ?? false) && ! empty($match['casting_id']);
 
-        $scan->detections()->create([
+        return $scan->detections()->create([
             'photo' => $photo,
             'number' => $number,
             'disk' => $disk,
@@ -193,27 +223,35 @@ final class ScanProcessor
      * The detections join the scan they came from, numbered after the ones
      * already there, so the confirm screen needs to know nothing about it.
      *
+     * The region is scanned as **one** package, not segmented again: a
+     * person drew that rectangle round something, and the segmenter looking
+     * for printing in it to decide whether anything is there can only
+     * disagree with them — which it did, returning nothing for the very
+     * packages it had already missed. So this always comes back with a
+     * detection, named if it can be read and unnamed if not, because an
+     * unnamed package with its picture is what naming it by hand needs.
+     *
      * @param  array{0: float, 1: float, 2: float, 3: float}  $region  x, y, w, h as fractions
+     * @return list<ScanDetection>
      *
      * @throws RecognizerUnavailableException
      */
-    public function rescan(ScanPhoto $photo, array $region): int
+    public function rescan(ScanPhoto $photo, array $region): array
     {
         $scan = $photo->scan;
         $image = (string) Storage::disk($photo->disk)->get($photo->path);
-        $result = $this->recognizer->recognize($image, $scan->layout, $region);
+        $result = $this->recognizer->recognize($image, $scan->layout, $region, whole: true);
         // The folder this scan's pictures already live in, so a re-scan does
         // not start a second one beside it.
         $folder = dirname($photo->path);
 
         $next = (int) $scan->detections()->where('photo', $photo->number)->max('number');
         $stored = [];
-        $added = 0;
+        $added = [];
 
         try {
             foreach ($result['detections'] ?? [] as $found) {
-                $this->record($scan, $found, $photo->number, ++$next, $photo->disk, $folder, $stored, $region);
-                $added++;
+                $added[] = $this->record($scan, $found, $photo->number, ++$next, $photo->disk, $folder, $stored, $region);
             }
         } catch (Throwable $e) {
             Storage::disk($photo->disk)->delete($stored);

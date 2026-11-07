@@ -225,5 +225,43 @@ class ReadTest(unittest.TestCase):
         self.assertGreater(crop.shape[0], crop.shape[1], "stored sideways, as the camera saw it")
 
 
+    def test_a_hand_cut_rectangle_is_one_package_whatever_is_printed_on_it(self):
+        """A person drew that box, so there is a package in it.
+
+        The way back in for a package the segmenter walked past is to cut it
+        out by hand — and re-segmenting the cut-out rediscovers the same
+        miss and returns nothing, so the one thing that always had to give
+        an answer sometimes gave none. Measured on a real photo before this
+        existed: `premium-two-packs.jpg` cropped to its top-left quarter
+        found 0 packages segmented and 1 whole.
+        """
+        blank = np.full((700, 460, 3), 90, np.uint8)
+        self.assertEqual([], recognise(blank, None, layout="packaged", crops=False)["detections"],
+                         "nothing is printed on it, so nothing is found")
+
+        whole = recognise(blank, None, layout="packaged", crops=False, whole=True)["detections"]
+        self.assertEqual(1, len(whole))
+        self.assertTrue(whole[0]["whole_frame"])
+        self.assertIsNone(whole[0]["match"], "unnamed, which is the honest answer and still a crop to label")
+
+    def test_a_hand_cut_rectangle_is_still_read(self):
+        one = card("FORD MUSTANG", collector="4/250", toy="DTX12")
+        detection = recognise(one, index(), layout="packaged", crops=False, whole=True)["detections"][0]
+        self.assertEqual("Ford Mustang", detection["card"]["casting_name"])
+
+    def test_words_about_the_photo_may_say_the_brand_and_never_the_car(self):
+        """A collector's own file name, read exactly as print beside a package is."""
+        one = card("FORD MUSTANG", collector="4/250")
+        said = recognise(one, index(), layout="packaged", crops=False,
+                         context="matchbox 2011")["detections"][0]
+        self.assertEqual("Matchbox", said["read"]["brand"])
+
+        # And it cannot name a car that is not printed on the package.
+        quiet = np.full((700, 460, 3), 90, np.uint8)
+        named = recognise(quiet, index(), layout="packaged", crops=False, whole=True,
+                          context="hot wheels bone shaker")["detections"][0]
+        self.assertIsNone(named["card"]["casting_name"])
+
+
 if __name__ == "__main__":
     unittest.main()
