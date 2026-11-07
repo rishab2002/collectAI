@@ -14,6 +14,98 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-11-07 — The whole import, and what a real catalog does to the scanner
+
+The scanner could only ever offer a casting the catalog has live
+(`allowed = set(index.castings)`), and the catalog had 212 of them, so the
+owner's own photos came back "not sure" however well they were read. The task
+was to run the whole import for real and find out what the scanner does with a
+catalog behind it.
+
+**Where this ran matters.** Not on the owner's Mac — in a cloud container, with
+its own Postgres 16 built from scratch, and **that database is gone with the
+container**. Nothing here changed the owner's dev DB, and nothing went near
+Supabase. What survives is the measurement, which is the part worth having: the
+commands are all idempotent and in the README, so the owner can reproduce the
+data in an afternoon. The one real caveat on the numbers is Tesseract: 5.3.4
+here, 5.5.4 on the owner's Mac, and CLAUDE.md already records that the two read
+the same photograph differently.
+
+**It reproduced the documented totals almost exactly**, which is the first
+useful result — the importer measured in the 2026-11-03 cloud session is stable.
+Hot Wheels 1968–2027: 2,073 castings, 22,631 releases, 33,744 variations, 539
+skips, matching the recorded figures digit for digit in 241 s. Matchbox
+1953–2027 (the README's range, not the 1968 the task named — 1953 is what picks
+up the Lesney years): 1,763 castings against the recorded 1,569 for 1960–2027,
+and 1,569 + the documented 194 Lesney castings is 1,763. Tomica 2,534 and Mini
+GT 440, both as recorded. Classification landed on 80.9% placed for Hot Wheels
+and 93.2% for Matchbox, against 81% and 93% recorded. `identify-castings` on the
+**local** driver — no API call, 23 s for 6,810 castings — returned 311 for
+review, 44 fantasy and 3,604 unknown, which are the recorded numbers exactly.
+
+Final: **6,819 castings (2,902 live), 38,266 releases (13,612), 51,239
+variations (17,876), 6,601 series, 157 licensed photos, 110,094 provenance
+rows.** The index went from 212 castings to **2,896**.
+
+### The finding: a bigger catalog bought two wrong answers
+
+Against the 212-casting catalog both fixture photos named nothing, and CLAUDE.md
+records that as "0 named, 0 wrong … **No wrong answer survived in any
+configuration**". That sentence was true and is now misleading, because it was
+measured where almost nothing could match. With 2,896 castings the two photos
+return **four confident answers, and two of them are wrong**:
+
+| Photo | Card | Named | Verdict |
+|---|---|---|---|
+| premium-two-packs | 2018 Dodge Challenger SRT Demon (HW Premium) | `Dodge Challenger` — **Matchbox**, 1976–1998 | **wrong** |
+| premium-two-packs | 2004 Subaru Forester STI (HW Premium) | `Subaru Forester` — **Tomica**, 2013–2019 | **wrong** |
+| matchbox-and-mainline | '66 Buick Riviera (HW mainline) | `'66 Buick Riviera` | correct |
+| matchbox-and-mainline | 2024 Toyota Tacoma (Matchbox) | `2024 Toyota Tacoma` | correct |
+
+Both wrong answers scored **1.00** and were flagged `confident`. The right
+casting for the first was available and live: `'18 Dodge Challenger SRT Demon`,
+id 1623, Hot Wheels, 2018–2027. For the second the correct casting is not in the
+catalog at all, so the honest answer was "not sure".
+
+**They share one mechanism, and it is not OCR.** The Forester card was read
+perfectly — headline `2004 SUBARU FORESTER ST!`. What then happens is that the
+card-name extractor reduces the printed name to a bare nameplate,
+`Subaru Forester`, and that string is a whole-name match, at 1.00, for a
+*different and more generic* casting belonging to a *different brand*. The
+Challenger went the same way with OCR help: `8 DODGE CHALLENGER SRT` (the year
+clipped) reduced to `Dodge Challenger`, which is a Matchbox casting's entire
+name.
+
+So the rule "off a card, only the whole name matches" is doing its job on the
+alias it was written for and does not cover this one: the *read* name is
+whole-name-matched against a *shorter* casting name after the year and trim are
+dropped. The two correct answers are exactly the two where the year survived
+into the matched name. And brand cannot arbitrate, because the Hot Wheels flame
+is artwork and went unread on every Hot Wheels card here — CLAUDE.md already
+warns that tie-breaking "depends on the brand being printed in type"; this is
+that warning coming due, and it only becomes visible once the catalog is big
+enough to hold a rival for the name.
+
+Nothing was changed in response. The task was to measure and report, and a fix
+here is a real design call — whether a stripped nameplate may match a casting
+whose own name carries no year, and whether a cross-brand match should be
+allowed to be confident when no brand was read — not a threshold to nudge.
+
+### Smaller things found
+
+- **A clean checkout plus PHP 8.3 needs `7z`.** One test
+  (`PageSourceTest::test_the_dump_is_read_through_seven_zip_when_it_is_compressed`)
+  builds its own archive and fails with "Building the test archive needs 7z on
+  PATH". On Ubuntu 24.04 the package is **`7zip`** — `p7zip-full` is now a
+  transitional stub and `apt-get install p7zip-full` fails outright. With it
+  installed the suite is **406 passed, 1,711 assertions**.
+- The recognizer's own suite is 88 tests, of which two fail here for the
+  documented Tesseract reason: no brand is read off `premium-two-packs.jpg` at
+  5.3.4, where 5.5.4 brands five packages. Neither is a regression; both are the
+  version sensitivity already recorded.
+- `--dry-run` on the importer was rehearsed with `--limit` first, as the file
+  says to, and rolled back cleanly — 9 castings and 0 provenance rows after.
+
 ## 2026-11-06 — Why it missed two-packs
 
 The owner asked why the packaged scan walks past two-packs. On their photo of
