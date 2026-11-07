@@ -1149,7 +1149,8 @@ confident answer for one of those counts as wrong.
 | the crops the packaged scan really makes (22) | 0 / 12 | 0 / 12 | 0 | 0 |
 
 (A card is counted right if it names *either* car on it, which is what a
-two-pack needs.)
+two-pack needs. These are the *model's* own answers in isolation — what the
+packaged scan answers from the printing on a card is a separate question.)
 
 A second model built only from blister-card photographs (16,419 of
 HWPriceGuide's product shots, 1,917 castings) gets the right car first

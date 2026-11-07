@@ -169,6 +169,52 @@ RX-3 test killed it immediately: that correct answer covers 0.47, because
 cards print the series beside the name. The signal is inverted, not noisy.
 Recorded as unfixed rather than papered over.
 
+## 2026-11-07 — The same import, run again in a cloud container
+
+Run independently of the session above and finished after it, on a throwaway
+Postgres in a cloud container rather than the owner's Mac. It did the same
+work, so most of it is corroboration — but two sessions doing the same thing
+is itself the finding worth recording, and three things came out of this one
+that the Mac run does not give.
+
+**Everything matched.** Same four sources, same commands, and every total came
+out identical: 6,819 castings, 38,266 releases, 51,239 variations, 110,094
+provenance rows, 157 photos, with the per-importer figures again reproducing
+the 2026-11-03 cloud numbers digit for digit. Two machines, two databases, one
+answer — the importer is as deterministic as it looks.
+
+**The live counts differed and that is not a discrepancy.** 2,902 live
+castings here against 3,213 there, from identical totals, because this run
+left the 311 review-queue proposals alone and the other approved them.
+Worth writing down because the next person to compare two runs will reach for
+the importer first, and the importer is not where the difference is.
+
+**The wrong answers reproduce, on a different Tesseract.** Same two
+photographs, same four confident answers, the same two wrong across brands,
+both at 1.00 — on 5.3.4 here against 5.5.4 there. That rules out one
+machine's OCR and puts it squarely in the matcher.
+
+It also puts a limit on the fix made above, which is the one thing here that
+is not corroboration. `Candidate.brand_clashes` can only withhold an answer
+where a brand was legible, and on 5.3.4 **no brand was read off any Hot
+Wheels card in either photograph** — the flame is artwork, and CLAUDE.md
+already records that 5.5.4 brands five packages on this photo where the
+container's 5.3.0 brands none. The deployed recognizer runs 5.3.0. So the
+Challenger case is fixed on the owner's Mac and, on the evidence here,
+**not on the live site**. Recorded rather than acted on: confirming it needs
+a scan run against the deployment, which is Access-gated and was out of
+scope.
+
+**One environment trap, new.** A clean checkout on Ubuntu 24.04 fails
+`PageSourceTest::test_the_dump_is_read_through_seven_zip_when_it_is_compressed`
+with "Building the test archive needs 7z on PATH" — the test builds its own
+archive. The package is **`7zip`**; `p7zip-full` is now a transitional stub
+and `apt-get install p7zip-full` fails outright, which is a confusing way to
+discover this. With it, 406 passed, 1,711 assertions. Promoted into CLAUDE.md
+beside the existing note that `DumpPageSource` shells out to `7z`.
+
+Nothing was deployed and no production database was touched.
+
 ---
 
 ## 2026-11-06 — Why it missed two-packs

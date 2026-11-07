@@ -13,11 +13,18 @@ change the answer, under
 [Recognition → Can a car be recognised through its packaging?](#can-a-car-be-recognised-through-its-packaging-2026-11-07);
 re-run them with `python -m train.packaged_check`, labels in
 `tests/Fixtures/packaging/cars.json`, README §5.10.)
-Before that, 2026-11-07 (the **full import run on the owner's own machine** —
-3,213 live castings against 218 — and the wrong answers that exposed: a brand
-that disagrees now withholds confidence even when it was read off a logo.
-**Treat any "no wrong answer" measurement taken on a small catalog as
-untested.**)
+Before that, 2026-11-07 (**the full import is now in the owner's dev
+database** — all four sources, 6,819 castings, 3,213 of them live against 218
+before; see [Current state](#current-state). Two sessions ran it that day, on
+the Mac and in a cloud container, and agreed on every total. **It broke the
+"no wrong answer" recognition result**: with a real catalog behind them the two
+fixture photographs name two cars each and both are wrong, across brands. One
+cause is fixed — a brand that disagrees now withholds the answer even when read
+off a logo — and one is not, and **the fix depends on the logo being legible,
+which it is not on the Tesseract 5.3.x the deployed recognizer runs**. See
+[Recognition → Packaged cars](#packaged-cars-2026-11-05) and the
+[session log](docs/session-log.md). Also: a clean checkout needs the **`7zip`**
+apt package, not `p7zip-full`, or one test cannot build its archive.)
 Before that, 2026-11-05 (**`/scan` now reads cars still in their
 packaging** — `layout=packaged`, found by the printing on them rather than by
 their shape, measured on the owner's own photos; see
@@ -101,10 +108,13 @@ exists.*
 
 **Running:** `docker compose up -d` brings up `app` (:8000), `db` (Postgres 16,
 :5432), `redis` (:6379), `meilisearch` (:7700), `recognizer` (:8090).
-`php artisan test` → **406 passed, 1,711 assertions**; the recognizer's own
-`python -m unittest discover -s tests -t .` (in `recognizer/`) → **91 tests,
-88 passing, 1 skipped and 2 failing** in a cloud container (both re-measured
-2026-11-07; the two failures are the Tesseract version, see below).
+`php artisan test` → **406 passed, 1,711 assertions** (re-measured 2026-11-07;
+one of them, `PageSourceTest::test_the_dump_is_read_through_seven_zip_…`,
+builds its own archive and needs `7z` on PATH — on Ubuntu 24.04 the package is
+**`7zip`**, because `p7zip-full` is now a transitional stub); the recognizer's
+own `python -m unittest discover -s tests -t .` (in `recognizer/`) → **91
+tests, 88 passing, 1 skipped and 2 failing** in a cloud container (also
+2026-11-07; the two failures are the Tesseract version, see next).
 The `recognizer` image **does** build and run now (`docker compose up -d
 recognizer`, healthy, `/health` ok); its Tesseract is 5.3.0 where a current
 Homebrew one is 5.5.4, and they read a hard photo slightly differently —
@@ -1363,6 +1373,20 @@ sub-variants, deliberately not distinguished. Every casting lands `pending`
 (3,642), as designed. A second Matchbox run created nothing and updated
 everything (163 s) — idempotent at full scale.
 
+**Run a third time on 2026-11-07, in a cloud container, and it agreed with
+the Mac run under *Current state* on every total** — 6,819 castings, 38,266
+releases, 51,239 variations, 110,094 provenance rows, and per-importer
+figures identical again. Two things that run adds. **Timings on a quick
+box**, which bound how long this takes: Hot Wheels 241 s, Matchbox 148 s,
+classify 12 s / 3 s, photos 39 s / 46 s, Tomica 77 s, Mini GT 6 s,
+`identify-castings` 23 s, `publish-imported` 40 s — about **11 minutes** of
+commands end to end, against the 448 s + 190 s recorded for the imports
+alone in 2026-11-03. And **why two honest runs report different *live*
+counts from identical totals**: that run left the 311 review-queue
+proposals alone and published 2,902 live castings / 17,876 live variations,
+where the Mac run approved them too and reached 3,213 / 22,101. The totals
+are the importer; the live counts are a decision about the review queue.
+
 **Parsing notes** (verified 2026-08-09): casting pages carry a `{{casting}}`
 infobox and a `==Versions==` wikitable with columns *Col # · Year · Series ·
 Color · Tampo · Base Color/Type · Window Color · Interior Color · Wheel Type ·
@@ -1865,10 +1889,11 @@ shape of the result, not a constant):
 | Time | 10 s | 8 s |
 
 Nothing in these photos is in the live catalog, so zero answers is the right
-answer, and the second row is what says the matching works. **No wrong answer
-survived in any configuration**, which is the number that matters. The two
-names missed on the first photo are one printed upside down and one in the
-middle of a card.
+answer, and the second row is what says the matching works. No wrong answer
+survived in any configuration **measured here** — read that together with the
+block below, which is the same two photographs against a full catalog and does
+not come out the same way. The two names missed on the first photo are one
+printed upside down and one in the middle of a card.
 
 **A FILLED CATALOG BREAKS THE "no wrong answer" RESULT ABOVE — measured
 2026-11-07; one of the two causes is fixed.** Those zero-wrong numbers were
@@ -1905,6 +1930,16 @@ taken on a small catalog as untested, not as passed.
   catches this. Preferring a longer casting name that also matches does not
   help either — here no such casting exists. What would help is the
   catalog holding the car, and the brand being legible.
+- **Independently reproduced the same day**, in a cloud container on a
+  throwaway database and **Tesseract 5.3.4** rather than the Mac's 5.5.4
+  (2,896 live castings there, because the 311 review-queue proposals were
+  left unapproved). Same two photographs, same four confident answers, the
+  same two wrong across brands, both at 1.00 — so this is the matcher, not
+  one machine's OCR. Worth knowing because the brand half of the fix leans
+  on the flame logo being read, and on 5.3.4 it is **not**: that run read no
+  brand on any Hot Wheels card. `Candidate.brand_clashes` can only withhold
+  an answer where a brand was legible, so on an older Tesseract the
+  Challenger case is still live.
 
 **Known limits, all measured.** Tesseract does not read the Hot Wheels flame
 logo — it is artwork, not type — so `brand` is usually null on a Hot Wheels
@@ -2020,8 +2055,12 @@ catalog here holds that many live.*
 - **The one real query that worked is the one that obeys that rule.** Across
   everything tried — 15 hand-cut cars, the 10 cards they are sold on, and the
   22 crops the segmenter cut — exactly **one** came back confident, and it
-  was right: the '66 Buick Riviera, a complete, unoccluded, single-car
-  mainline card cut tight to its edges, at **0.512 with familiarity 0.904**,
+  was right. (Every count in this section is the *model's* own answers, in
+  isolation. What the packaged scan answers from the printing is a separate
+  question, and on a full catalog it does give wrong confident answers — see
+  the bullets above.) The one that worked was the '66 Buick Riviera: a
+  complete, unoccluded, single-car mainline card cut tight to its edges, at
+  **0.512 with familiarity 0.904**,
   above every shipped threshold. Its own pipeline detection, which took in
   the card below it and some blanket, scored 0.308 for the wrong car and was
   not confident.
