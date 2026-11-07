@@ -2496,3 +2496,18 @@ castings, where nothing matched; it does not survive a real catalog. 172 live
 castings now share a name with another. Written up under Recognition; the
 fix — what a logo-read brand may do against a casting of another brand — is
 not made.
+
+**Then the fix, half of one.** The Challenger case was a brand the card
+*had* told us and the matcher was not allowed to act on: the flame logo read
+"Hot Wheels" and the casting was Matchbox-only. A logo-read brand never
+counts against a casting by score — the read is weak — but there is no
+reason it cannot withhold confidence, and that is now what it does.
+
+The Forester case resisted. The crop says 2004 SUBARU FORESTER STI (checked
+by eye), the casting matched is Tomica's plain "Subaru Forester", no brand
+was legible on that crop, and no Forester STI exists in the catalog in any
+status. A coverage floor looked like the answer on these four detections —
+wrong ones at 0.62 and 0.82, right ones at 1.00 — and the existing Mazda
+RX-3 test killed it immediately: that correct answer covers 0.47, because
+cards print the series beside the name. The signal is inverted, not noisy.
+Recorded as unfixed rather than papered over.
