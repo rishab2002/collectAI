@@ -14,97 +14,99 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
-## 2026-11-07 — The whole import, and what a real catalog does to the scanner
+## 2026-11-07 — The full import, run on the owner's own machine
 
-The scanner could only ever offer a casting the catalog has live
-(`allowed = set(index.castings)`), and the catalog had 212 of them, so the
-owner's own photos came back "not sure" however well they were read. The task
-was to run the whole import for real and find out what the scanner does with a
-catalog behind it.
+The scanner could only ever offer a *live* casting and there were 218, so
+every real photograph came back "not sure" for a reason that had nothing to
+do with recognition. The importer had been proven at full scale in a cloud
+session, whose database went away with it; this ran it where the data stays.
 
-**Where this ran matters.** Not on the owner's Mac — in a cloud container, with
-its own Postgres 16 built from scratch, and **that database is gone with the
-container**. Nothing here changed the owner's dev DB, and nothing went near
-Supabase. What survives is the measurement, which is the part worth having: the
-commands are all idempotent and in the README, so the owner can reproduce the
-data in an afternoon. The one real caveat on the numbers is Tesseract: 5.3.4
-here, 5.5.4 on the owner's Mac, and CLAUDE.md already records that the two read
-the same photograph differently.
+A first attempt against the existing database aborted at 8% on a unique
+violation: the database held the August 2011 import, the dump is from
+October, and the Mad Propz page's rows had renumbered in between, so
+`page:2804:row:20` wrote attributes a sibling row already held. Checked what
+was actually at risk — 0 collection items, 0 scans, 0 photos, and the nine
+"hand-made" castings were seeder fixtures — then reset and ran clean with
+the owner's go-ahead.
 
-**It reproduced the documented totals almost exactly**, which is the first
-useful result — the importer measured in the 2026-11-03 cloud session is stable.
-Hot Wheels 1968–2027: 2,073 castings, 22,631 releases, 33,744 variations, 539
-skips, matching the recorded figures digit for digit in 241 s. Matchbox
-1953–2027 (the README's range, not the 1968 the task named — 1953 is what picks
-up the Lesney years): 1,763 castings against the recorded 1,569 for 1960–2027,
-and 1,569 + the documented 194 Lesney castings is 1,763. Tomica 2,534 and Mini
-GT 440, both as recorded. Classification landed on 80.9% placed for Hot Wheels
-and 93.2% for Matchbox, against 81% and 93% recorded. `identify-castings` on the
-**local** driver — no API call, 23 s for 6,810 castings — returned 311 for
-review, 44 fantasy and 3,604 unknown, which are the recorded numbers exactly.
+Every importer reproduced the cloud session's figures exactly, which is the
+best evidence available that dump and parser still agree. Photos were sent
+to the **local** disk rather than `catalog.capture.disk`'s `r2`, because the
+rows live only in this database and would otherwise be orphans in the live
+bucket. Identification ran on the free local driver; no API spend.
 
-Final: **6,819 castings (2,902 live), 38,266 releases (13,612), 51,239
-variations (17,876), 6,601 series, 157 licensed photos, 110,094 provenance
-rows.** The index went from 212 castings to **2,896**.
+The result is 3,213 live castings against 218 — and it immediately exposed
+something the small catalog had been hiding. The two fixture photographs now
+name two cars each, and all four of the new names that are not unique in the
+catalog are **wrong**: a Hot Wheels Challenger card matched Matchbox's
+`Dodge Challenger`, a Hot Wheels Forester card matched Tomica's `Subaru
+Forester`. Both are name-only matches across brands. The "no wrong answer in
+any configuration" result recorded on 2026-11-05 was measured at 212 live
+castings, where nothing matched; it does not survive a real catalog. 172 live
+castings now share a name with another. Written up under Recognition; the
+fix — what a logo-read brand may do against a casting of another brand — is
+not made.
 
-### The finding: a bigger catalog bought two wrong answers
+**Then the fix, half of one.** The Challenger case was a brand the card
+*had* told us and the matcher was not allowed to act on: the flame logo read
+"Hot Wheels" and the casting was Matchbox-only. A logo-read brand never
+counts against a casting by score — the read is weak — but there is no
+reason it cannot withhold confidence, and that is now what it does.
 
-Against the 212-casting catalog both fixture photos named nothing, and CLAUDE.md
-records that as "0 named, 0 wrong … **No wrong answer survived in any
-configuration**". That sentence was true and is now misleading, because it was
-measured where almost nothing could match. With 2,896 castings the two photos
-return **four confident answers, and two of them are wrong**:
+The Forester case resisted. The crop says 2004 SUBARU FORESTER STI (checked
+by eye), the casting matched is Tomica's plain "Subaru Forester", no brand
+was legible on that crop, and no Forester STI exists in the catalog in any
+status. A coverage floor looked like the answer on these four detections —
+wrong ones at 0.62 and 0.82, right ones at 1.00 — and the existing Mazda
+RX-3 test killed it immediately: that correct answer covers 0.47, because
+cards print the series beside the name. The signal is inverted, not noisy.
+Recorded as unfixed rather than papered over.
 
-| Photo | Card | Named | Verdict |
-|---|---|---|---|
-| premium-two-packs | 2018 Dodge Challenger SRT Demon (HW Premium) | `Dodge Challenger` — **Matchbox**, 1976–1998 | **wrong** |
-| premium-two-packs | 2004 Subaru Forester STI (HW Premium) | `Subaru Forester` — **Tomica**, 2013–2019 | **wrong** |
-| matchbox-and-mainline | '66 Buick Riviera (HW mainline) | `'66 Buick Riviera` | correct |
-| matchbox-and-mainline | 2024 Toyota Tacoma (Matchbox) | `2024 Toyota Tacoma` | correct |
+## 2026-11-07 — The same import, run again in a cloud container
 
-Both wrong answers scored **1.00** and were flagged `confident`. The right
-casting for the first was available and live: `'18 Dodge Challenger SRT Demon`,
-id 1623, Hot Wheels, 2018–2027. For the second the correct casting is not in the
-catalog at all, so the honest answer was "not sure".
+Run independently of the session above and finished after it, on a throwaway
+Postgres in a cloud container rather than the owner's Mac. It did the same
+work, so most of it is corroboration — but two sessions doing the same thing
+is itself the finding worth recording, and three things came out of this one
+that the Mac run does not give.
 
-**They share one mechanism, and it is not OCR.** The Forester card was read
-perfectly — headline `2004 SUBARU FORESTER ST!`. What then happens is that the
-card-name extractor reduces the printed name to a bare nameplate,
-`Subaru Forester`, and that string is a whole-name match, at 1.00, for a
-*different and more generic* casting belonging to a *different brand*. The
-Challenger went the same way with OCR help: `8 DODGE CHALLENGER SRT` (the year
-clipped) reduced to `Dodge Challenger`, which is a Matchbox casting's entire
-name.
+**Everything matched.** Same four sources, same commands, and every total came
+out identical: 6,819 castings, 38,266 releases, 51,239 variations, 110,094
+provenance rows, 157 photos, with the per-importer figures again reproducing
+the 2026-11-03 cloud numbers digit for digit. Two machines, two databases, one
+answer — the importer is as deterministic as it looks.
 
-So the rule "off a card, only the whole name matches" is doing its job on the
-alias it was written for and does not cover this one: the *read* name is
-whole-name-matched against a *shorter* casting name after the year and trim are
-dropped. The two correct answers are exactly the two where the year survived
-into the matched name. And brand cannot arbitrate, because the Hot Wheels flame
-is artwork and went unread on every Hot Wheels card here — CLAUDE.md already
-warns that tie-breaking "depends on the brand being printed in type"; this is
-that warning coming due, and it only becomes visible once the catalog is big
-enough to hold a rival for the name.
+**The live counts differed and that is not a discrepancy.** 2,902 live
+castings here against 3,213 there, from identical totals, because this run
+left the 311 review-queue proposals alone and the other approved them.
+Worth writing down because the next person to compare two runs will reach for
+the importer first, and the importer is not where the difference is.
 
-Nothing was changed in response. The task was to measure and report, and a fix
-here is a real design call — whether a stripped nameplate may match a casting
-whose own name carries no year, and whether a cross-brand match should be
-allowed to be confident when no brand was read — not a threshold to nudge.
+**The wrong answers reproduce, on a different Tesseract.** Same two
+photographs, same four confident answers, the same two wrong across brands,
+both at 1.00 — on 5.3.4 here against 5.5.4 there. That rules out one
+machine's OCR and puts it squarely in the matcher.
 
-### Smaller things found
+It also puts a limit on the fix made above, which is the one thing here that
+is not corroboration. `Candidate.brand_clashes` can only withhold an answer
+where a brand was legible, and on 5.3.4 **no brand was read off any Hot
+Wheels card in either photograph** — the flame is artwork, and CLAUDE.md
+already records that 5.5.4 brands five packages on this photo where the
+container's 5.3.0 brands none. The deployed recognizer runs 5.3.0. So the
+Challenger case is fixed on the owner's Mac and, on the evidence here,
+**not on the live site**. Recorded rather than acted on: confirming it needs
+a scan run against the deployment, which is Access-gated and was out of
+scope.
 
-- **A clean checkout plus PHP 8.3 needs `7z`.** One test
-  (`PageSourceTest::test_the_dump_is_read_through_seven_zip_when_it_is_compressed`)
-  builds its own archive and fails with "Building the test archive needs 7z on
-  PATH". On Ubuntu 24.04 the package is **`7zip`** — `p7zip-full` is now a
-  transitional stub and `apt-get install p7zip-full` fails outright. With it
-  installed the suite is **406 passed, 1,711 assertions**.
-- The recognizer's own suite is 88 tests, of which two fail here for the
-  documented Tesseract reason: no brand is read off `premium-two-packs.jpg` at
-  5.3.4, where 5.5.4 brands five packages. Neither is a regression; both are the
-  version sensitivity already recorded.
-- `--dry-run` on the importer was rehearsed with `--limit` first, as the file
-  says to, and rolled back cleanly — 9 castings and 0 provenance rows after.
+**One environment trap, new.** A clean checkout on Ubuntu 24.04 fails
+`PageSourceTest::test_the_dump_is_read_through_seven_zip_when_it_is_compressed`
+with "Building the test archive needs 7z on PATH" — the test builds its own
+archive. The package is **`7zip`**; `p7zip-full` is now a transitional stub
+and `apt-get install p7zip-full` fails outright, which is a confusing way to
+discover this. With it, 406 passed, 1,711 assertions. Promoted into CLAUDE.md
+beside the existing note that `DumpPageSource` shells out to `7z`.
+
+Nothing was deployed and no production database was touched.
 
 ## 2026-11-06 — Why it missed two-packs
 
@@ -2555,51 +2557,3 @@ rollback, and re-migrate all run clean.
 Schema decisions from this session are recorded under *Settled decisions* in
 `CLAUDE.md`. Scope was schema only — no Eloquent models, no controllers, no
 routes, no AI agent code.
-
-## 2026-11-07 — The full import, run on the owner's own machine
-
-The scanner could only ever offer a *live* casting and there were 218, so
-every real photograph came back "not sure" for a reason that had nothing to
-do with recognition. The importer had been proven at full scale in a cloud
-session, whose database went away with it; this ran it where the data stays.
-
-A first attempt against the existing database aborted at 8% on a unique
-violation: the database held the August 2011 import, the dump is from
-October, and the Mad Propz page's rows had renumbered in between, so
-`page:2804:row:20` wrote attributes a sibling row already held. Checked what
-was actually at risk — 0 collection items, 0 scans, 0 photos, and the nine
-"hand-made" castings were seeder fixtures — then reset and ran clean with
-the owner's go-ahead.
-
-Every importer reproduced the cloud session's figures exactly, which is the
-best evidence available that dump and parser still agree. Photos were sent
-to the **local** disk rather than `catalog.capture.disk`'s `r2`, because the
-rows live only in this database and would otherwise be orphans in the live
-bucket. Identification ran on the free local driver; no API spend.
-
-The result is 3,213 live castings against 218 — and it immediately exposed
-something the small catalog had been hiding. The two fixture photographs now
-name two cars each, and all four of the new names that are not unique in the
-catalog are **wrong**: a Hot Wheels Challenger card matched Matchbox's
-`Dodge Challenger`, a Hot Wheels Forester card matched Tomica's `Subaru
-Forester`. Both are name-only matches across brands. The "no wrong answer in
-any configuration" result recorded on 2026-11-05 was measured at 212 live
-castings, where nothing matched; it does not survive a real catalog. 172 live
-castings now share a name with another. Written up under Recognition; the
-fix — what a logo-read brand may do against a casting of another brand — is
-not made.
-
-**Then the fix, half of one.** The Challenger case was a brand the card
-*had* told us and the matcher was not allowed to act on: the flame logo read
-"Hot Wheels" and the casting was Matchbox-only. A logo-read brand never
-counts against a casting by score — the read is weak — but there is no
-reason it cannot withhold confidence, and that is now what it does.
-
-The Forester case resisted. The crop says 2004 SUBARU FORESTER STI (checked
-by eye), the casting matched is Tomica's plain "Subaru Forester", no brand
-was legible on that crop, and no Forester STI exists in the catalog in any
-status. A coverage floor looked like the answer on these four detections —
-wrong ones at 0.62 and 0.82, right ones at 1.00 — and the existing Mazda
-RX-3 test killed it immediately: that correct answer covers 0.47, because
-cards print the series beside the name. The signal is inverted, not noisy.
-Recorded as unfixed rather than papered over.

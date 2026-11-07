@@ -5,16 +5,18 @@ domain model, conventions and current state only have to be explained once.
 **Treat this file as the source of truth, not the conversation history** —
 update it whenever a convention changes.
 
-**Last edited:** 2026-11-07 (**the whole import was run end to end and the
-scanner measured against it** — in a cloud container, *not* the owner's dev DB,
-which is unchanged. It reproduced the recorded totals (6,819 castings / 38,266
-releases / 51,239 variations; 2,896 live castings in the index) and found the
-thing worth knowing: with a real catalog behind it the two fixture photos give
-**four confident answers, two of them wrong**, both by one mechanism — a
-stripped nameplate whole-name-matching a shorter casting of another brand. See
+**Last edited:** 2026-11-07 (**the full import is now in the owner's dev
+database** — all four sources, 6,819 castings, 3,213 of them live against 218
+before; see [Current state](#current-state). Two sessions ran it that day, on
+the Mac and in a cloud container, and agreed on every total. **It broke the
+"no wrong answer" recognition result**: with a real catalog behind them the two
+fixture photographs name two cars each and both are wrong, across brands. One
+cause is fixed — a brand that disagrees now withholds the answer even when read
+off a logo — and one is not, and **the fix depends on the logo being legible,
+which it is not on the Tesseract 5.3.x the deployed recognizer runs**. See
 [Recognition → Packaged cars](#packaged-cars-2026-11-05) and the
-[session log](docs/session-log.md). Also: the suite needs the **`7zip`**
-package, not `p7zip-full`.)
+[session log](docs/session-log.md). Also: a clean checkout needs the **`7zip`**
+apt package, not `p7zip-full`, or one test cannot build its archive.)
 Before that, 2026-11-05 (**`/scan` now reads cars still in their
 packaging** — `layout=packaged`, found by the printing on them rather than by
 their shape, measured on the owner's own photos; see
@@ -1356,22 +1358,19 @@ sub-variants, deliberately not distinguished. Every casting lands `pending`
 (3,642), as designed. A second Matchbox run created nothing and updated
 everything (163 s) — idempotent at full scale.
 
-**Re-measured 2026-11-07** (another cloud session, fresh database, the whole
-README pipeline including Tomica/Mini GT, identify and publish). **The importer
-is stable**: Hot Wheels 1968–2027 reproduced 2,073 castings / 22,631 releases /
-33,744 variations / 539 skips digit for digit, in 241 s. Matchbox was run from
-**1953** as the README says (not 1968): 1,763 castings / 12,292 releases /
-13,702 variations in 148 s — the 1,569 above plus the documented 194 Lesney
-castings. Tomica 2,534 and Mini GT 440, both as recorded; classification 80.9%
-placed for Hot Wheels and 93.2% for Matchbox, against 81% / 93%. Photos: 32 +
-125 = **157** licensed. `identify-castings` on the **local** driver took 23 s
-for 6,810 castings and returned the recorded 311 for review / 44 fantasy /
-3,604 unknown, with 2,895 auto-approved. `publish-imported` (40 s) then
-released 2,932 versions, 13,611 releases and 17,874 variations, leaving 62,128
-still behind an unapproved casting. **Totals: 6,819 castings (2,902 live),
-38,266 releases (13,612), 51,239 variations (17,876), 6,601 series, 110,094
-provenance rows** — about 11 minutes of commands in all. The database was the
-container's and is gone; the numbers are the point.
+**Run a third time on 2026-11-07, in a cloud container, and it agreed with
+the Mac run under *Current state* on every total** — 6,819 castings, 38,266
+releases, 51,239 variations, 110,094 provenance rows, and per-importer
+figures identical again. Two things that run adds. **Timings on a quick
+box**, which bound how long this takes: Hot Wheels 241 s, Matchbox 148 s,
+classify 12 s / 3 s, photos 39 s / 46 s, Tomica 77 s, Mini GT 6 s,
+`identify-castings` 23 s, `publish-imported` 40 s — about **11 minutes** of
+commands end to end, against the 448 s + 190 s recorded for the imports
+alone in 2026-11-03. And **why two honest runs report different *live*
+counts from identical totals**: that run left the 311 review-queue
+proposals alone and published 2,902 live castings / 17,876 live variations,
+where the Mac run approved them too and reached 3,213 / 22,101. The totals
+are the importer; the live counts are a decision about the review queue.
 
 **Parsing notes** (verified 2026-08-09): casting pages carry a `{{casting}}`
 infobox and a `==Versions==` wikitable with columns *Col # · Year · Series ·
@@ -1876,40 +1875,10 @@ shape of the result, not a constant):
 
 Nothing in these photos is in the live catalog, so zero answers is the right
 answer, and the second row is what says the matching works. No wrong answer
-survived in any configuration **measured here** — but that was measured against
-212 live castings, where almost nothing *could* match, and it no longer holds at
-catalog scale: see the next block. The two names missed on the first photo are
-one printed upside down and one in the middle of a card.
-
-**Measured against a full import — 2,896 live castings — the same two photos
-return four confident answers and two of them are wrong** (2026-11-07, cloud
-session, Tesseract 5.3.4; details in the
-[session log](docs/session-log.md)). Correct: `'66 Buick Riviera` and
-`2024 Toyota Tacoma`. Wrong, both at **1.00 and flagged confident**: a 2018
-Dodge Challenger SRT Demon card named as the **Matchbox** casting
-`Dodge Challenger` (1976–1998) while the right casting, `'18 Dodge Challenger
-SRT Demon`, was live in the index; and a 2004 Subaru Forester STI card named as
-the **Tomica** casting `Subaru Forester`, where the right casting is not in the
-catalog at all and "not sure" was the only honest answer.
-
-- **One mechanism, and it is not OCR.** The Forester card was read perfectly
-  (`2004 SUBARU FORESTER ST!`). The card-name extractor then reduces the
-  printed name to a bare nameplate, and that nameplate is a whole-name match
-  for a *shorter, more generic* casting — usually another brand's. The
-  Challenger went the same way with the year clipped by OCR:
-  `8 DODGE CHALLENGER SRT` → `Dodge Challenger`.
-- So **"off a card, only the whole name matches" does not cover this**: the
-  rule stops the year-stripped *alias*, but the read name is still matched
-  whole against a casting whose own name carries no year or trim. The two
-  correct answers are exactly the two where the year survived into the matched
-  name.
-- **Brand cannot arbitrate**, because the flame went unread on every Hot Wheels
-  card here — which is the "depends on the brand being printed in type" limit
-  below coming due. It only becomes visible once the catalog is large enough to
-  hold a rival for the name.
-- Unfixed on purpose: whether a stripped nameplate may match a casting whose
-  name carries no year, and whether a cross-brand match may be confident when
-  no brand was read, is a design call, not a threshold to nudge.
+survived in any configuration **measured here** — read that together with the
+block below, which is the same two photographs against a full catalog and does
+not come out the same way. The two names missed on the first photo are one
+printed upside down and one in the middle of a card.
 
 **A FILLED CATALOG BREAKS THE "no wrong answer" RESULT ABOVE — measured
 2026-11-07; one of the two causes is fixed.** Those zero-wrong numbers were
@@ -1946,6 +1915,16 @@ taken on a small catalog as untested, not as passed.
   catches this. Preferring a longer casting name that also matches does not
   help either — here no such casting exists. What would help is the
   catalog holding the car, and the brand being legible.
+- **Independently reproduced the same day**, in a cloud container on a
+  throwaway database and **Tesseract 5.3.4** rather than the Mac's 5.5.4
+  (2,896 live castings there, because the 311 review-queue proposals were
+  left unapproved). Same two photographs, same four confident answers, the
+  same two wrong across brands, both at 1.00 — so this is the matcher, not
+  one machine's OCR. Worth knowing because the brand half of the fix leans
+  on the flame logo being read, and on 5.3.4 it is **not**: that run read no
+  brand on any Hot Wheels card. `Candidate.brand_clashes` can only withhold
+  an answer where a brand was legible, so on an older Tesseract the
+  Challenger case is still live.
 
 **Known limits, all measured.** Tesseract does not read the Hot Wheels flame
 logo — it is artwork, not type — so `brand` is usually null on a Hot Wheels
