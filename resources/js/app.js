@@ -204,10 +204,13 @@ function cropSelection(form) {
     const canvas = form.querySelector('[data-crop-canvas]');
     const image = form.querySelector('[data-crop-image]');
     const box = form.querySelector('[data-crop-box]');
+    const note = form.querySelector('[data-crop-note]');
 
-    if (!canvas || !image || !box) {
+    if (!canvas || !image || !box || !note) {
         return;
     }
+
+    image.draggable = false;
 
     const fields = {};
     form.querySelectorAll('[data-crop-field]').forEach((input) => {
@@ -224,6 +227,9 @@ function cropSelection(form) {
         box.style.width = `${w * 100}%`;
         box.style.height = `${h * 100}%`;
         box.classList.toggle('hidden', w <= 0 || h <= 0);
+        if (w >= 0.02 && h >= 0.02) {
+            note.hidden = true;
+        }
     };
 
     const at = (event) => {
@@ -236,6 +242,7 @@ function cropSelection(form) {
     };
 
     let start = null;
+    let dragged = false;
 
     const move = (event) => {
         if (!start) {
@@ -248,20 +255,38 @@ function cropSelection(form) {
         fields.y.value = Math.min(start.y, now.y).toFixed(3);
         fields.width.value = Math.abs(now.x - start.x).toFixed(3);
         fields.height.value = Math.abs(now.y - start.y).toFixed(3);
+        dragged = true;
         draw();
     };
 
     const end = () => { start = null; };
 
     const begin = (event) => {
+        // A browser's own answer to dragging an image is to drag the image —
+        // it picks the picture up and trails a ghost of it under the cursor,
+        // and the selection never starts. Saying no to that is what makes
+        // this a drag-to-select at all.
+        if (event.type === 'mousedown') {
+            event.preventDefault();
+        }
         start = at(event);
-        fields.width.value = '0';
-        fields.height.value = '0';
-        draw();
+        dragged = false;
     };
 
     canvas.addEventListener('mousedown', begin);
+    canvas.addEventListener('dragstart', (event) => event.preventDefault());
     canvas.addEventListener('touchstart', begin, { passive: true });
+    // A press with no movement is not an empty selection — it is a press.
+    // Clearing the box on mousedown meant a mis-started drag submitted a
+    // width of zero and came back as a validation error.
+    form.addEventListener('submit', (event) => {
+        const w = parseFloat(fields.width.value) || 0;
+        const h = parseFloat(fields.height.value) || 0;
+        if (w < 0.02 || h < 0.02) {
+            event.preventDefault();
+            note.hidden = false;
+        }
+    });
     window.addEventListener('mousemove', move);
     window.addEventListener('touchmove', move, { passive: false });
     window.addEventListener('mouseup', end);
