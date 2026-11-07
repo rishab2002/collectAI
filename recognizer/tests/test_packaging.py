@@ -88,6 +88,31 @@ class EvidenceTest(unittest.TestCase):
 
 
 class MatchTest(unittest.TestCase):
+    def test_a_brand_read_off_a_logo_stops_another_brands_casting(self):
+        """The flame logo says Hot Wheels; the casting is Matchbox only.
+
+        Measured once the catalog held 3,213 live castings: a Hot Wheels
+        2018 Challenger SRT Demon card matched the Matchbox casting "Dodge
+        Challenger" at 1.00, because a logo-read brand may only corroborate
+        and so could not refuse it. It still may not count *against* a
+        casting by score — the read is weak — but it may stop the answer.
+        """
+        # Casting 15 is the Matchbox "Ford Mustang"; 16 is Matchbox too.
+        ev = Evidence.from_text("FORD MUSTANG")
+        ev.brand, ev.brand_from_logo = "Hot Wheels", True
+        match = Matcher(index()).match(ev, printed=True)
+        self.assertFalse(match.confident, "a Hot Wheels card is not a Matchbox casting")
+        self.assertEqual("Ford Mustang", match.best.name, "still offered as a candidate")
+
+        # The same brand agreeing leaves it alone.
+        agrees = Evidence.from_text("FORD MUSTANG")
+        agrees.brand, agrees.brand_from_logo = "Matchbox", True
+        self.assertTrue(Matcher(index()).match(agrees, printed=True).confident)
+
+        # And a card with no brand on it is unaffected.
+        self.assertTrue(Matcher(index()).match(Evidence.from_text("FORD MUSTANG"), printed=True).confident)
+
+
     def test_a_card_year_is_judged_against_the_castings_years_not_its_tool_year(self):
         # '93 Mazda RX-7, released 2016-2024. A base carries the year the tool
         # was cut; a card carries the year it was sold in, so judging a 2019

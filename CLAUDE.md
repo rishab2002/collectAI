@@ -1850,30 +1850,40 @@ names missed on the first photo are one printed upside down and one in the
 middle of a card.
 
 **A FILLED CATALOG BREAKS THE "no wrong answer" RESULT ABOVE — measured
-2026-11-07, unfixed.** Those zero-wrong numbers were measured against a
-catalog of 212 live castings, where almost nothing matched at all. Against
-the full import (3,213 live castings, 172 names shared by more than one
-live casting) the same two photographs name 2 cars each, and **both pairs
-are wrong**:
+2026-11-07; one of the two causes is fixed.** Those zero-wrong numbers were
+measured against 212 live castings, where almost nothing matched at all.
+Against the full import (3,213 live castings, 172 names shared by more than
+one live casting) the same two photographs named two cars each and **both
+were wrong, both across brands**. Treat any "no wrong answer" measurement
+taken on a small catalog as untested, not as passed.
 
-- A Hot Wheels 2018 Challenger SRT Demon card → the casting `Dodge
-  Challenger`, which is **Matchbox**, 1976–1998. The card's brand *was*
-  read as Hot Wheels — off the flame logo — and a logo-read brand
-  deliberately never counts against a casting, so nothing stopped it. The
-  right answer, `'18 Dodge Challenger SRT Demon`, is in the catalog.
-- A Hot Wheels Subaru Forester card → the casting `Subaru Forester`, which
-  is **Tomica**. No brand was read at all, so a whole-name match to another
-  brand's tool went unchallenged.
+- **Fixed: a brand that disagrees now stops the answer, even read off a
+  logo.** A Hot Wheels 2018 Challenger SRT Demon card matched the
+  **Matchbox** casting `Dodge Challenger` at 1.00 — with its own brand
+  correctly read off the flame logo, and no way to say so, because a
+  logo-read brand may only corroborate. That rule still holds for
+  *ranking*; what it may now do is withhold confidence
+  (`Candidate.brand_clashes` in `Matcher.match`). The casting stays a
+  candidate; it stops being an answer.
+- **Not fixed: a casting name that is a strict prefix of the printed name,
+  with no brand read.** A Hot Wheels **2004 Subaru Forester STI** card
+  (confirmed by eye on the crop) matched the **Tomica** casting `Subaru
+  Forester`. No brand was read off that crop, and `'04 Subaru Forester STI`
+  is not in the catalog in any status — 44 castings carry " STI" and none
+  is a Forester, so the wiki import has gaps around recent premium
+  releases. With the right car absent and no brand legible, every answer
+  available was wrong.
 
-Both correct answers (`'66 Buick Riviera`, `2024 Toyota Tacoma`) are
-unique names. So the rule that held at 212 castings — a whole printed name
-is enough — stops holding once several brands' tools share a name, and the
-brand evidence is the weakest thing on the card. **Do not read the
-zero-wrong-answer measurements above as current.** Fixing it means
-deciding what a logo-read brand may do when the casting belongs to another
-brand: today it may only corroborate, and the cost of that is now a
-confident wrong answer rather than a missed one. Re-measure on
-`tests/Fixtures/packaging/` after any change.
+  **Two fixes were tried and rejected, so don't re-try them blind.** A
+  coverage floor — requiring the casting's name to account for most of the
+  printed name — looks right on these four cases and is **inverted** in
+  general: the correct `Mazda RX-3` off "MAZDA RX-3 HW EXOTICS 3/250"
+  covers 0.47 while the wrong Forester covers 0.82, because a card prints
+  its series beside the name and no length rule separates "SRT DEMON" from
+  "HW EXOTICS". `test_a_collector_number_does_not_take_a_number_out_of_the_name`
+  catches this. Preferring a longer casting name that also matches does not
+  help either — here no such casting exists. What would help is the
+  catalog holding the car, and the brand being legible.
 
 **Known limits, all measured.** Tesseract does not read the Hot Wheels flame
 logo — it is artwork, not type — so `brand` is usually null on a Hot Wheels

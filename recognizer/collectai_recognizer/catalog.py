@@ -37,6 +37,7 @@ class Candidate:
     score: float
     alias: str
     reasons: list[str] = field(default_factory=list)
+    brand_clashes: bool = False
 
 
 class CatalogIndex:
@@ -197,6 +198,7 @@ class Matcher:
             casting = self.index.castings[c.casting_id]
             brands = {self.index.brands.get(int(b)) for b in casting.get("brand_ids", [])}
             if ev.brand and brands:
+                c.brand_clashes = ev.brand not in brands
                 if ev.brand in brands:
                     c.score += 0.03
                     c.reasons.append(f"brand {ev.brand}" + (" (from the logo)" if ev.brand_from_logo else ""))
@@ -246,6 +248,22 @@ class Matcher:
         best = ranked[0]
         runner = ranked[1].score if len(ranked) > 1 else 0.0
         confident = best.score >= self.min_confidence and best.score - runner >= self.min_margin
+
+        # A brand that disagrees with the casting stops the answer, even when
+        # it was read off a logo. The scoring above deliberately lets a
+        # logo-read brand corroborate without ever counting against — the
+        # read is weak — and that rule stands for *ranking*; what it may do
+        # is stop us being sure. A Hot Wheels card naming a Matchbox-only
+        # casting is not an answer, it is a question.
+        #
+        # Measured on tests/Fixtures/packaging once the catalog held 3,213
+        # live castings rather than 212: a Hot Wheels 2018 Challenger SRT
+        # Demon card matched the Matchbox casting "Dodge Challenger" at
+        # 1.00, with its own brand correctly read off the flame logo and
+        # unable to say so. At 212 castings nothing matched and the failure
+        # could not appear. See CLAUDE.md → Recognition.
+        if confident and best.brand_clashes:
+            confident = False
         looks = {}
         if visual is not None:
             for m in visual.candidates:
