@@ -5,7 +5,15 @@ domain model, conventions and current state only have to be explained once.
 **Treat this file as the source of truth, not the conversation history** —
 update it whenever a convention changes.
 
-**Last edited:** 2026-11-07 (**the full import is now in the owner's dev
+**Last edited:** 2026-11-07 (**a car cannot be recognised through its
+packaging, and the reason is now measured rather than guessed** — both the
+things worth trying were tried and both failed on one effect: a crop with
+the floor around the card in it. Numbers, and the three things that would
+change the answer, under
+[Recognition → Can a car be recognised through its packaging?](#can-a-car-be-recognised-through-its-packaging-2026-11-07);
+re-run them with `python -m train.packaged_check`, labels in
+`tests/Fixtures/packaging/cars.json`, README §5.10.)
+Before that, 2026-11-07 (**the full import is now in the owner's dev
 database** — all four sources, 6,819 castings, 3,213 of them live against 218
 before; see [Current state](#current-state). Two sessions ran it that day, on
 the Mac and in a cloud container, and agreed on every total. **It broke the
@@ -103,13 +111,20 @@ exists.*
 `php artisan test` → **406 passed, 1,711 assertions** (re-measured 2026-11-07;
 one of them, `PageSourceTest::test_the_dump_is_read_through_seven_zip_…`,
 builds its own archive and needs `7z` on PATH — on Ubuntu 24.04 the package is
-**`7zip`**, because `p7zip-full` is now a transitional stub that will not
-install); the recognizer's own
-`python -m unittest discover -s tests -t .` (in `recognizer/`) → **84 passed**
-(both re-measured 2026-11-05). The `recognizer` image **does** build and run
-now (`docker compose up -d recognizer`, healthy, `/health` ok); its Tesseract
-is 5.3.0 where a current Homebrew one is 5.5.4, and they read a hard photo
-slightly differently.
+**`7zip`**, because `p7zip-full` is now a transitional stub); the recognizer's
+own `python -m unittest discover -s tests -t .` (in `recognizer/`) → **91
+tests, 88 passing, 1 skipped and 2 failing** in a cloud container (also
+2026-11-07; the two failures are the Tesseract version, see next).
+The `recognizer` image **does** build and run now (`docker compose up -d
+recognizer`, healthy, `/health` ok); its Tesseract is 5.3.0 where a current
+Homebrew one is 5.5.4, and they read a hard photo slightly differently —
+**which two tests actually fail on**. Under Tesseract 5.3.4 in a cloud
+container, `test_a_dozen_packages_are_each_named_by_what_is_printed_on_them`
+names 8 of its 9 synthetic cards and
+`test_every_brand_it_finds_is_the_one_on_the_card` reads no brand at all.
+Both were written against 5.5.4 and both fail there on a **clean checkout**,
+so they are the version and not a code fault — check `tesseract --version`
+before chasing one.
 
 **The dev database now holds the FULL import of all four sources** (run
 2026-11-07 on the owner's own Mac, from a `migrate:fresh --seed` — the
@@ -1971,22 +1986,130 @@ scaled down first measurably loses reads.
     naming form already open — reaching it meant finding the new card again
     in the list, and the form is the whole reason for cutting it out.
 - **The trained model does not recognise a car through its packaging —
-  measured 2026-11-06, which is why the packaged path still uses none.**
-  It was wired in (looks corroborating only, never answering alone) and
-  measured against the full 62,149-photo gallery on
-  `tests/Fixtures/packaging/`. Roughly half the package crops **pass the
-  familiarity gate** (0.714), so the gate does not protect against this;
-  what comes back is the wrong car. The nearest neighbour for a Hot Wheels
-  premium two-pack was the casting "Pontiac J-2000", and restricting the
-  gallery to the 12,718 reference-source product photos gave
+  measured 2026-11-06 and again, harder, 2026-11-07, which is why the
+  packaged path passes it none.** The first measurement wired it in (looks
+  corroborating only, never answering alone) against the full 62,149-photo
+  gallery on `tests/Fixtures/packaging/`. Roughly half the package crops
+  **pass the familiarity gate** (0.714), so the gate does not protect against
+  this; what comes back is the wrong car. The nearest neighbour for a Hot
+  Wheels premium two-pack was the casting "Pontiac J-2000", and restricting
+  the gallery to the 12,718 reference-source product photos gave
   `horizon|item:hw-1-64-premium-car-culture-2-pk-k-case` — a *packaging*
-  match — with an unrelated Bburago 1:24 Porsche at 0.737. **It is matching
-  packaging, not cars**: blister sheen, card shape and artwork, which every
-  package shares. The gallery is photos of loose castings from above, and a
-  car sealed behind curved plastic is not one of those. What would work is
-  its own gallery of packaged photos — the reference sources' carded shots
-  and the collectors' own consented scan crops — and a crop of the blister
-  rather than the whole card. Don't re-wire the existing model and hope.
+  match — with an unrelated Bburago 1:24 Porsche at 0.737. The two things
+  that reading pointed at were then tried, and the real reason turned out to
+  be neither of them; see below.
+
+#### Can a car be recognised through its packaging? (2026-11-07)
+
+*The second answer, and the one to build on. Re-run any of it with*
+`python -m train.packaged_check --model-dir storage/app/recognition/model`
+*(README §5.10). What is in the two committed photographs is written down in*
+`tests/Fixtures/packaging/cars.json` *— 15 cars, 10 of whose castings the
+gallery holds — which is the only labelled packaged data there is. Retrieval
+is measured against the **gallery**, never through the serving index: the
+scanner may only ever offer what is live in the catalog in front of it, so
+measuring through `allowed` reports whatever that catalog happens to hold
+rather than what the model knows. The gallery holds 15,796 castings; no
+catalog here holds that many live.*
+
+- **Crop the blister rather than the card: dead, and more plainly than
+  before.** The car *is* visible through the bubble, so all 15 were cut out
+  by hand — the ceiling any window-finder could reach. Against the whole
+  62,149-photo gallery they scored **0 of 10 top-1 and 0 of 10 top-5**, best
+  similarity 0.27–0.43 against a 0.46 bar; against the carded gallery below,
+  1 of 10. (Their 10 whole cards, scored right if they name *either* car on
+  a two-pack, scored 1 of 8.) So it is not the card's artwork confusing the
+  model: a car behind curved plastic, photographed in a room, is simply not
+  near the same casting photographed loose. **There is no point writing the
+  window finder.**
+- **A gallery of packaged photos works — in its own domain only.**
+  HWPriceGuide's product shots *are* whole blister cards (Horizon, Inno64,
+  Mini GT and Para64 shoot the car loose): 27,027 of them, 16,419 tied to
+  1,917 catalog castings, 5,770 already embedded in `training/`. Card against
+  card, holding out whole versions as `train.build` does, they reach **top-1
+  76.4% and top-5 84.0%** on 1,276 held-out cards over 1,480 castings (plain
+  66.1 / 78.4) — as good as the loose model. **Carded photos do carry enough
+  to tell castings apart.** What they do not do is transfer: the crops the
+  packaged segmenter actually produces score **1 of 12 top-1** against that
+  gallery and **0 of 12** against the one that ships.
+- **What destroys it is background round the card, and nothing else does.**
+  400 held-out studio cards against the carded gallery, one degradation at a
+  time:
+
+  | the card … | top-1 | mean similarity |
+  |---|---|---|
+  | as the shop photographed it | 0.767 | 0.517 |
+  | under indoor light, with noise | 0.760 | 0.473 |
+  | at about 18° | 0.718 | 0.443 |
+  | with only its lower part in frame | 0.698 | 0.386 |
+  | small in the frame (110 px) | 0.690 | 0.422 |
+  | with its bottom 40% hidden | 0.647 | 0.391 |
+  | **with carpet all round it (45% each side)** | **0.170** | **0.247** |
+  | at an angle, indoors, on carpet | 0.185 | 0.274 |
+
+  Angle, light, distance and a card half out of frame cost between nothing
+  and 12 points. Padding the card out with the floor it is lying on costs
+  **60**, and lands at 0.247 — exactly where the real detections sat
+  (0.20–0.36), so that one effect is the whole of it. A global image
+  embedding reads the frame, not the subject.
+- **The one real query that worked is the one that obeys that rule.** Across
+  everything tried — 15 hand-cut cars, the 10 cards they are sold on, and the
+  22 crops the segmenter cut — exactly **one** came back confident, and it
+  was right. (Every count in this section is the *model's* own answers, in
+  isolation. What the packaged scan answers from the printing is a separate
+  question, and on a full catalog it does give wrong confident answers — see
+  the bullets above.) The one that worked was the '66 Buick Riviera: a
+  complete, unoccluded, single-car mainline card cut tight to its edges, at
+  **0.512 with familiarity 0.904**,
+  above every shipped threshold. Its own pipeline detection, which took in
+  the card below it and some blanket, scored 0.308 for the wrong car and was
+  not confident.
+- **Nothing was wired in, and that is the measurement's answer, not
+  caution.** Looks retrieve 0 of 12 on the crops this path produces, so
+  corroboration (+0.03) would land on an unrelated casting — measurable risk,
+  no measured benefit. And a visual-only answer may only be turned on by
+  calibration over 30+ held-out answers at 95% precision, and there is
+  exactly **one** real packaged answer in existence. So `Matcher.match` still
+  needs no "looks may not answer alone here" parameter: `recognise_packages`
+  passes no model at all, which says the same thing and cannot be got wrong
+  by a later edit.
+- **But a close-up of *one* card already works, and that is not the packaged
+  path.** `One car close up` (`layout=single`) goes down the loose path, which
+  *does* pass the model and *does* let it answer alone — and nobody had ever
+  measured that on a card. Measured now, on 400 real carded photographs
+  against the shipped gallery, each photograph's own gallery row masked out:
+
+  | the card photographed … | right first | it answered | wrong | precision | coverage |
+  |---|---|---|---|---|---|
+  | as the shop photographed it | 0.745 | 190 | 2 | 0.989 | 47% |
+  | under indoor light, with noise | 0.735 | 186 | 3 | 0.984 | 47% |
+  | at about 18° | 0.665 | 131 | 2 | 0.985 | 33% |
+  | at an angle, under indoor light | 0.627 | 101 | 1 | 0.990 | 25% |
+  | held further back | 0.420 | 55 | 1 | 0.982 | 14% |
+  | on a carpet | 0.142 | 11 | 1 | 0.909 | 3% |
+
+  **Precision holds at 98–99% everywhere it answers at all**, above the 95%
+  the thresholds promise, and what collapses as the card stops filling the
+  frame is *coverage*: it goes quiet rather than wrong. So the thresholds are
+  doing their job on cards, and the practical advice is real — a packaged car
+  **can** be named by looks today, by photographing that one card close up so
+  it fills the frame and choosing *One car close up*. Which is the Riviera's
+  condition again, from the other direction.
+  - **The first run of this said 1.000 and was a leak.** The mask was "any
+    gallery row this query matches above 0.9999", so a *degraded* query
+    stopped matching its own row and was allowed to answer itself — exactly
+    when the degradation got interesting. Mask on the cached vector of the
+    original instead. The tell was not a bad number; it was a number that
+    improved in the wrong direction.
+- **What would change the answer, in this order.** (1) **A crop that is the
+  card and nothing else** — worth more than angle, light, distance and
+  occlusion put together. The segmenter cannot produce it today: it finds a
+  package by the printing on it and then *estimates* the card around that
+  printing, which reaches onto the table, and in a real layout most cards are
+  partly under the next one anyway. (2) **The carded gallery**, which already
+  exists and is permitted. (3) **Thirty-odd consented packaged scan crops** to
+  calibrate on, which `catalog:export-training-data` already collects. Until
+  all three, a package is named by what is printed on it.
 - **A photo's own file name is read as print beside a package is**
   (`ScanProcessor::fileNameHint` → `context=`, 2026-11-06). A collector who
   files a photo as "matchbox-audi-rs6.jpg" has written down what is in it.

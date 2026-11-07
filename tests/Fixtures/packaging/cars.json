@@ -1,0 +1,41 @@
+{
+  "_": [
+    "What is actually in the two photographs, read off them by eye — the only",
+    "labelled photographs of packaged cars that exist here. Boxes are fractions",
+    "of the photo (x, y, width, height), so they survive any rescaling.",
+    "",
+    "`car` is the car seen through the blister; `card` is the whole package it",
+    "is sold on, cut tight to its edges. `casting` is the gallery label of that",
+    "casting — a stable provenance key, the same in any database — or null when",
+    "the trained gallery holds no photo of it, which makes that car an open-set",
+    "query: any confident answer for it is wrong.",
+    "",
+    "Used by `python -m train.packaged_check`. See CLAUDE.md, Recognition →",
+    "Can a car be recognised through its packaging?"
+  ],
+  "premium-two-packs.jpg": {
+    "note": "Five Hot Wheels Premium two-packs on a carpet, overlapping; ten cars.",
+    "cars": [
+      {"name": "Lykan Hypersport", "car": [0.076, 0.332, 0.067, 0.043], "card": [0.043, 0.164, 0.476, 0.265], "casting": null},
+      {"name": "Expo Hauler", "car": [0.143, 0.293, 0.305, 0.093], "card": [0.043, 0.164, 0.476, 0.265], "casting": null},
+      {"name": "Back to the Future Time Machine", "car": [0.543, 0.321, 0.167, 0.058], "card": [0.486, 0.164, 0.476, 0.265], "casting": "hotwheels_fandom|page:23393"},
+      {"name": "1987 Toyota Pickup Truck", "car": [0.733, 0.311, 0.181, 0.068], "card": [0.486, 0.164, 0.476, 0.265], "casting": "hotwheels_fandom|page:33989"},
+      {"name": "Toyota AE86 Sprinter Trueno", "car": [0.186, 0.464, 0.147, 0.050], "card": [0.057, 0.400, 0.476, 0.179], "casting": "hotwheels_fandom|page:99392"},
+      {"name": "Fleet Street", "car": [0.333, 0.475, 0.124, 0.068], "card": [0.057, 0.400, 0.476, 0.179], "casting": null},
+      {"name": "2018 Dodge Challenger SRT Demon", "car": [0.610, 0.450, 0.152, 0.064], "card": [0.548, 0.400, 0.423, 0.150], "casting": "hotwheels_fandom|page:68575"},
+      {"name": "2015 Dodge Charger SRT", "car": [0.795, 0.464, 0.143, 0.057], "card": [0.548, 0.400, 0.423, 0.150], "casting": "hotwheels_fandom|page:52245"},
+      {"name": "2009 Mitsubishi Lancer Evolution IX Wagon", "car": [0.162, 0.629, 0.133, 0.050], "card": [0.071, 0.564, 0.462, 0.150], "casting": null},
+      {"name": "2004 Subaru Forester STI", "car": [0.333, 0.614, 0.143, 0.065], "card": [0.071, 0.564, 0.462, 0.150], "casting": null}
+    ]
+  },
+  "matchbox-and-mainline.jpg": {
+    "note": "A fan of Matchbox blisters with their names hidden, plus five cards face up. Only the face-up five show a car at all.",
+    "cars": [
+      {"name": "'64 Chevy Nova Station Wagon", "car": [0.419, 0.261, 0.162, 0.046], "card": [0.405, 0.107, 0.262, 0.225], "casting": "hotwheels_fandom|page:36079"},
+      {"name": "'66 Buick Riviera", "car": [0.457, 0.511, 0.153, 0.053], "card": [0.429, 0.343, 0.219, 0.239], "casting": "hotwheels_fandom|page:167684"},
+      {"name": "2019 Audi TT Safari", "car": [0.467, 0.571, 0.152, 0.058], "card": [0.438, 0.557, 0.210, 0.086], "casting": "hotwheels_fandom|page:196949"},
+      {"name": "2023 Chevy Tahoe Z71", "car": [0.681, 0.507, 0.167, 0.057], "card": [0.657, 0.339, 0.229, 0.243], "casting": "matchbox_fandom|page:45710"},
+      {"name": "2024 Toyota Tacoma", "car": [0.676, 0.586, 0.162, 0.050], "card": [0.657, 0.571, 0.219, 0.093], "casting": "matchbox_fandom|page:40372"}
+    ]
+  }
+}
