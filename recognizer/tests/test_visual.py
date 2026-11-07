@@ -11,7 +11,7 @@ from collectai_recognizer.catalog import Matcher
 from collectai_recognizer.evidence import Evidence
 from collectai_recognizer.pipeline import recognise
 from collectai_recognizer.visual import Head, VisualModel, normalise, preprocess
-from train import build
+from train import build, packaged_check
 
 from .synthetic import pile
 from .test_recognizer import index
@@ -220,3 +220,49 @@ class TrainingTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PackagedCheckTest(unittest.TestCase):
+    """The measurement tool behind CLAUDE.md's packaging numbers."""
+
+    def photos(self, tmp: str) -> Path:
+        photos = Path(tmp)
+        img = np.zeros((100, 200, 3), np.uint8)
+        img[:, :100] = (40, 30, 200)                     # left half red
+        img[:, 100:] = (190, 90, 30)                     # right half blue
+        cv2.imwrite(str(photos / "layout.jpg"), img)
+        (photos / "cars.json").write_text(json.dumps({
+            "_": ["a note, skipped"],
+            "layout.jpg": {"cars": [
+                {"name": "red one", "car": [0.0, 0.0, 0.5, 1.0], "card": [0.0, 0.0, 1.0, 1.0],
+                 "casting": "key|red"},
+                {"name": "one nobody has photographed", "car": [0.5, 0.0, 0.5, 1.0],
+                 "card": [0.0, 0.0, 1.0, 1.0], "casting": None},
+            ]},
+        }))
+        return photos
+
+    def model(self) -> VisualModel:
+        vectors = normalise(np.array([[0.78, 0.12, 0.16, 0.05], [0.12, 0.35, 0.75, 0.05]], dtype=np.float32))
+        manifest = {"thresholds": {"visual_only": True, "min_similarity": 0.9, "min_margin": 0.02}}
+        return VisualModel(ColourEncoder(), Head(), vectors,
+                           np.array(["key|red", "key|blue"]), np.array(["key|red:v", "key|blue:v"]), manifest)
+
+    def test_it_measures_against_the_gallery_not_through_a_serving_index(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cars = packaged_check.read_truth(self.photos(tmp))
+            self.assertEqual(2, len(cars))
+            result = packaged_check.measure(self.model(), cars, "car")
+
+        self.assertEqual(1, result["answerable"], "the second car is not in the gallery")
+        self.assertEqual(1, result["top1"], "stable keys resolve without a catalog index")
+        self.assertEqual("key|red", result["rows"][0]["candidates"][0][0])
+
+    def test_a_confident_answer_for_a_car_the_gallery_lacks_counts_as_wrong(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cars = packaged_check.read_truth(self.photos(tmp))
+            result = packaged_check.measure(self.model(), cars, "car")
+
+        self.assertTrue(result["rows"][1]["sure"], "blue does look like the blue one in the gallery")
+        self.assertEqual(2, result["confident"])
+        self.assertEqual(1, result["wrong"], "an open-set car answered confidently is a wrong answer")

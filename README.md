@@ -719,6 +719,28 @@ it will not match a nameplate without its year — a card prints "'66 BUICK
 RIVIERA", so a casting called "1971 Buick Riviera" is a different car, not a
 near miss.
 
+**"But I can see the car — why can't it?"** Because it was measured, twice,
+and it cannot. Cutting the car out of the blister by hand — the best any
+automatic version could do — and asking the trained model put the right car
+first **none** of the 10 times the answer was in the model at all. Building a
+second model out of 16,000 photographs of blister cards works beautifully on
+shop photographs (right car first 76% of the time) and still fails on yours,
+and the reason turned out to be the one thing nobody suspected: **a card with
+the floor around it in the picture**. The same card, same model, scores 0.52
+cut to its edges and 0.25 with carpet round it — a bigger drop than angle,
+poor light, distance and half the card being hidden put together. Until the
+scanner can cut a package out exactly, printing is what names it. §5.10 has
+the numbers and the one-line command to re-measure them.
+
+**There is one way to have a packaged car recognised by looks today**, and it
+falls straight out of that finding: photograph **one** card on its own, close
+enough to fill the frame, and choose **One car close up** instead. That goes
+down the loose-car path, which does use the model. Measured on 400 real card
+photographs: filling the frame it names the car for about half of them, at an
+angle or in poor light for a third, and it is **right 98–99% of the time it
+answers**. As the card shrinks in the frame it answers less often rather than
+wrongly.
+
 A premium two-pack comes back as **two** cars, one per name printed on it.
 
 #### Loose cars
@@ -1103,6 +1125,81 @@ Then `scan` with `--model ../storage/app/recognition/model` uses it.
 (sources and licences), its measured accuracy and its thresholds.
 `--precision 0.98` asks for a stricter bar. `--exclude-source scan` leaves a
 source out.
+
+#### Cars still in their packaging: measured, and the answer is no (2026-11-07)
+
+The model names a **loose** car. The obvious next wish is for it to name a
+**packaged** one, and that has now been tried two ways and measured both
+times. Re-run the whole thing against any model in one command:
+
+```bash
+cd recognizer && .venv/bin/python -m train.packaged_check --model-dir ../storage/app/recognition/model --photos ../tests/Fixtures/packaging --labels ../storage/app/recognition/reference-labels.jsonl
+```
+
+What is in the two committed photographs is written down beside them, in
+`tests/Fixtures/packaging/cars.json`: 15 cars, each with the box of the car
+behind the blister and the box of the whole card, and the casting it really
+is. Ten of those castings are in the model; the other five are not, and a
+confident answer for one of those counts as wrong.
+
+| what was asked of it | right car first | right car in the top 5 | confident answers | wrong |
+|---|---|---|---|---|
+| the car cut out of the blister by hand (15 cars) | 0 / 10 | 0 / 10 | 0 | 0 |
+| the whole card cut tight to its edges (10 cards) | 1 / 8 | 1 / 8 | 1 | 0 |
+| the crops the packaged scan really makes (22) | 0 / 12 | 0 / 12 | 0 | 0 |
+
+(A card is counted right if it names *either* car on it, which is what a
+two-pack needs.)
+
+A second model built only from blister-card photographs (16,419 of
+HWPriceGuide's product shots, 1,917 castings) gets the right car first
+**76.4%** of the time on 1,276 held-out cards — so a photograph of a card
+does carry enough to tell cars apart. It still answered the real photographs
+1 time in 12.
+
+**What breaks it is the background**, which was the surprise. Taking 400 of
+those shop photographs and spoiling them one way at a time:
+
+| the card … | right car first |
+|---|---|
+| as the shop photographed it | 76.7% |
+| under indoor light, with noise | 76.0% |
+| at about 18° | 71.8% |
+| with only its lower part in frame | 69.8% |
+| small in the frame | 69.0% |
+| with its bottom 40% hidden by another package | 64.7% |
+| **with carpet all round it** | **17.0%** |
+
+Angle, light, distance and half the card missing cost a few points each. The
+floor around the card costs sixty. The one real crop that did work was the
+one with no floor in it: a complete, unoccluded `'66 BUICK RIVIERA` card cut
+to its edges, named correctly and confidently.
+
+So the scanner still names a package only by the printing on it, and
+`layout=packaged` passes the model no photo at all. **Three things would
+change that, in order:** a crop that is the card and nothing else; the
+card-photo model above; and about thirty consented scans of packaged cars to
+check it on, which "Help teach the scanner" already collects.
+
+**A close-up of one card is a different case, and it already works.** `One
+car close up` goes down the loose-car path, which does use the model — and
+there the card fills the frame, which is the condition above. Measured on
+400 real card photographs against the shipped model, each photograph's own
+entry masked out:
+
+| the card photographed … | right car first | it answered | of those, wrong | precision |
+|---|---|---|---|---|
+| as the shop photographed it | 74.5% | 190 of 400 | 2 | 98.9% |
+| under indoor light, with noise | 73.5% | 186 | 3 | 98.4% |
+| at about 18° | 66.5% | 131 | 2 | 98.5% |
+| at an angle, under indoor light | 62.7% | 101 | 1 | 99.0% |
+| held further back | 42.0% | 55 | 1 | 98.2% |
+| lying on a carpet | 14.2% | 11 | 1 | 90.9% |
+
+It stays right 98–99% of the time wherever it answers at all — better than
+the 95% its thresholds promise — and what falls away as the card stops
+filling the frame is how *often* it answers, not how often it is right. So
+fill the frame.
 
 ---
 

@@ -14,6 +14,163 @@ in this repo*. A rule belongs in `CLAUDE.md`; the argument for it belongs here.
 
 ---
 
+## 2026-11-07 — Can a car be recognised through its packaging? No, and now we know why
+
+The owner wanted the packaged scan to recognise a car the way an image search
+would, instead of only reading the name printed on the card. The previous
+session had already measured the trained model against packaging and backed
+it out with "it matches packaging, not cars", and had named two things worth
+trying next. Both were tried. Both failed — and the reason is neither of
+them, which is the part worth keeping.
+
+**Setting up to measure at all.** The model and its gallery are committed in
+`training/`, so `train.package restore` puts them back; the controls matter
+more than they sound. A photo that is in the gallery retrieves itself at
+1.000 with `sure=True`, which is what says the harness is wired up and not
+quietly returning noise. Retrieval was measured **against the gallery**, not
+through a `CatalogIndex`: the scanner may only offer castings that are live
+in the catalog in front of it, and measuring through `allowed` would have
+reported zero for reasons that have nothing to do with the model. Ground
+truth for the two committed photographs was read off them by eye — 15 cars,
+10 of whose castings the gallery holds — and is now committed beside them as
+`tests/Fixtures/packaging/cars.json`, because it is the only labelled
+packaged data that exists and re-deriving it is the expensive part.
+
+**Hypothesis 1, crop the blister rather than the card: dead, and the hand-cut
+version is what kills it.** The car really is visible behind the bubble, so
+all 15 were cut out by hand. That is the ceiling: no automatic window finder
+beats a person with the photograph. Against the whole 62,149-photo gallery
+they put the right casting first **0 times out of 10**, and in the top five
+**0 times out of 10**, with best similarities of 0.27–0.43 against a 0.46
+bar. So the card's artwork was never the problem. A car behind curved
+plastic, photographed in a room, is not near the same casting photographed
+loose. There was no point writing the window finder, and that is a feature
+not built for the price of cutting fifteen rectangles out by hand.
+
+**Hypothesis 2, a gallery of packaged photos: works, and does not transfer.**
+HWPriceGuide's product shots turn out to be whole blister cards — the other
+four permitted sources shoot the car loose — 27,027 of them, 16,419 tied to
+1,917 catalog castings, and 5,770 already embedded in `training/` from the
+last run, so the first measurement cost nothing but arithmetic. Card against
+card, holding out whole versions exactly as `train.build` does, they reach
+**76.4% top-1 and 84.0% top-5** on 1,276 held-out cards. That is as good as
+the loose model, and it settles something worth settling: **a photograph of a
+card does carry enough to tell castings apart.** Then the real crops were put
+to it and scored 1 of 12.
+
+**So what is different about the real crops?** Four hundred held-out shop
+photographs were spoiled one way at a time. Indoor light cost 0.7 points of
+top-1. Eighteen degrees cost 5. Being small in the frame cost 8. Having the
+bottom 40% hidden under the next package cost 12. Having only the lower part
+of the card in frame cost 7. **Putting carpet round the card cost 60**, and
+dropped mean similarity from 0.517 to 0.247 — which is precisely the band the
+real detections sat in (0.20–0.36). One effect accounts for all of it. A
+global image embedding describes the frame, not the subject, and a card
+taking up a quarter of its crop is a different picture from a card filling
+it.
+
+**The confirming case was already in the data.** Of everything put through —
+15 hand-cut cars, the 10 cards they are sold on, 22 segmenter crops — exactly
+one query came back confident, and it was right: `'66 BUICK RIVIERA`, cut
+tight to the edges of a complete, unoccluded, single-car mainline card, at
+0.512 with familiarity 0.904, above every shipped threshold. The segmenter's
+own crop of that same card, which took in the card below it and some blanket,
+scored 0.308 for the wrong car and was not confident. One photograph is not a
+calibration, but it is the hypothesis stated as cleanly as a single case can
+state it.
+
+**Why nothing was wired in.** Not caution — arithmetic. Looks retrieve 0 of 12
+on the crops this path produces, so corroboration at +0.03 would land on an
+unrelated casting: measurable risk against no measured benefit. And a
+visual-only answer may only ever be turned on by calibration over 30+
+held-out answers at 95% precision, and there is exactly **one** real packaged
+answer in existence. The parameter the brief suggested adding to
+`Matcher.match` — "looks may not answer alone here" — is therefore still not
+wanted: `recognise_packages` passes no model at all, which says the same
+thing and cannot be got wrong by a later edit. The place that rule would have
+to live is the day the three conditions are met, not before.
+
+**What did ship** is the measurement itself: `train.packaged_check`, which
+re-runs all of the above against any model in one command, and the labels it
+reads. The previous attempt's value was its measurement, and it was written
+into prose that the next session had to take on trust; this one can be run.
+
+A footnote that turned into a real finding. A close-up of a single card is
+**not** the packaged path — `One car close up` goes down the loose path, which
+does pass the model and does let it answer alone. That had never been
+measured on cards. It was, on 400 real carded photographs with each
+photograph's own gallery row masked out, and it is **fine, and useful**: it
+names the car for 47% of frame-filling cards and 25–33% at an angle or under
+indoor light, and it is right **98–99% of the time it answers at all** —
+above the 95% its thresholds promise. What falls away as the card stops
+filling the frame is coverage, not precision: on a card lying on a carpet it
+answers 11 times in 400 instead of answering wrongly. So the thresholds
+behave on cards, and there is a real thing to tell collectors — a packaged
+car *can* be named by looks today, by photographing that one card close
+enough to fill the frame. Which is the Riviera's condition again, arrived at
+from the other side.
+
+The first attempt at that measurement reported top-1 of **1.000** on a
+darkened card and 0.973 at an angle, better than on the untouched
+photograph. That is not a result, it is the shape of a leak: the mask was
+"anything the query matches at >0.9999", so a degraded query stopped matching
+its own gallery row and was allowed to answer itself, exactly when the
+degradation got interesting. Masking on the *cached vector of the original*
+instead fixes it. Worth writing down because the tell was not a bad number —
+it was a number that improved in the wrong direction.
+
+---
+
+## 2026-11-07 — The full import, run on the owner's own machine
+
+The scanner could only ever offer a *live* casting and there were 218, so
+every real photograph came back "not sure" for a reason that had nothing to
+do with recognition. The importer had been proven at full scale in a cloud
+session, whose database went away with it; this ran it where the data stays.
+
+A first attempt against the existing database aborted at 8% on a unique
+violation: the database held the August 2011 import, the dump is from
+October, and the Mad Propz page's rows had renumbered in between, so
+`page:2804:row:20` wrote attributes a sibling row already held. Checked what
+was actually at risk — 0 collection items, 0 scans, 0 photos, and the nine
+"hand-made" castings were seeder fixtures — then reset and ran clean with
+the owner's go-ahead.
+
+Every importer reproduced the cloud session's figures exactly, which is the
+best evidence available that dump and parser still agree. Photos were sent
+to the **local** disk rather than `catalog.capture.disk`'s `r2`, because the
+rows live only in this database and would otherwise be orphans in the live
+bucket. Identification ran on the free local driver; no API spend.
+
+The result is 3,213 live castings against 218 — and it immediately exposed
+something the small catalog had been hiding. The two fixture photographs now
+name two cars each, and all four of the new names that are not unique in the
+catalog are **wrong**: a Hot Wheels Challenger card matched Matchbox's
+`Dodge Challenger`, a Hot Wheels Forester card matched Tomica's `Subaru
+Forester`. Both are name-only matches across brands. The "no wrong answer in
+any configuration" result recorded on 2026-11-05 was measured at 212 live
+castings, where nothing matched; it does not survive a real catalog. 172 live
+castings now share a name with another. Written up under Recognition; the
+fix — what a logo-read brand may do against a casting of another brand — is
+not made.
+
+**Then the fix, half of one.** The Challenger case was a brand the card
+*had* told us and the matcher was not allowed to act on: the flame logo read
+"Hot Wheels" and the casting was Matchbox-only. A logo-read brand never
+counts against a casting by score — the read is weak — but there is no
+reason it cannot withhold confidence, and that is now what it does.
+
+The Forester case resisted. The crop says 2004 SUBARU FORESTER STI (checked
+by eye), the casting matched is Tomica's plain "Subaru Forester", no brand
+was legible on that crop, and no Forester STI exists in the catalog in any
+status. A coverage floor looked like the answer on these four detections —
+wrong ones at 0.62 and 0.82, right ones at 1.00 — and the existing Mazda
+RX-3 test killed it immediately: that correct answer covers 0.47, because
+cards print the series beside the name. The signal is inverted, not noisy.
+Recorded as unfixed rather than papered over.
+
+---
+
 ## 2026-11-06 — Why it missed two-packs
 
 The owner asked why the packaged scan walks past two-packs. On their photo of
@@ -2463,51 +2620,3 @@ rollback, and re-migrate all run clean.
 Schema decisions from this session are recorded under *Settled decisions* in
 `CLAUDE.md`. Scope was schema only — no Eloquent models, no controllers, no
 routes, no AI agent code.
-
-## 2026-11-07 — The full import, run on the owner's own machine
-
-The scanner could only ever offer a *live* casting and there were 218, so
-every real photograph came back "not sure" for a reason that had nothing to
-do with recognition. The importer had been proven at full scale in a cloud
-session, whose database went away with it; this ran it where the data stays.
-
-A first attempt against the existing database aborted at 8% on a unique
-violation: the database held the August 2011 import, the dump is from
-October, and the Mad Propz page's rows had renumbered in between, so
-`page:2804:row:20` wrote attributes a sibling row already held. Checked what
-was actually at risk — 0 collection items, 0 scans, 0 photos, and the nine
-"hand-made" castings were seeder fixtures — then reset and ran clean with
-the owner's go-ahead.
-
-Every importer reproduced the cloud session's figures exactly, which is the
-best evidence available that dump and parser still agree. Photos were sent
-to the **local** disk rather than `catalog.capture.disk`'s `r2`, because the
-rows live only in this database and would otherwise be orphans in the live
-bucket. Identification ran on the free local driver; no API spend.
-
-The result is 3,213 live castings against 218 — and it immediately exposed
-something the small catalog had been hiding. The two fixture photographs now
-name two cars each, and all four of the new names that are not unique in the
-catalog are **wrong**: a Hot Wheels Challenger card matched Matchbox's
-`Dodge Challenger`, a Hot Wheels Forester card matched Tomica's `Subaru
-Forester`. Both are name-only matches across brands. The "no wrong answer in
-any configuration" result recorded on 2026-11-05 was measured at 212 live
-castings, where nothing matched; it does not survive a real catalog. 172 live
-castings now share a name with another. Written up under Recognition; the
-fix — what a logo-read brand may do against a casting of another brand — is
-not made.
-
-**Then the fix, half of one.** The Challenger case was a brand the card
-*had* told us and the matcher was not allowed to act on: the flame logo read
-"Hot Wheels" and the casting was Matchbox-only. A logo-read brand never
-counts against a casting by score — the read is weak — but there is no
-reason it cannot withhold confidence, and that is now what it does.
-
-The Forester case resisted. The crop says 2004 SUBARU FORESTER STI (checked
-by eye), the casting matched is Tomica's plain "Subaru Forester", no brand
-was legible on that crop, and no Forester STI exists in the catalog in any
-status. A coverage floor looked like the answer on these four detections —
-wrong ones at 0.62 and 0.82, right ones at 1.00 — and the existing Mazda
-RX-3 test killed it immediately: that correct answer covers 0.47, because
-cards print the series beside the name. The signal is inverted, not noisy.
-Recorded as unfixed rather than papered over.
