@@ -15,6 +15,28 @@ Postgres on Supabase and Cloudflare in front. It sits behind an email-gated
 Cloudflare Access login while it's in development, so that link won't open
 without an invitation. It runs locally in Docker in two commands.
 
+## What it looks like
+
+![Scan results: eight cars found in one photo, two identified](docs/images/3-scan.png)
+
+*A photo of eight packaged cars, read on the project's own hardware with no
+outside API call. Two are named with the evidence attached — which package,
+what the card says, and how well it matched. The other six are listed as found
+but unread rather than guessed at.*
+
+![A casting page: Ferrari F40, its photo, and its releases](docs/images/2-car.png)
+
+*One casting, its releases, and the attributes that make each variation its own
+record. The photo is a wiki file whose licence permits reuse, credited where it
+is shown.*
+
+![The Hot Wheels brand page, listing its main lines](docs/images/1-brand.png)
+
+*The line taxonomy, which the wikis don't publish: a classifier sorts the 4,240
+imported Hot Wheels series into sixteen named lines plus an Other Series
+bucket, using collector-number density as its only factual fallback rather than
+guessing.*
+
 ## The parts worth a look
 
 **An importer that treats provenance as the gate.** Hot Wheels and Matchbox
@@ -43,7 +65,9 @@ outside model.
 model, the column defaults to `pending`, and approving a record promotes its
 whole ancestor chain in one transaction so nothing goes live underneath an
 invisible parent. A real casting with no model attached raises on approval
-rather than publishing.
+rather than publishing — which is why 3,213 of the 6,819 imported castings are
+public and the rest are still held behind a make and model nobody has
+confirmed.
 
 **Measurements instead of claims.** "Can the trained model recognise a car
 through its blister packaging?" is answered no, with the numbers: padding a
