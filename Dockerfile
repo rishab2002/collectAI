@@ -40,6 +40,18 @@ RUN composer install --no-scripts --no-interaction --no-progress
 
 COPY . .
 
+# Development PHP settings — uploads above the application's own limits, and
+# none of the production file's opcache freezing. Without this the image's 2M
+# default silently fails every real photograph on /admin/capture and /scan:
+# PHP empties $_FILES before Laravel runs, so the error names no file at all.
+# This is NOT docker/php/php.ini, which belongs to the prod stage; the dev
+# file says why the two cannot be shared.
+#
+# It sits after `COPY . .` on purpose: ahead of the composer layer it would
+# invalidate it, and re-resolving vendor/ costs a rebuild far larger than this
+# one line is worth.
+COPY docker/php/php.dev.ini /usr/local/etc/php/conf.d/zz-app.ini
+
 # .dockerignore keeps the host's storage artifacts out of the image, so the
 # runtime directories Laravel expects (compiled views, cache, sessions, logs)
 # have to be recreated here. Paths are listed individually because RUN uses

@@ -2699,6 +2699,7 @@ docker compose exec app php artisan migrate:fresh --seed
 | A brand or line page is a 404 for visitors | Same — nothing under it is live yet |
 | Pages look unstyled, or a new style does nothing | Rebuild the styles: `npm run build` |
 | A capture stays "queued" forever | No queue worker. Run `docker compose exec app php artisan queue:work` |
+| A photo upload says "The photos field is required", naming no file | PHP rejected it before Laravel ran. Check `docker compose exec app php -r 'echo ini_get("upload_max_filesize");'` — it should be 16M, from `docker/php/php.dev.ini`. If it says 2M you are on an image built before 2026-11-16: `docker compose build app && docker compose up -d app` |
 | Scan says "The recognizer isn't running" | Start it: `docker compose up -d recognizer`. Check it with `curl localhost:8090/health` |
 | Scan finds cars but identifies none | Is the catalog file there and are cars live? `curl localhost:8090/health` shows its counts; write it with `catalog:export-recognition-index`. Then: turn the cars over so the base text shows, and use good light |
 | Scan sees two touching cars as one, or a base's words as several cars | Spread the cars apart; choose *One car close up* for a single base or card |

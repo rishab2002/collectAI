@@ -793,6 +793,20 @@ from anywhere.
   to `7z` and streams the archive; there is no usable pure-PHP 7-Zip reader. If
   the image is ever slimmed, this is not a stray dependency.
 
+- **PHP's upload limits are set above the application's in the dev image too,
+  and were not until 2026-11-16.** `docker/php/php.dev.ini` → `conf.d/zz-app.ini`
+  (16M / 110M / 10), mirroring what `docker/php/php.ini` does for prod and for
+  the reason that file gives: when PHP rejects a file it does so before any
+  userland code runs, so `$_FILES` is empty and Laravel reports a *missing
+  field*. The `php:8.4-cli` default is **2M**, under which no real photograph
+  could be uploaded at all — both committed packaging fixtures are 2.5–2.9 MB
+  — and `/admin/capture` and `/scan` failed with "The photos field is
+  required", naming neither the file nor its size. It is a separate file from
+  the prod one on purpose: `opcache.validate_timestamps = 0` is right for an
+  immutable image and wrong for a bind-mounted development tree, where it would
+  ignore every edit until the container restarted. The `COPY` sits after
+  `COPY . .` so it cannot invalidate the composer layer. Verified by uploading
+  a 2.5 MB fixture through `/scan` on a recreated container.
 - **The app container has no GD**, so `UploadedFile::fake()->image()` throws.
   `CaptureTest` fakes photos with `->create($name, $kb, 'image/jpeg')` instead,
   which sets the MIME type the `mimetypes` rule reads. Don't "fix" those tests
