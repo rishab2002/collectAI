@@ -701,11 +701,17 @@ from anywhere.
 
 ## How to work in this repo
 
-- **[README.md](README.md) is the owner's tutorial** — setup, the import
-  pipeline in order, making records live, where to edit what, deploy. It was
-  written 2026-11-03 by running every command in it against a fresh database.
-  When a command, option, `.env` setting or config file changes, update the
-  README in the same change, and re-run the commands you touched.
+- **[instructions/README.md](instructions/README.md) is the owner's tutorial** —
+  setup, the import pipeline in order, making records live, where to edit what,
+  deploy. It was written 2026-11-03 by running every command in it against a
+  fresh database. When a command, option, `.env` setting or config file
+  changes, update it in the same change, and re-run the commands you touched.
+  **Every "README §n" reference in this file, in the code and in `docs/` means
+  that file** — it was moved out of the repository root on 2026-11-16, where
+  `README.md` is now a short summary for people looking at the project on
+  GitHub. The section numbers are unchanged. The summary carries measured
+  numbers, so when a count or an accuracy figure here changes, check whether it
+  is quoted there too.
 - **When the work is finished, merge the session's branch into `main` and push
   both.** The owner's standing instruction (2026-11-03): don't leave finished
   work sitting on a feature branch. Gate it first — `php artisan test` green and
