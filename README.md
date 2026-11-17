@@ -1,144 +1,92 @@
 # collectAI
 
-A catalog of diecast cars — Hot Wheels, Matchbox, Tomica, Mini GT and whatever
-comes next — that fills itself from public wiki dumps, reads cars off
-photographs on its own hardware, and publishes nothing until a person has
-approved it.
+A diecast catalog — Hot Wheels, Matchbox, Tomica, Mini GT — that fills itself
+from public wiki dumps, reads cars off photographs on its own hardware, and
+publishes nothing until a person has approved it.
 
-Collectors browse by brand → main line → sub-series → car, keep a collection
-and a wishlist, and photograph a pile of their own cars to add them. The import
-reaches 6,819 castings across four sources, carrying 38,266 releases and 51,239
-variations under them.
+Laravel 13 and Postgres, with a standalone Python recognition service. 6,819
+castings imported from four sources, 406 tests. Live at
+[collectai.club](https://collectai.club) behind an email-gated login while it's
+in development, so that link won't open without an invitation.
 
-The site runs at [collectai.club](https://collectai.club) on Railway, with
-Postgres on Supabase and Cloudflare in front. It sits behind an email-gated
-Cloudflare Access login while it's in development, so that link won't open
-without an invitation. It runs locally in Docker in two commands.
+![Eight cars found in one photo, two of them identified](docs/images/3-scan.png)
 
-## What it looks like
+*Eight packaged cars found in one photo. Two are named with their evidence
+attached; the other six are reported as found rather than guessed at.*
 
-![Scan results: eight cars found in one photo, two identified](docs/images/3-scan.png)
+![A casting page: Ferrari F40 and its releases](docs/images/2-car.png)
 
-*A photo of eight packaged cars, read on the project's own hardware with no
-outside API call. Two are named with the evidence attached — which package,
-what the card says, and how well it matched. The other six are listed as found
-but unread rather than guessed at.*
+*One casting, every release under it, and the attributes that make a variation
+its own record.*
 
-![A casting page: Ferrari F40, its photo, and its releases](docs/images/2-car.png)
+![The Hot Wheels brand page and its main lines](docs/images/1-brand.png)
 
-*One casting, its releases, and the attributes that make each variation its own
-record. The photo is a wiki file whose licence permits reuse, credited where it
-is shown.*
+*A classifier sorts 4,240 imported Hot Wheels series into sixteen named lines —
+a taxonomy the wikis don't publish.*
 
-![The Hot Wheels brand page, listing its main lines](docs/images/1-brand.png)
+## What's worth a look
 
-*The line taxonomy, which the wikis don't publish: a classifier sorts the 4,240
-imported Hot Wheels series into sixteen named lines plus an Other Series
-bucket, using collector-number density as its only factual fallback rather than
-guessing.*
+**Recognition that calls nobody.** OpenCV and Tesseract find the cars and read
+their printing; a DINOv2-small encoder exported to ONNX does the visual match.
+The service reads one exported JSON index and never touches the database, so it
+runs anywhere. A Claude-API driver exists, but `CATALOG_AI_DRIVER=local` is the
+default and the deployed site depends on no outside model.
 
-## The parts worth a look
+**Provenance is the gate.** Every imported record is keyed to the wiki page and
+table row it came from, which is what makes a re-import update instead of
+duplicate. Facts the wiki states go live; the one thing it never states — which
+real car a casting represents — is inferred separately and held for review.
 
-**An importer that treats provenance as the gate.** Hot Wheels and Matchbox
-publish MediaWiki dumps. The importer parses their release tables — rowspan
-blocks where one release sold with four wheel types is a single row plus three
-partial ones — and keys every record it writes to the source page and row it
-came from. That key is what makes a re-import update instead of duplicate.
-Facts the wiki states go live. The one thing it never states, which real make
-and model a toy casting represents, is inferred separately and held in a review
-queue, so an unidentified car stays invisible rather than going public
-unattributed.
+**Approval can't be routed around.** Rows default to `pending`, `status` isn't
+mass-assignable on any model, and approving one record promotes its whole
+ancestor chain in a single transaction. A real casting with no model attached
+raises rather than publishing, which is why 3,213 of the 6,819 castings are
+public and the rest still wait on a person.
 
-**Recognition that doesn't call out to anyone.** A standalone Python service
-(OpenCV, Tesseract, ONNX Runtime) segments cars out of a photograph, reads the
-base and card text, names the colour family, and matches all of it against a
-catalog index exported as a single JSON file. It never touches the database, so
-it runs anywhere. A DINOv2-small encoder exported to ONNX does the visual half:
-training embeds labelled photos, fits a whitening head only when that beats the
-plain encoder on held-out data, and calibrates its own confidence thresholds.
-There's a Claude-API driver for the text and metadata agents, but it's opt-in —
-`CATALOG_AI_DRIVER=local` is the default, and the deployed site depends on no
-outside model.
+**Measured, not claimed.** "Can the model recognise a car through its blister
+packaging?" is answered *no*, with numbers: padding a card out with the carpet
+it's lying on costs 60 points of top-1 accuracy, while angle, light and
+distance cost between nothing and twelve. Two candidate fixes were built,
+measured, and thrown away.
 
-**Approval that can't be routed around.** Every catalog row is `pending` or
-`live`; the public pages read `live` only. `status` isn't mass-assignable on any
-model, the column defaults to `pending`, and approving a record promotes its
-whole ancestor chain in one transaction so nothing goes live underneath an
-invisible parent. A real casting with no model attached raises on approval
-rather than publishing — which is why 3,213 of the 6,819 imported castings are
-public and the rest are still held behind a make and model nobody has
-confirmed.
-
-**Measurements instead of claims.** "Can the trained model recognise a car
-through its blister packaging?" is answered no, with the numbers: padding a
-card out with the carpet it's lying on costs 60 points of top-1 accuracy, while
-angle, light, distance and a card half out of frame cost between nothing and
-twelve. Two candidate fixes were built, measured, and thrown away. The write-up
-in `CLAUDE.md` says which three things would change the answer.
-
-## Built with
+## Stack
 
 | | |
 |---|---|
-| Web | Laravel 13, PHP 8.3+, Blade, Tailwind 4, Vite |
-| Data | PostgreSQL 16 (`pg_trgm` trigram indexes, `jsonb`, expression unique indexes), Redis |
-| Photos | Cloudflare R2, served from a custom domain |
+| Web | Laravel 13, PHP 8.3+, Blade, Tailwind 4 |
+| Data | PostgreSQL 16 (`pg_trgm`, `jsonb`, expression unique indexes), Redis |
 | Recognition | Python, OpenCV, Tesseract, ONNX Runtime, DINOv2-small |
+| Infra | Docker, nginx + php-fpm, Railway, Supabase, Cloudflare R2 |
 | Clients | PWA, plus an iOS shell via Capacitor |
-| Infra | Docker; nginx + php-fpm under supervisord in production; Railway, Supabase, Cloudflare Access |
 
-The PHP suite runs 406 tests and 1,711 assertions against Postgres rather than
-SQLite, because the schema leans on extensions SQLite doesn't have. The
-recognizer carries 91 of its own.
-
-## Measured
+## Numbers
 
 | | |
 |---|---|
-| Catalog, four sources | 6,819 castings · 38,266 releases · 51,239 variations |
-| Visual model gallery | 62,149 photos · 15,796 castings |
+| Catalog | 6,819 castings · 38,266 releases · 51,239 variations |
+| Visual model | 62,149 photos · 15,796 castings |
 | Top-1 / top-5 on 8,236 held-out versions | 73.3% / 85.2% |
 | Visual-only answers, where thresholds allow one | 95.1% precise at 25.5% coverage |
+| Tests | 406 PHP (against Postgres, not SQLite) · 91 Python |
 
-The held-out split holds out whole versions, so a car is tested on a colour it
-never saw during training. Those photos come from the wikis and from makers'
-product listings; accuracy on a phone photo of a loose car is still unmeasured,
-and the manual says so wherever it comes up.
+The split holds out whole versions, so a car is tested on a colour it never saw
+in training. Those are studio photos; accuracy on a phone photo of a loose car
+is still unmeasured, and the docs say so wherever it comes up.
 
-## Running it
-
-With Docker Desktop and Node 22+ installed:
+## Run it
 
 ```bash
 ./collectai setup
 ```
 
-That writes `.env`, builds and starts the containers, migrates the database,
-creates an admin account and builds the styles. The site is then on
-`localhost:8000`. To fill it from the wiki dumps, which takes about twenty
-minutes:
+Writes `.env`, builds the containers, migrates, creates an admin and compiles
+the assets — then it's on `localhost:8000`. `./collectai import` fills it from
+the wiki dumps in about twenty minutes, and `./collectai help` lists the rest.
 
-```bash
-./collectai import
-```
+## Detail
 
-`./collectai help` lists the rest — publishing, training, tests, deploy — and
-`--dry-run` prints what any of them would run without running it. Every step it
-takes is documented longhand in
-[instructions/README.md](instructions/README.md).
-
-## Where the detail lives
-
-- [instructions/README.md](instructions/README.md) — the full manual: setup,
-  the import pipeline, the recognition and training commands, deployment,
-  troubleshooting, command reference.
-- [CLAUDE.md](CLAUDE.md) — the decisions and the reasons, including the traps
-  that cost real time and the measurements behind each threshold.
-- [docs/session-log.md](docs/session-log.md) — what happened when, and why.
-- [docs/deploy.md](docs/deploy.md) — the production runbook.
-
-Data sources are documented and licence-checked rather than scraped:
-CC-BY-SA wiki facts, wiki photos only where the file itself is licensed for
-reuse, and written permission on file for the reference sources used in
-training. [docs/source-permissions.md](docs/source-permissions.md) is the
-request that goes out to a maker; several sites were checked and declined.
+[instructions/README.md](instructions/README.md) is the full manual.
+[CLAUDE.md](CLAUDE.md) carries the decisions and the measurement behind each
+threshold. Data sources are licence-checked rather than scraped: CC-BY-SA wiki
+facts, wiki photos only where the file itself permits reuse, and written
+permission on file for the training sources.
